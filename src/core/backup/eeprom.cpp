@@ -1,0 +1,178 @@
+// Copyright 2022 TotalJustice.
+// SPDX-License-Identifier: GPL-3.0-only
+
+#include "eeprom.hpp"
+#include "gba.hpp"
+#include <algorithm>
+#include <ranges>
+#include <cstdint>
+
+namespace gba::backup::eeprom
+{
+
+constexpr auto READY_BIT = 0x1;
+constexpr auto READ_COUNTER_RESET = 68;
+
+auto Eeprom::init(Gba& gba) -> void
+{
+    this->state = State::Command;
+    this->request = Request::invalid0;
+    this->width = Width::unknown;
+    this->bits = 0;
+    this->bit_write_counter = 0;
+    this->write_address = 0;
+    this->read_address = 0;
+    this->bit_read_counter = READ_COUNTER_RESET;
+}
+
+auto Eeprom::load_data(std::span<const std::uint8_t> new_data) -> void
+{
+    if (new_data.size() == 512)
+    {
+        std::ranges::copy(new_data, this->data);
+        this->set_width(Width::small);
+    }
+    else if (new_data.size() == 8 * 1024)
+    {
+        std::ranges::copy(new_data, this->data);
+        this->set_width(Width::beeg);
+    }
+    else
+    {
+        std::printf("[EEPROM] tried loading bad save data: %zu\n", new_data.size());
+    }
+}
+
+auto Eeprom::get_data() const -> std::span<const std::uint8_t>
+{
+    switch (this->width)
+    {
+        case Width::unknown: return {};
+        case Width::small: return {this->data, 512};
+        case Width::beeg: return this->data;
+        default: std::unreachable();
+    }
+}
+
+auto Eeprom::on_state_change(State new_state) -> void
+{
+    this->state = new_state;
+    this->bits = 0;
+    this->bit_write_counter = 0;
+}
+
+auto Eeprom::set_width(Width new_width) -> void
+{
+    if (this->width == Width::unknown)
+    {
+        std::printf("[EEPROM] updating width to %u\n", static_cast<std::uint8_t>(new_width));
+        this->width = new_width;
+    }
+    else
+    {
+        if (this->width != new_width)
+        {
+            std::printf("[EEPROM] width size changed. ignoring for now... old: %u new: %u\n", static_cast<std::uint8_t>(this->width), static_cast<std::uint8_t>(new_width));
+            // assert(this->width == new_width && "[EEPROM] width changed somehow");
+        }
+    }
+}
+
+auto Eeprom::read(Gba& gba, u32 addr) -> u8
+{
+    // usually a game will do this to check if its in ready state
+    if (this->request != Request::read)
+    {
+        return READY_BIT;
+    }
+
+    this->bit_read_counter--;
+
+    // apparent the first 4 bits are ignored for some reason
+    if (this->bit_read_counter >= 64) [[unlikely]]
+    {
+        return READY_BIT;
+    }
+
+    const auto bit = 1 << (this->bit_read_counter % 8);
+    const auto value = !!(this->data[this->read_address] & bit);
+
+    // every 8bits, increase the address
+    if ((this->bit_read_counter % 8) == 0)
+    {
+        this->read_address++;
+    }
+
+    // once 64bits (8 bytes) has been transfered, we reset
+    if (this->bit_read_counter == 0)
+    {
+        this->bit_read_counter = READ_COUNTER_RESET;
+    }
+
+    return value;
+}
+
+auto Eeprom::write(Gba& gba, u32 addr, u8 value) -> void
+{
+    this->bits <<= 1;
+    this->bits |= value & 1; // shift in only 1 bit at a time
+    this->bit_write_counter++;
+
+    switch (this->state)
+    {
+        case State::Command:
+            if (this->bit_write_counter == 2)
+            {
+                this->request = static_cast<Request>(this->bits & 0x3);
+                assert(this->bits == 2 || this->bits == 3);
+                this->on_state_change(State::Address);
+            }
+            break;
+
+        // todo: detect address. for now assume small
+        case State::Address:
+            assert(this->width != Width::unknown && "unknown width with addr write. add game to database");
+
+            if (this->bit_write_counter == static_cast<std::uint8_t>(this->width))
+            {
+                if (this->request == Request::read)
+                {
+                    this->read_address = this->bits * 8;
+                }
+                else if (this->request == Request::write)
+                {
+                    this->write_address = this->bits * 8;
+                }
+                this->on_state_change(State::Data);
+            }
+            break;
+
+        case State::Data:
+            if (this->request == Request::read)
+            {
+                assert(this->bit_write_counter == 1);
+                // assert(this->bits == 0 && "invalid bit0, probably wrong eeprom size");
+                this->on_state_change(State::Command);
+            }
+            else
+            {
+                if (this->bit_write_counter == 65)
+                {
+                    // assert(this->bits == 0 && "invalid bit0, probably wrong eeprom size");
+                    this->on_state_change(State::Command);
+                }
+                else
+                {
+                    // write an entire byte at a time
+                    if ((this->bit_write_counter % 8) == 0)
+                    {
+                        this->data[this->write_address++] = this->bits;
+                        this->bits = 0;
+                    }
+                }
+            }
+            break;
+    }
+}
+
+} // namespace gba::backup::eeprom

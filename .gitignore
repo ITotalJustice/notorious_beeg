@@ -1,0 +1,12 @@
+roms/
+build*/
+.cache/
+compile_commands.json
+rom.state
+src/core/old/
+*.gba
+*.bin
+*.state
+*.sav
+*.raw
+*.zip
