@@ -13,10 +13,14 @@
 
 namespace gba::arm7tdmi {
 
-// RELEASE_BUILD 2 = 15-8
 // RELEASE_BUILD 3 = 15-6
 
-#define RELEASE_BUILD_ARM 0
+#if RELEASE_BUILD_THUMB
+    #define RELEASE_BUILD 3
+#else
+    #define RELEASE_BUILD 0
+#endif
+
 #if RELEASE_BUILD_ARM == 1
     template<auto b>
     constexpr auto __is_set_arm(auto v)
@@ -66,34 +70,7 @@ namespace gba::arm7tdmi {
     #define bit_decoded_is_set_arm(x) bit::is_set<x>(opcode)
 #endif
 
-#define RELEASE_BUILD 0
-#if RELEASE_BUILD == 2
-#define CONSTEXPR constexpr
-#define thumb_instruction_template template <std::uint8_t decoded_opcode>
-
-template<auto b>
-constexpr auto __is_set(auto v)
-{
-    static_assert(b >= 8, "invalid");
-    constexpr auto new_bit = b - 8;
-    return bit::is_set<new_bit>(v);
-}
-
-template<u8 start, u8 end>
-constexpr auto __get_range(auto v)
-{
-    static_assert(start >= 8, "invalid");
-    static_assert(end >= 8, "invalid");
-    constexpr u8 new_start = start - 8;
-    constexpr u8 new_end = end - 8;
-    // static_assert(new_start, message);
-    return bit::get_range<new_start, new_end>(v);
-}
-#define bit_decoded_get_range(start, end) __get_range<start, end>(decoded_opcode)
-
-#define bit_decoded_is_set(x) __is_set<x>(decoded_opcode)
-
-#elif RELEASE_BUILD == 3
+#if RELEASE_BUILD == 3
 #define CONSTEXPR constexpr
 #define thumb_instruction_template template <std::uint16_t decoded_opcode>
 
@@ -205,8 +182,8 @@ struct Arm7tdmi
     uint32_t pipeline[2];
 
     uint32_t registers[16];
-    struct Psr cpsr;
-    struct Psr spsr;
+    Psr cpsr;
+    Psr spsr;
 
     uint32_t banked_reg_usr[7]; // not real
     uint32_t banked_reg_irq[2]; // r13_irq, r14_irq
@@ -215,11 +192,11 @@ struct Arm7tdmi
     uint32_t banked_reg_abt[2]; // r13_abt, r14_abt, SPSR_abt.
     uint32_t banked_reg_und[2]; // r13_und, r14_und, SPSR_und.
 
-    struct Psr banked_spsr_irq;
-    struct Psr banked_spsr_fiq;
-    struct Psr banked_spsr_svc;
-    struct Psr banked_spsr_abt;
-    struct Psr banked_spsr_und;
+    Psr banked_spsr_irq;
+    Psr banked_spsr_fiq;
+    Psr banked_spsr_svc;
+    Psr banked_spsr_abt;
+    Psr banked_spsr_und;
 
     bool halted;
     bool breakpoint;
@@ -251,26 +228,26 @@ STATIC auto set_cpsr_from_u32(Gba& gba, uint32_t value, bool flag_write, bool co
 STATIC auto set_spsr_from_u32(Gba& gba, uint32_t value, bool flag_write, bool control_write) -> void;
 
 [[nodiscard]]
-STATIC_INLINE auto get_mode(Gba& gba) -> std::uint8_t;
+STATIC_INLINE auto get_mode(const Gba& gba) -> std::uint8_t;
 
 [[nodiscard]]
-STATIC_INLINE auto get_state(Gba& gba) -> State;
+STATIC_INLINE auto get_state(const Gba& gba) -> State;
 [[nodiscard]]
-STATIC_INLINE auto check_cond(Gba& gba, uint8_t cond) -> bool;
+STATIC_INLINE auto check_cond(const Gba& gba, uint8_t cond) -> bool;
 
 [[nodiscard]]
-STATIC_INLINE auto get_lr(Gba& gba) -> uint32_t;
+STATIC_INLINE auto get_lr(const Gba& gba) -> uint32_t;
 [[nodiscard]]
-STATIC_INLINE auto get_sp(Gba& gba) -> uint32_t;
+STATIC_INLINE auto get_sp(const Gba& gba) -> uint32_t;
 [[nodiscard]]
-STATIC_INLINE auto get_pc(Gba& gba) -> uint32_t;
+STATIC_INLINE auto get_pc(const Gba& gba) -> uint32_t;
 
 STATIC_INLINE auto set_lr(Gba& gba, uint32_t value) -> void;
 STATIC_INLINE auto set_sp(Gba& gba, uint32_t value) -> void;
 STATIC_INLINE auto set_pc(Gba& gba, uint32_t value) -> void;
 
 [[nodiscard]]
-STATIC_INLINE auto get_reg(Gba& gba, uint8_t reg) -> uint32_t;
+STATIC_INLINE auto get_reg(const Gba& gba, uint8_t reg) -> uint32_t;
 STATIC_INLINE auto set_reg(Gba& gba, uint8_t reg, uint32_t value) -> void;
 STATIC_INLINE auto set_reg_data_processing(Gba& gba, uint8_t reg, uint32_t value) -> void;
 STATIC_INLINE auto set_reg_thumb(Gba& gba, uint8_t reg, uint32_t value) -> void;
@@ -284,7 +261,21 @@ STATIC_INLINE auto internal_sub(Gba& gba, bool S, uint32_t a, uint32_t b, bool c
 STATIC_INLINE auto set_logical_flags(Gba& gba, bool S, std::uint32_t result, bool carry) -> void;
 
 // on halt event
+enum class HaltType
+{
+    // REG_HLTCNT was written to
+    // (pc is then checked to make sure the bios did this)
+    write,
+    // bios hle of hlt to skip mode switching
+    hle_halt,
+    // bios hle of waiting for vblank int until halt is exited
+    // hle_vblank_halt,
+    // bio hle of waiting for specific int until halt is exited
+    // hle_int_halt,
+};
+
 auto on_interrupt_event(Gba& gba) -> void;
 auto on_halt_event(Gba& gba) -> void;
+auto on_halt_trigger(Gba& gba, HaltType type) -> void;
 
 } // namespace gba::arm7tdmi

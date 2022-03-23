@@ -33,6 +33,7 @@ auto on_cnt1_write(Gba& gba, u16 cnt) -> void;
 auto on_cnt2_write(Gba& gba, u16 cnt) -> void;
 auto on_cnt3_write(Gba& gba, u16 cnt) -> void;
 
+auto update_timer(Gba& gba, Timer& timer) -> void;
 auto read_timer(Gba& gba, std::uint8_t num) -> std::uint16_t;
 
 auto run(Gba& gba, std::uint8_t cycles) -> void;

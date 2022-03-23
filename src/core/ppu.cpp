@@ -58,6 +58,13 @@ auto render_mode3_bg(Gba& gba) -> void
     std::memcpy(gba.ppu.pixels[REG_VCOUNT], gba.mem.vram + (240 * REG_VCOUNT * 2), 240 * 2);
 }
 
+// this magically breaks in -O1 and -O2, but not -O3
+// it seems that it gets optimised away, because if put
+// this function directly inside the switch, it works
+// if i change any of the auto values (theyre int's) to u32, it works
+// if i add an assert inside the function, it works
+// theres zero UB happening in this function as well, it makes no sense
+// only breaks on gcc, havent tested earlier versions yet (g++ (GCC) 11.2.1 20220127 (Red Hat 11.2.1-9))
 auto render_mode4_bg(Gba& gba) -> void
 {
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;

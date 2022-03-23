@@ -41,13 +41,11 @@ auto block_data_transfer_empty_rlist(Gba& gba, uint32_t opcode) -> void
     }
 
     const auto pre = P ? 4 : 0;
-    const auto post = P ? 0 : 4;
 
     if CONSTEXPR_ARM (L)
     {
         addr += pre;
         const auto value = mem::read32(gba, addr);
-        addr += post;
         set_pc(gba, value);
     }
     else
@@ -55,7 +53,6 @@ auto block_data_transfer_empty_rlist(Gba& gba, uint32_t opcode) -> void
         const auto value = get_pc(gba);
         addr += pre;
         mem::write32(gba, addr, value+4);
-        addr += post;
     }
 
     if (W)

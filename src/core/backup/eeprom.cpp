@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <ranges>
 #include <cstdint>
+#include <utility>
 
 namespace gba::backup::eeprom
 {
@@ -65,14 +66,14 @@ auto Eeprom::set_width(Width new_width) -> void
 {
     if (this->width == Width::unknown)
     {
-        std::printf("[EEPROM] updating width to %u\n", static_cast<std::uint8_t>(new_width));
+        std::printf("[EEPROM] updating width to %u\n", std::to_underlying(new_width));
         this->width = new_width;
     }
     else
     {
         if (this->width != new_width)
         {
-            std::printf("[EEPROM] width size changed. ignoring for now... old: %u new: %u\n", static_cast<std::uint8_t>(this->width), static_cast<std::uint8_t>(new_width));
+            std::printf("[EEPROM] width size changed. ignoring for now... old: %u new: %u\n", std::to_underlying(this->width), std::to_underlying(new_width));
             // assert(this->width == new_width && "[EEPROM] width changed somehow");
         }
     }
@@ -133,7 +134,7 @@ auto Eeprom::write(Gba& gba, u32 addr, u8 value) -> void
         case State::Address:
             assert(this->width != Width::unknown && "unknown width with addr write. add game to database");
 
-            if (this->bit_write_counter == static_cast<std::uint8_t>(this->width))
+            if (this->bit_write_counter == std::to_underlying(this->width))
             {
                 if (this->request == Request::read)
                 {

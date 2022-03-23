@@ -9,7 +9,6 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 
 namespace gba::arm7tdmi::arm {
 
@@ -49,6 +48,7 @@ constexpr auto decode_template(auto opcode)
     #endif
 }
 
+// page 44
 constexpr auto decode(uint32_t opcode) -> Instruction
 {
     constexpr auto data_processing_mask_a = decode_template(0b0000'110'0000'0'0000'0000'000000000000);
@@ -181,6 +181,7 @@ using func_type = void (*)(Gba&, uint32_t);
 consteval auto generate_function_table()
 {
     std::array<func_type, 4096> table{};
+    table.fill(undefined);
 
     fill_table<0x0000, 0x00FF>(table);
     fill_table<0x0100, 0x01FF>(table);
@@ -210,7 +211,7 @@ auto execute(Gba& gba) -> void
 
     if (check_cond(gba, opcode >> 28))
     {
-        func_table[decode_arm_fancy(opcode)](gba, opcode);
+        func_table[decode_template(opcode)](gba, opcode);
     }
 }
 #else

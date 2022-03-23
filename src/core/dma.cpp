@@ -164,7 +164,7 @@ auto on_vblank(Gba& gba) -> void
     {
         if (gba.dma[i].enabled && gba.dma[i].mode == Channel::Mode::vblank)
         {
-            std::printf("firing vdma: %u len: %08X dst: %08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
+            // std::printf("firing vdma: %u len: %08X dst: %08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
             start_dma(gba, gba.dma[i], i); // i think we only handle 1 dma at a time?
         }
     }
@@ -244,9 +244,6 @@ auto on_cnt_write(Gba& gba, std::uint8_t channel_num) -> void
     dma.mode = M;
     dma.irq = I;
 
-    // dma.dst_addr = dst;
-    // dma.src_addr = src;
-
     // these can only be reloaded if going from 0-1 (off then on)
     if (N && !dma.enabled)
     {
@@ -284,7 +281,7 @@ auto on_cnt_write(Gba& gba, std::uint8_t channel_num) -> void
     {
         if (dma.src_addr != src)
         {
-            std::printf("[dma%u] skipping reloading of src, old: 0x%08X new: 0x%08X\n", channel_num, dma.src_addr, src);
+            // std::printf("[dma%u] skipping reloading of src, old: 0x%08X new: 0x%08X\n", channel_num, dma.src_addr, src);
         }
     }
     dma.enabled = N;

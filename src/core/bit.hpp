@@ -167,10 +167,10 @@ consteval auto get_mask() -> T {
     return result;
 }
 
-template <u8 start, u8 end, IntV T> [[nodiscard]]
-constexpr auto mask(T value) -> T {
-    return value & get_mask<start, end, T>();
-}
+// template <u8 start, u8 end, IntV T> [[nodiscard]]
+// constexpr auto mask(T value) -> T {
+//     return value & get_mask<start, end, T>();
+// }
 
 static_assert(
     bit::get_mask<3, 5, u32>() == 0b111'000 &&

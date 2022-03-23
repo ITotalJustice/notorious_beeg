@@ -32,16 +32,12 @@ namespace std
     #define gba_log_fatal(...)
 #endif // gba_DEBUG
 
-#if ENABLE_SCHEDULER == 1
-
-#endif
-
 #if SINGLE_FILE == 1
-#define STATIC_INLINE [[using gnu : always_inline, hot]] static inline
-#define STATIC static
+    #define STATIC_INLINE [[using gnu : always_inline, hot]] static inline
+    #define STATIC static
 #else
-#define STATIC_INLINE
-#define STATIC
+    #define STATIC_INLINE
+    #define STATIC
 #endif
 
 namespace gba {

@@ -55,13 +55,13 @@ struct Gba
     alignas(uint32_t) uint8_t rom[0x2000000];
 
     auto reset() -> void;
-    auto loadrom(std::span<std::uint8_t const> new_rom) -> bool;
-    auto loadbios(std::span<std::uint8_t const> bios) -> bool;
-    auto run(std::size_t cycles) -> void;
+    auto loadrom(std::span<const std::uint8_t> new_rom) -> bool;
+    auto loadbios(std::span<const std::uint8_t> bios) -> bool;
+    auto run(std::size_t cycles = 280896) -> void;
 
-    auto loadstate(std::span<const std::uint8_t> state) -> bool;
+    // auto loadstate(std::span<const std::uint8_t> state) -> bool;
     auto loadstate(std::string_view path) -> bool;
-    auto savestate(std::span<std::uint8_t> state) -> bool;
+    // auto savestate(std::span<std::uint8_t> state) -> bool;
     auto savestate(std::string_view path) -> bool;
 
     // OR keys together

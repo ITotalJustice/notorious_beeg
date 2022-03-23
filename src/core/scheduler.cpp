@@ -5,59 +5,99 @@
 #include "gba.hpp"
 #include "timer.hpp"
 #include "dma.hpp"
+#include <utility>
 #include <cstddef>
 #include <cstdint>
 
 namespace gba::scheduler
 {
-#define SCHEDULER gba.scheduler
 
+// we start at the highest possible value for delta so that
+// should delta ever be maxed (it wont), then we can ensure that
+// once RESET event fires, all enabled events will be >= RESET_CYCLES
+// then all events are -= RESET_CYCLES, so they will start between
+// 0-START_CYCLES.
+// we could also just use an int32 instead and start at 0,
+// however the int32 is measureably slower than an unsigned value.
+constexpr auto START_CYCLES = INT16_MAX;
 constexpr auto RESET_CYCLES = INT32_MAX;
+
+auto fire_all_expired_events(Gba& gba)
+{
+    for (std::size_t i = 0; i < gba.scheduler.entries.size(); i++)
+    {
+        auto& entry = gba.scheduler.entries[i];
+        assert(entry.delta <= 0);
+
+        if (entry.enabled && entry.cycles <= gba.scheduler.cycles)
+        {
+            assert((Event)i != Event::HALT);
+            entry.enabled = false;
+            if ((Event)i != Event::HALT && (Event)i != Event::DMA)
+            {
+                entry.delta = entry.cycles - gba.scheduler.cycles;
+                assert(entry.delta <= 0);
+            }
+            entry.cb(gba);
+        }
+    }
+}
 
 auto on_reset_event(Gba& gba) -> void
 {
-    printf("panic mode\n");
-    // assert(0 && "scheduler oveflow!");
-    SCHEDULER.cycles -= RESET_CYCLES;
-    if (SCHEDULER.next_event_cycles < RESET_CYCLES)
-    {
-        printf("next mode is bad\n");
-    }
-    SCHEDULER.next_event_cycles -= RESET_CYCLES;
+    // first thing to do is to flush all events which also
+    // expire at the same time!
+    fire_all_expired_events(gba);
 
-    for (auto& entry : SCHEDULER.entries)
+    assert(gba.scheduler.next_event_cycles >= RESET_CYCLES);
+    gba.scheduler.next_event_cycles -= RESET_CYCLES;
+
+    for (auto& entry : gba.scheduler.entries)
     {
         if (entry.enabled)
         {
-            if (entry.cycles < RESET_CYCLES)
-            {
-                printf("cycles is bad\n");
-            }
+            assert(entry.cycles >= RESET_CYCLES);
             entry.cycles -= RESET_CYCLES;
         }
     }
+
+    // also update timers otherwise reads will be very broken
+    for (auto& timer : gba.timer)
+    {
+        if (timer.enable)
+        {
+            timer::update_timer(gba, timer);
+            assert(timer.event_time >= RESET_CYCLES);
+            timer.event_time -= RESET_CYCLES;
+        }
+    }
+
+    // very important to reset this last as update_timer needs it
+    assert(gba.scheduler.cycles >= RESET_CYCLES);
+    gba.scheduler.cycles -= RESET_CYCLES;
 
     add(gba, Event::RESET, on_reset_event, RESET_CYCLES);
 }
 
 auto reset(Gba& gba) -> void
 {
-    for (auto& entry : SCHEDULER.entries)
+    for (auto& entry : gba.scheduler.entries)
     {
         entry.enabled = false;
+        entry.delta = 0;
     }
 
-    SCHEDULER.cycles = 0;
-    SCHEDULER.next_event_cycles = RESET_CYCLES;
+    gba.scheduler.cycles = START_CYCLES;
+    gba.scheduler.next_event_cycles = RESET_CYCLES;
     add(gba, Event::RESET, on_reset_event, RESET_CYCLES);
 }
 
 // reload events
 auto on_loadstate(Gba& gba) -> void
 {
-    for (std::size_t i = 0; i < SCHEDULER.entries.size(); i++)
+    for (std::size_t i = 0; i < gba.scheduler.entries.size(); i++)
     {
-        auto& entry = SCHEDULER.entries[i];
+        auto& entry = gba.scheduler.entries[i];
 
         if (entry.enabled)
         {
@@ -78,33 +118,28 @@ auto on_loadstate(Gba& gba) -> void
                 case Event::INTERRUPT: entry.cb = arm7tdmi::on_interrupt_event; break;
                 case Event::HALT: entry.cb = arm7tdmi::on_halt_event; break;
                 case Event::RESET: entry.cb = scheduler::on_reset_event; break;
+                case Event::END: assert(!"Event::END somehow in array"); break;
             }
         }
     }
 }
 
-auto find_next_event(Gba& gba)
+auto find_next_event(Gba& gba, bool fire)
 {
     u32 next_cycles = UINT32_MAX;
-    std::size_t index = 0;
+    std::uint8_t index = 0;
 
-    for (std::size_t i = 0; i < SCHEDULER.entries.size(); i++)
+    if (fire)
     {
-        auto& entry = SCHEDULER.entries[i];
-
-        if (entry.enabled && entry.cycles <= SCHEDULER.cycles)
-        {
-            entry.enabled = false;
-            entry.cb(gba);
-        }
+        fire_all_expired_events(gba);
     }
 
-    for (std::size_t i = 0; i < SCHEDULER.entries.size(); i++)
+    for (std::size_t i = 0; i < gba.scheduler.entries.size(); i++)
     {
-        const auto& entry = SCHEDULER.entries[i];
+        const auto& entry = gba.scheduler.entries[i];
         if (entry.enabled)
         {
-            if (entry.cycles < next_cycles)
+            if (entry.cycles <= next_cycles)
             {
                 next_cycles = entry.cycles;
                 index = i;
@@ -112,58 +147,79 @@ auto find_next_event(Gba& gba)
         }
     }
 
-    SCHEDULER.next_event_cycles = next_cycles;
-    SCHEDULER.next_event = static_cast<Event>(index);
+    gba.scheduler.next_event_cycles = next_cycles;
+    gba.scheduler.next_event = static_cast<Event>(index);
 }
 
-// 1,018.8 KiB (1,043,208)
 auto fire(Gba& gba) -> void
 {
-    const auto next_event = SCHEDULER.next_event;
-    auto& entry = SCHEDULER.entries[static_cast<u8>(next_event)];
+    const auto next_event = gba.scheduler.next_event;
+    auto& entry = gba.scheduler.entries[std::to_underlying(next_event)];
     entry.enabled = false;
-    // printf("firing event: %u\n", static_cast<u8>(SCHEDULER.next_event));
-    if (SCHEDULER.next_event == Event::HALT)
+    gba.scheduler.next_event = Event::END;
+
+    // calculate delta so that we don't drift
+    if (next_event != Event::HALT && next_event != Event::DMA)
     {
-        find_next_event(gba);
+        entry.delta = entry.cycles - gba.scheduler.cycles;
+        assert(entry.cycles <= gba.scheduler.cycles);
+        assert(entry.delta <= 0);
     }
+
+    if (next_event == Event::HALT)
+    {
+        // halt event loops over all events until halt is exited
+        // so we need to change events and fire any expired events
+        find_next_event(gba, true);
+        assert(gba.scheduler.next_event != Event::HALT);
+        assert(gba.cpu.halted);
+    }
+
     entry.cb(gba);
-    // printf("did it\n");
-    find_next_event(gba);
+    // we need to see what our next event is going to be
+    // we should also fire all events that have expired
+    // this can include events that expire at the exact same time.
+    find_next_event(gba, true);
 }
 
 auto add(Gba& gba, Event e, callback cb, u32 cycles) -> void
 {
-    if (e != Event::PPU && e != Event::RESET && e != Event::INTERRUPT && e != Event::TIMER0 && e != Event::TIMER1 && e != Event::TIMER2  && e != Event::TIMER3 && e != Event::APU_SAMPLE && e != Event::DMA && e != Event::HALT)
-    {
-        // return;
-        // find_next_event(gba);
-    }
+    // used for filtering out events when debugging
+    // if (e != Event::PPU && e != Event::RESET && e != Event::INTERRUPT && e != Event::TIMER0 && e != Event::TIMER2 && e != Event::TIMER3)
+    // {
+    //     return;
+    // }
 
-    auto& entry = SCHEDULER.entries[static_cast<u8>(e)];
+    auto& entry = gba.scheduler.entries[std::to_underlying(e)];
     entry.cb = cb;
-    entry.cycles = SCHEDULER.cycles + cycles;
+    entry.cycles = (gba.scheduler.cycles + cycles) + entry.delta;
     entry.enabled = true;
+    entry.delta = 0;
 
     // check if the new event if sooner than current event
-    if (entry.cycles <= SCHEDULER.next_event_cycles)
+    if (entry.cycles < gba.scheduler.next_event_cycles)
     {
-        SCHEDULER.next_event_cycles = entry.cycles;
-        SCHEDULER.next_event = e;
-        // printf("event added yay: %u\n", static_cast<u8>(SCHEDULER.next_event));
+        gba.scheduler.next_event_cycles = entry.cycles;
+        gba.scheduler.next_event = e;
     }
-
+    // check if we are adding the same event but the cycles have increased
+    // at which point, we have to slowly find the next event again
+    else if (e == gba.scheduler.next_event && entry.cycles > gba.scheduler.next_event_cycles)
+    {
+        find_next_event(gba, false);
+    }
 }
 
 auto remove(Gba& gba, Event e) -> void
 {
-    auto& entry = SCHEDULER.entries[static_cast<u8>(e)];
+    auto& entry = gba.scheduler.entries[std::to_underlying(e)];
     entry.enabled = false;
+    entry.delta = 0;
 
     // check if we are removing our current event
-    if (SCHEDULER.next_event == e)
+    if (gba.scheduler.next_event == e)
     {
-        find_next_event(gba);
+        find_next_event(gba, false);
     }
 }
 

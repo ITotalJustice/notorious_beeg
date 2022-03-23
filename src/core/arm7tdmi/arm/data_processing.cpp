@@ -15,7 +15,7 @@ namespace gba::arm7tdmi::arm {
 
 #if RELEASE_BUILD_ARM == 1
 arm_instruction_template
-auto shift_thing(Gba& gba, const uint32_t opcode, std::uint32_t& oprand1, std::uint8_t Rn)
+auto shift_thing(const Gba& gba, const uint32_t opcode, std::uint32_t& oprand1, std::uint8_t Rn)
 {
     CONSTEXPR_ARM const auto reg_shift = bit_decoded_is_set_arm(4);
     CONSTEXPR_ARM const auto shift_type = bit_decoded_get_range_arm(5, 6);
@@ -46,7 +46,7 @@ auto shift_thing(Gba& gba, const uint32_t opcode, std::uint32_t& oprand1, std::u
     }
 }
 #else
-auto shift_thing(Gba& gba, const uint32_t opcode, std::uint32_t& oprand1, std::uint8_t Rn)
+auto shift_thing(const Gba& gba, const uint32_t opcode, std::uint32_t& oprand1, std::uint8_t Rn)
 {
     const auto reg_shift = bit::is_set<4>(opcode);
     const auto shift_type = bit::get_range<5, 6>(opcode);
@@ -193,7 +193,7 @@ auto msr(Gba& gba, uint32_t opcode) -> void
     }
 }
 
-constexpr auto decode_arm_fancy1(auto opcode)
+constexpr auto decode_arm(auto opcode)
 {
     return (bit::get_range<20, 27>(opcode) << 4) | (bit::get_range<4, 7>(opcode));
 }
@@ -209,11 +209,11 @@ auto data_processing(Gba& gba, uint32_t opcode) -> void
     constexpr auto msr_mask_b = 0b0000'00'0'10'0'1'0'0'0'0'0'1111'000000000000;
 
     #if RELEASE_BUILD_ARM == 1
-    constexpr auto dec_mrs_mask_a = decode_arm_fancy1(mrs_mask_a);
-    constexpr auto dec_mrs_mask_b = decode_arm_fancy1(mrs_mask_b);
+    constexpr auto dec_mrs_mask_a = decode_arm(mrs_mask_a);
+    constexpr auto dec_mrs_mask_b = decode_arm(mrs_mask_b);
 
-    constexpr auto dec_msr_mask_a = decode_arm_fancy1(msr_mask_a);
-    constexpr auto dec_msr_mask_b = decode_arm_fancy1(msr_mask_b);
+    constexpr auto dec_msr_mask_a = decode_arm(msr_mask_a);
+    constexpr auto dec_msr_mask_b = decode_arm(msr_mask_b);
     if CONSTEXPR_ARM((decoded_opcode & dec_mrs_mask_a) == dec_mrs_mask_b)
     {
         mrs<decoded_opcode>(gba, opcode);

@@ -386,8 +386,7 @@ auto Fifo::push(std::uint8_t value) -> void
     {
         buf[w_index] = value;
         w_index = (w_index + 1) % capacity;
-        if (count < capacity)
-            count++;
+        count++;
     }
     // else
     {

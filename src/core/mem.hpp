@@ -5,8 +5,21 @@
 
 #include "fwd.hpp"
 #include <cstdint>
+#include <span>
 
 namespace gba::mem {
+
+struct ReadArray
+{
+    std::span<const std::uint8_t> array;
+    std::uint32_t mask;
+};
+
+struct WriteArray
+{
+    std::span<std::uint8_t> array;
+    std::uint32_t mask;
+};
 
 // everything is u8 because it makes r/w easier
 // however, everything is aligned so it can be safely cast
@@ -14,6 +27,13 @@ namespace gba::mem {
 // this is especially important for io memory
 struct Mem
 {
+    std::array<ReadArray, 16> rmap_8;
+    std::array<ReadArray, 16> rmap_16;
+    std::array<ReadArray, 16> rmap_32;
+    std::array<WriteArray, 16> wmap_8;
+    std::array<WriteArray, 16> wmap_16;
+    std::array<WriteArray, 16> wmap_32;
+
     // 16kb, 32-bus
     alignas(uint32_t) uint8_t bios[1024 * 16];
 
@@ -32,8 +52,8 @@ struct Mem
     // 1kb, 32-bit
     alignas(uint32_t) uint8_t oam[1024 * 1];
 
-    // IO regs
-    alignas(uint32_t) uint8_t io[0x400];
+    // 1kb, 16/32-bit
+    alignas(uint32_t) uint8_t io[1024 * 1];
 };
 
 #define EWRAM_16   reinterpret_cast<uint16_t*>(gba.mem.ewram)
@@ -131,8 +151,7 @@ constexpr auto IO_IE = 0x04000200; // (Interrupt Enable Register)
 constexpr auto IO_IF = 0x04000202; // (Interrupt Flags Regster)
 constexpr auto IO_IME = 0x4000208; // (Interrupt Master Enable)
 
-constexpr auto REG_HALTCNT_L = 0x4000300; // (First Boot/Debug Control)
-constexpr auto IO_HALTCNT_L = 0x4000300; // (Low Power Mode Control)
+constexpr auto IO_HALTCNT_L = 0x4000300; // (LFirst Boot/Debug Control)
 constexpr auto IO_HALTCNT_H = 0x4000301; // (Low Power Mode Control)
 
 #define REG_DISPCNT  *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_DISPCNT & 0x3FF))
@@ -169,15 +188,16 @@ constexpr auto IO_HALTCNT_H = 0x4000301; // (Low Power Mode Control)
 #define REG_SOUNDCNT_H  *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_SOUNDCNT_H & 0x3FF)) /* Direct Sound control and Sound 1-4 output ratio */
 #define REG_SOUNDCNT_X  *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_SOUNDCNT_X & 0x3FF)) /* Master sound enable and Sound 1-4 play status */
 #define REG_SOUNDBIAS   *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_SOUNDBIAS & 0x3FF)) /* Sound bias and Amplitude resolution control */
-#define REG_WAVE_RAM     reinterpret_cast<uint8_t*>(gba.mem.io + (mem::IO_WAVE_RAM0_L & 0x3FF)) /* Sound 3 samples 0-3 */
-#define REG_WAVE_RAM0_L *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM0_L & 0x3FF)) /* Sound 3 samples 0-3 */
-#define REG_WAVE_RAM0_H *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM0_H & 0x3FF)) /* Sound 3 samples 4-7 */
-#define REG_WAVE_RAM1_L *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM1_L & 0x3FF)) /* Sound 3 samples 8-11 */
-#define REG_WAVE_RAM1_H *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM1_H & 0x3FF)) /* Sound 3 samples 12-15 */
-#define REG_WAVE_RAM2_L *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM2_L & 0x3FF)) /* Sound 3 samples 16-19 */
-#define REG_WAVE_RAM2_H *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM2_H & 0x3FF)) /* Sound 3 samples 20-23 */
-#define REG_WAVE_RAM3_L *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM3_L & 0x3FF)) /* Sound 3 samples 23-27 */
-#define REG_WAVE_RAM3_H *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM3_H & 0x3FF)) /* Sound 3 samples 28-31 */
+// wave struct internally uses it's own wave ram
+// #define REG_WAVE_RAM     reinterpret_cast<uint8_t*>(gba.mem.io + (mem::IO_WAVE_RAM0_L & 0x3FF)) /* Sound 3 samples 0-3 */
+// #define REG_WAVE_RAM0_L *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM0_L & 0x3FF)) /* Sound 3 samples 0-3 */
+// #define REG_WAVE_RAM0_H *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM0_H & 0x3FF)) /* Sound 3 samples 4-7 */
+// #define REG_WAVE_RAM1_L *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM1_L & 0x3FF)) /* Sound 3 samples 8-11 */
+// #define REG_WAVE_RAM1_H *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM1_H & 0x3FF)) /* Sound 3 samples 12-15 */
+// #define REG_WAVE_RAM2_L *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM2_L & 0x3FF)) /* Sound 3 samples 16-19 */
+// #define REG_WAVE_RAM2_H *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM2_H & 0x3FF)) /* Sound 3 samples 20-23 */
+// #define REG_WAVE_RAM3_L *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM3_L & 0x3FF)) /* Sound 3 samples 23-27 */
+// #define REG_WAVE_RAM3_H *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_WAVE_RAM3_H & 0x3FF)) /* Sound 3 samples 28-31 */
 #define REG_FIFO_A_L    *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_FIFO_A_L & 0x3FF)) /* Direct Sound channel A samples 0-1 */
 #define REG_FIFO_A_H    *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_FIFO_A_H & 0x3FF)) /* Direct Sound channel A samples 2-3 */
 #define REG_FIFO_B_L    *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_FIFO_B_L & 0x3FF)) /* Direct Sound channel B samples 0-1 */
@@ -223,7 +243,7 @@ constexpr auto IO_HALTCNT_H = 0x4000301; // (Low Power Mode Control)
 #define REG_IF *reinterpret_cast<uint16_t*>(gba.mem.io + (mem::IO_IF & 0x3FF))
 #define REG_IME *reinterpret_cast<uint8_t*>(gba.mem.io + (mem::IO_IME & 0x3FF))
 
-auto on_savestate_load(Gba& gba) -> void;
+auto setup_tables(Gba& gba) -> void;
 auto reset(Gba& gba) -> void;
 
 [[nodiscard]]

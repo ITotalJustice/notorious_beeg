@@ -5,6 +5,7 @@
 #include "apu/apu.hpp"
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "backup/backup.hpp"
+#include "backup/flash.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
 #include <algorithm>
@@ -29,7 +30,7 @@ auto Gba::reset() -> void
     apu::reset(*this);
 }
 
-auto Gba::loadrom(std::span<std::uint8_t const> new_rom) -> bool
+auto Gba::loadrom(std::span<const  std::uint8_t> new_rom) -> bool
 {
     if (new_rom.size() > std::size(this->rom))
     {
@@ -37,18 +38,33 @@ auto Gba::loadrom(std::span<std::uint8_t const> new_rom) -> bool
         return false;
     }
 
+    // todo: handle if the user has already set / loaded sram for the game
+    // or maybe it should always be like this, load game, then load backup
     const auto backup_type = backup::find_type(new_rom);
     this->backup.type = backup_type;
     using enum backup::Type;
 
-    switch (backup_type)
+    switch (this->backup.type)
     {
-        case NONE: break;
-        case EEPROM: this->backup.eeprom.init(*this); break;
-        case SRAM: break;
-        case FLASH: break; assert(!"unimpl FLASH"); break;
-        case FLASH512: break; assert(!"unimpl FLASH512"); break;
-        case FLASH1M: break; assert(!"unimpl FLASH1M"); break;
+        case NONE:
+            break;
+
+        case EEPROM:
+            this->backup.eeprom.init(*this);
+            break;
+
+        case SRAM:
+            this->backup.sram.init(*this);
+            break;
+
+        case FLASH: [[fallthrough]]; // these are aliases for each other
+        case FLASH512:
+            this->backup.flash.init(*this, backup::flash::Type::Flash64);
+            break;
+
+        case FLASH1M:
+            this->backup.flash.init(*this, backup::flash::Type::Flash128);
+            break;
     }
 
     std::ranges::copy(new_rom, this->rom);
@@ -58,7 +74,7 @@ auto Gba::loadrom(std::span<std::uint8_t const> new_rom) -> bool
     return true;
 }
 
-auto Gba::loadbios(std::span<std::uint8_t const> bios) -> bool
+auto Gba::loadbios(std::span<const std::uint8_t> bios) -> bool
 {
     if (bios.size() > std::size(this->mem.bios))
     {
@@ -150,6 +166,7 @@ auto Gba::loadstate(std::string_view path) -> bool
         std::memcpy(&this->dma, &state.dma, sizeof(state.dma));
         std::memcpy(&this->timer, &state.timer, sizeof(state.timer));
         std::memcpy(&this->backup, &state.backup, sizeof(state.backup));
+        mem::setup_tables(*this);
         scheduler::on_loadstate(*this);
     }
 
@@ -187,11 +204,8 @@ auto Gba::savestate(std::string_view path) -> bool
 #if ENABLE_SCHEDULER
 auto Gba::run(std::size_t _cycles) -> void
 {
-    // this->cpu.breakpoint = true;
-    // constexpr auto cycles_per_tick = 2;
-
     auto& gba = *this;
-    std::size_t cycles_elasped = 0;
+    std::uint8_t cycles_elasped = 0;
 
     if (gba.cpu.halted) [[unlikely]]
     {
@@ -219,9 +233,6 @@ auto Gba::run(std::size_t _cycles) -> void
 #else
 auto Gba::run(std::size_t _cycles) -> void
 {
-    // this->cpu.breakpoint = true;
-    // constexpr auto cycles_per_tick = 2;
-
     auto& gba = *this;
     std::uint8_t cycles_elasped = 0;
 
@@ -232,6 +243,7 @@ auto Gba::run(std::size_t _cycles) -> void
 
         arm7tdmi::run(gba);
         cycles_elasped = gba.cycles;
+        gba.scheduler.cycles += cycles_elasped;
         ppu::run(gba, cycles_elasped);
         apu::run(gba, cycles_elasped);
         timer::run(gba, cycles_elasped);

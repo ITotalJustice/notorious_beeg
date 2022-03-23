@@ -6,6 +6,7 @@
 #include "fwd.hpp"
 #include "gba.hpp"
 #include <cstdint>
+#include <utility>
 
 namespace gba::backup::flash
 {
@@ -13,7 +14,7 @@ namespace gba::backup::flash
 auto Flash::init(Gba& gba, Type new_type) -> void
 {
     this->type = new_type;
-    this->mask = static_cast<std::uint32_t>(new_type) - 1;
+    this->mask = std::to_underlying(new_type) - 1;
     this->bank = 0;
     this->state = State::READY;
 }

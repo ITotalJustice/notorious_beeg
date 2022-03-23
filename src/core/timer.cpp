@@ -40,7 +40,7 @@ constexpr scheduler::callback CALLBACKS[4] =
 template<u8 Number>
 auto add_timer_event(Gba& gba, auto& timer, auto offset) -> void
 {
-    const auto value = (0xFFFF - timer.counter) * timer.freq;
+    const auto value = (0x10000 - timer.counter) * timer.freq;
     assert(value >= 1);
     assert(timer.counter <= 0xFFFF);
     timer.event_time = gba.scheduler.cycles;
@@ -65,7 +65,6 @@ auto on_overflow(Gba& gba) -> void
         arm7tdmi::fire_interrupt(gba, INTERRUPT[Number]);
     }
 
-    // needed for metroid fusion for some reason
     add_timer_event<Number>(gba, timer, 0);
 }
 
@@ -84,6 +83,15 @@ auto on_cnt_write(Gba& gba, u16 cnt) -> void
     // if timer is enabled, reload
     if (!timer.enable && E)
     {
+        #if ENABLE_SCHEDULER == 0
+        switch (Number)
+        {
+            case 0: REG_TM0D = timer.reload; break;
+            case 1: REG_TM1D = timer.reload; break;
+            case 2: REG_TM2D = timer.reload; break;
+            case 3: REG_TM3D = timer.reload; break;
+        }
+        #endif
         timer.counter = timer.reload;
     }
 
@@ -95,7 +103,9 @@ auto on_cnt_write(Gba& gba, u16 cnt) -> void
     if (timer.enable)
     {
         assert(!C && "cascade not impl");
-        add_timer_event<Number>(gba, timer, 4);
+        // searching on emudev discord about timers mention that they
+        // have a 2 cycle delay on startup (but not on overflow)
+        add_timer_event<Number>(gba, timer, 2);
     }
     else
     {
@@ -143,16 +153,36 @@ auto on_timer3_event(Gba& gba) -> void
     on_overflow<3>(gba);
 }
 
+auto update_timer(Gba& gba, Timer& timer) -> void
+{
+    if (timer.enable == false)
+    {
+        return;
+    }
+
+    const auto delta = (gba.scheduler.cycles - timer.event_time) / timer.freq;
+    // update counter
+    timer.counter += delta;
+    // update timestamp (needed for Event::Reset)
+    timer.event_time += delta * timer.freq;//gba.scheduler.cycles;
+}
+
 auto read_timer(Gba& gba, std::uint8_t num) -> std::uint16_t
 {
+    #if 0
     auto& timer = gba.timer[num];
     if (timer.enable == false)
     {
         return timer.counter;
     }
 
-    const auto diff = (gba.scheduler.cycles - timer.event_time) / timer.freq;
-    return timer.counter + diff;
+    const auto delta = (gba.scheduler.cycles - timer.event_time) / timer.freq;
+    return timer.counter + delta;
+    #else
+    auto& timer = gba.timer[num];
+    update_timer(gba, timer);
+    return timer.counter;
+    #endif
 }
 
 #if ENABLE_SCHEDULER == 0
@@ -166,15 +196,20 @@ auto tick(Gba& gba, u16& data, std::uint8_t cycles, bool cascade_overflow) -> bo
 
     const auto func = [&]()
     {
-        if (data == 0xFFFF)
+        data++;
+        if (data == 0)
         {
+            if constexpr(Number == 0)
+            {
+                // std::printf("[timer0] overflow at %u\n", gba.scheduler.cycles);
+            }
             data = timer.reload;
             overflowed = true;
             on_overflow<Number>(gba);
         }
         else
         {
-            data++;
+            // data++;
         }
     };
 

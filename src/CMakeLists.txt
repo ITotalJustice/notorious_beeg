@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18.0)
+cmake_minimum_required(VERSION 3.20.0)
 
 # (C)flags for each compiler
 # Werror is disabled atm because it's very annoying early into a project
@@ -36,9 +36,16 @@ list(APPEND gcc_flags
     -Wuninitialized
 
     -Wno-unused-parameter
-    -Ofast
-    -march=native
+
+    -fimplicit-constexpr
+    -Wmissing-requires
 )
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    list(APPEND gcc_flags -Og) # always enable otherwise debug builds would be too slow
+else()
+    list(APPEND gcc_flags -fno-rtti -fno-exceptions -Ofast)
+endif()
 
 list(APPEND clang_flags
     -Wall
@@ -82,6 +89,12 @@ list(APPEND clang_flags
     # -Wno-padded
 )
 
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    list(APPEND clang_flags -Og) # always enable otherwise debug builds would be too slow
+else()
+    list(APPEND gcc_flags -fno-rtti -fno-exceptions -Ofast)
+endif()
+
 list(APPEND tcc_flags
     -Wall
     # -Werror
@@ -106,6 +119,9 @@ function(target_add_compiler_flag target flag scope)
 
     if (CHECK_FLAG_${check_flag})
         target_compile_options(${target} ${scope} ${flag})
+        message(STATUS "has compiler flag ${flag}")
+    else()
+    message(STATUS "does NOT have compiler flag ${flag}")
     endif()
 endfunction()
 
@@ -115,9 +131,9 @@ function(target_add_linker_flag target flag scope)
 
     if (CHECK_FLAG_${check_flag})
         target_link_options(${target} ${scope} ${flag})
-        message("has linker flag ${flag}")
+        message(STATUS "has linker flag ${flag}")
     else()
-        message("does NOT have linker flag ${flag}")
+        message(STATUS "does NOT have linker flag ${flag}")
     endif()
 endfunction()
 
@@ -172,3 +188,11 @@ find_package(SDL2 CONFIG REQUIRED)
 target_link_libraries(main GBA)
 target_link_libraries(main SDL2::SDL2)
 target_link_libraries(main SDL2::SDL2main)
+
+set(DUMP_AUDIO OFF)
+set(SPEED_TEST OFF)
+
+target_compile_definitions(main PRIVATE
+    SPEED_TEST=$<BOOL:${SPEED_TEST}>
+    DUMP_AUDIO=$<BOOL:${DUMP_AUDIO}>
+)

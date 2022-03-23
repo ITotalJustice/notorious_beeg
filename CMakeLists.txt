@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18.0)
+cmake_minimum_required(VERSION 3.20.0)
 
 project(TotalGB
     LANGUAGES CXX
@@ -7,8 +7,14 @@ project(TotalGB
 message("SYSTEM: ${CMAKE_SYSTEM_NAME}")
 message("COMPILER: ${CMAKE_CXX_COMPILER_ID}")
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# adding the below breaks clangd atm because cmake
+# adds the flag "-std=c++23" which is unsupported yet by clang
+if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++2b")
+else()
+    set(CMAKE_CXX_STANDARD 23)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
 
 list(APPEND cmake_supported_compiler_features
     AppleClang
@@ -35,8 +41,5 @@ if (CLANGD_INSTALLED)
 else()
     message("cant find clangd: not generating compile_commands.json")
 endif()
-
-option(GBA_DEV "" OFF)
-option(GBA_DEBUG "" ON)
 
 add_subdirectory(src)

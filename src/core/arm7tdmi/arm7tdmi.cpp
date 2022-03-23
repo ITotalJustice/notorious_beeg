@@ -40,7 +40,7 @@ auto reset(Gba& gba) -> void
     disable_interrupts(gba);
 }
 
-auto check_cond(Gba& gba, uint8_t cond) -> bool
+auto check_cond(const Gba& gba, uint8_t cond) -> bool
 {
     switch (cond)
     {
@@ -100,7 +100,7 @@ auto change_mode_save_regs(Gba& gba, std::span<std::uint32_t> banked_regs, struc
     }
 }
 
-auto change_mode_restore_regs(Gba& gba, std::span<const std::uint32_t> banked_regs, struct Psr* banked_spsr, int max)
+auto change_mode_restore_regs(Gba& gba, std::span<const std::uint32_t> banked_regs, const Psr* banked_spsr, int max)
 {
     std::size_t i = 0;
     const auto offset = 15 - banked_regs.size();
@@ -280,32 +280,32 @@ auto set_spsr_from_u32(Gba& gba, uint32_t value, bool flag_write, bool control_w
     }
 }
 
-auto get_mode(Gba& gba) -> std::uint8_t
+auto get_mode(const Gba& gba) -> std::uint8_t
 {
     return CPU.cpsr.M;
 }
 
-auto get_state(Gba& gba) -> State
+auto get_state(const Gba& gba) -> State
 {
     return static_cast<State>(CPU.cpsr.T);
 }
 
-auto get_lr(Gba& gba) -> uint32_t
+auto get_lr(const Gba& gba) -> uint32_t
 {
     return get_reg(gba, LR_INDEX);
 }
 
-auto get_sp(Gba& gba) -> uint32_t
+auto get_sp(const Gba& gba) -> uint32_t
 {
     return get_reg(gba, SP_INDEX);
 }
 
-auto get_pc(Gba& gba) -> uint32_t
+auto get_pc(const Gba& gba) -> uint32_t
 {
     return get_reg(gba, PC_INDEX);
 }
 
-auto get_reg(Gba& gba, uint8_t reg) -> uint32_t
+auto get_reg(const Gba& gba, uint8_t reg) -> uint32_t
 {
     assert(reg <= 15);
     return CPU.registers[reg];
@@ -562,12 +562,35 @@ auto on_halt_event(Gba& gba) -> void
 {
     while (CPU.halted && gba.cycles2 < 280896)
     {
+        assert(gba.scheduler.next_event_cycles >= gba.scheduler.cycles && "unsigned underflow happens!");
         gba.cycles2 += gba.scheduler.next_event_cycles - gba.scheduler.cycles;
         gba.scheduler.cycles = gba.scheduler.next_event_cycles;
         scheduler::fire(gba);
     }
 
-    gba.cycles = 0;
+    // gba.cycles = 0;
+}
+
+auto on_halt_trigger(Gba& gba, HaltType type) -> void
+{
+    if ((REG_IME & 1) && REG_IE && !gba.cpu.cpsr.I)
+    {
+        if (type == HaltType::write)
+        {
+            // fleroviux: I noticed that HALTCNT actually only seems accessible from BIOS code
+            assert((arm7tdmi::get_pc(gba) >> 24) == 0x0 && "halt called outside bios region, let fleroviux know the game");
+            return;
+        }
+
+        assert(gba.cpu.halted == false);
+        gba.cpu.halted = true;
+        scheduler::add(gba, scheduler::Event::HALT, arm7tdmi::on_halt_event, 0);
+    }
+    else
+    {
+        std::printf("[HALT] called when no interrupt can happen!\n");
+        assert(!"writing to hltcnt");
+    }
 }
 
 auto run(Gba& gba) -> void
@@ -576,12 +599,12 @@ auto run(Gba& gba) -> void
 
     // wallmart_debugger(gba);
 
+    #if ENABLE_SCHEDULER == 0
     poll_interrupts(gba);
 
-    #if ENABLE_SCHEDULER == 0
     if (CPU.halted) [[unlikely]]
     {
-        gba.cycles += 2;
+        gba.cycles += 1;
         return;
     }
     #endif

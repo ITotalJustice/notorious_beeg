@@ -276,9 +276,13 @@ constexpr auto shift_imm(uint8_t shift_type, uint32_t v, uint8_t shift_v, bool o
     // shift by zero check
     if (!shift_v)
     {
-        if ((shift_type == 1 || shift_type == 2)) // lsr, asr
+        if (shift_type == type::lsr)
         {
-            shift_v = 32;
+            return shift_imm_lsr_asr_0<type::lsr>(v, old_carry);
+        }
+        else if (shift_type == type::asr)
+        {
+            return shift_imm_lsr_asr_0<type::asr>(v, old_carry);
         }
         else if (shift_type == 3) // ror
         {
