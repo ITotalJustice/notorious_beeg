@@ -1,11 +1,14 @@
 # gba emu
-v0.0.1
+v0.0.1-dev
 
 gba emulator witten in c++23.
 
 ---
 
 ## changelog
+0.0.2
+- fixed neg flags being treated as logical flags, rather instead of sub. fixes <https://github.com/ITotalJustice/notorious_beeg/issues/1>
+
 0.0.1
 - added readme
 - fixed scheduler so that if an event adds itself whilst its already the current next event, check the new cycles to see if they increased, if so, then find_next_event(). this is most common in apu channels when theyre triggered.
@@ -18,7 +21,7 @@ gba emulator witten in c++23.
 - fixed renaming of decode_template function in arm.cpp for templated builds, this would cause build errors for templated arm builds.
 
 ## broken
-- OpenLara crashes when selecting any option in menu
+-
 
 ## passed
 - armwrestler

@@ -99,8 +99,7 @@ auto alu_operations(Gba& gba, uint16_t opcode) -> void
     }
     else if CONSTEXPR (static_cast<alu_operations_op>(Op) == alu_operations_op::NEG)
     {
-        const auto result = -oprand2;
-        set_logical_flags2<true>(gba, result);
+        const auto result = internal_sub<true>(gba, 0, oprand2);
         set_reg_thumb(gba, Rd, result);
     }
     else if CONSTEXPR (static_cast<alu_operations_op>(Op) == alu_operations_op::CMP)
@@ -215,8 +214,7 @@ auto alu_operations(Gba& gba, uint16_t opcode) -> void
 
         case alu_operations_op::NEG:
         {
-            const auto result = -oprand2;
-            set_logical_flags2<true>(gba, result);
+            const auto result = internal_sub<true>(gba, 0, oprand2);
             set_reg_thumb(gba, Rd, result);
         } break;
 
