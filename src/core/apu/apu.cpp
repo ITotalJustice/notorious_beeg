@@ -16,7 +16,7 @@
 // gcc did not virtualise all the functions, even with final
 // decided on templates instead, this worked nicely
 // but still it is a mix of class / template / legacy c code
-extern auto push_sample(std::int8_t left, std::int8_t right) -> void;
+extern auto push_sample(std::int16_t left, std::int16_t right) -> void;
 
 namespace gba::apu
 {
@@ -39,7 +39,12 @@ constexpr scheduler::callback CALLBACKS[4] =
     on_noise_event,
 };
 
-constexpr auto samples_tick = 280896*60/32768;
+// gba has 4 sample modes [32768, 65536, 131072, 262144]
+// however almost all games use either mode0 or mode1
+// because of this (and to save pointless sampling)
+// we sample at 65536hz
+constexpr auto SAMPLE_RATE = 65536;
+constexpr auto SAMPLE_TICKS = 280896*60/SAMPLE_RATE;
 constexpr uint8_t PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
 
 bool is_apu_enabled(Gba& gba);
@@ -964,12 +969,15 @@ void on_wave_mem_write(Gba& gba, u32 addr, uint8_t value)
 
 auto reset(Gba& gba) -> void
 {
+    // by default bias is set to 0x100 and resample mode is 0
+    REG_SOUNDBIAS = 0x100 << 1;
+    // enable sound on startup
     REG_SOUNDCNT_X = bit::set<7>(REG_SOUNDCNT_X, true);
     APU.enabled = true;
     // todo: reset al apu regs properly if skipping bios
     APU.fifo[0].reset();
     APU.fifo[1].reset();
-    scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, samples_tick);
+    scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, SAMPLE_TICKS);
     scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, APU.frame_sequencer.tick_rate);
 }
 
@@ -1112,6 +1120,15 @@ auto Fifo::sample() -> int8_t
 
 auto sample(Gba& gba)
 {
+    if (!is_apu_enabled(gba)) [[unlikely]]
+    {
+        push_sample(0, 0);
+        return;
+    }
+
+    const auto resample_mode = bit::get_range<0xE, 0xF>(REG_SOUNDBIAS);
+    assert(resample_mode == 0 || resample_mode == 1);
+
     const auto fifo_a = APU.fifo[0].sample();
     const auto fifo_b = APU.fifo[1].sample();
     const auto square0 = APU.square0.sample(gba);
@@ -1145,13 +1162,13 @@ auto sample(Gba& gba)
     const auto left = final_fifo_left + final_gb_left;
     const auto right = final_fifo_right + final_gb_right;
 
-    push_sample(left, right);
+    push_sample(left<<8, right<<8);
 }
 
 auto on_sample_event(Gba& gba) -> void
 {
     sample(gba);
-    scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, samples_tick);
+    scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, SAMPLE_TICKS);
 }
 
 auto on_frame_sequencer_event(Gba& gba) -> void
@@ -1180,9 +1197,9 @@ auto run(Gba& gba, uint8_t cycles) -> void
     }
 
     APU.cycles += cycles;
-    if (APU.cycles >= samples_tick)
+    if (APU.cycles >= SAMPLE_TICKS)
     {
-        APU.cycles -= samples_tick;
+        APU.cycles -= SAMPLE_TICKS;
         sample(gba);
     }
 }

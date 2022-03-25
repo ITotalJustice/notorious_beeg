@@ -105,10 +105,10 @@ auto audio_callback(void* user, Uint8* data, int len) -> void
     SDL_AudioStreamGet(audio_stream, data, len);
 }
 
-auto push_sample(std::int8_t left, std::int8_t right) -> void
+auto push_sample(std::int16_t left, std::int16_t right) -> void
 {
 #if SPEED_TEST == 0
-    const int8_t samples[2] = {left, right};
+    const int16_t samples[2] = {left, right};
     SDL_AudioStreamPut(audio_stream, samples, sizeof(samples));
 #endif
 }
@@ -167,8 +167,8 @@ auto main(int argc, char** argv) -> int
 
     aspec_wnt = SDL_AudioSpec
     {
-        .freq = 32768,
-        .format = AUDIO_S8,
+        .freq = 65536,
+        .format = AUDIO_S16,
         .channels = 2,
         .silence = 0,
         .samples = 2048,

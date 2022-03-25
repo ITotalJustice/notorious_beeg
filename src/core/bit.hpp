@@ -198,23 +198,24 @@ static_assert(
     "bit::get_range is broken!"
 );
 
-// template <u8 start, u8 end, IntV Int, IntV Slice> [[nodiscard]]
-// constexpr auto set_range(const Int value, const Slice slice) {
-//     static_assert(start < end, "range is invalid!");
-//     static_assert(end < (sizeof(Int) * 8));
+template <std::uint8_t start, std::uint8_t end, typename Int> [[nodiscard]]
+constexpr auto set_range(const Int value) {
+    static_assert(start < end, "range is invalid!");
+    static_assert(end < (sizeof(Int) * 8));
 
-//     // invert them as we want to set the range
-//     constexpr auto mask = get_mask<start, end, Int>();
-//     constexpr auto inverted_mask = ~mask;
+    // the bits to set
+    constexpr auto mask = get_mask<start, end, Int>();
 
-//     return (value & inverted_mask) | ((slice << start) & mask);
-// }
+    return (value | mask);
+}
 
-// constexpr auto TTT = bit::set_range<6, 7, u8, u8>(0b11111111, 7);
-
-// static_assert(
-//     bit::set_range<3, 5, u8, u8>(0b0, 0b1) == 0xFF &&
-//     "bit::set_range is broken!"
-// );
+static_assert(
+    bit::set_range<0, 7, u8>(0) == 0xFF &&
+    bit::set_range<0, 1, u8>(0) == 0x03 &&
+    bit::set_range<0, 1, u8>(0x10) == 0x13 &&
+    bit::set_range<8, 15, u16>(0x69) == 0xFF69 &&
+    bit::set_range<1, 9, u16>(0) == 0x3FE &&
+    "bit::set_range is broken!"
+);
 
 } // namespace gba::bit

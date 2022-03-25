@@ -9,6 +9,9 @@ gba emulator witten in c++23.
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
 - fixed thumb cmp imm doing an add instead with the oprands complemented. this would give the correct result but the flags would be wrong.
+- sample at 65536hz. this is the max that *most* games want to sample at.
+- correctly init soundbias on reset.
+- change sample format to s16. this change is needed for 9bit depth samples (not yet impl).
 
 0.0.1
 - added readme
