@@ -24,28 +24,26 @@ enum class move_compare_add_subtract_immediate_op
 thumb_instruction_template
 auto move_compare_add_subtract_immediate(Gba& gba, uint16_t opcode) -> void
 {
-    CONSTEXPR const auto Op = bit_decoded_get_range(11, 12);
+    CONSTEXPR const auto Op = static_cast<move_compare_add_subtract_immediate_op>(bit_decoded_get_range(11, 12));
     CONSTEXPR const auto Rd = bit_decoded_get_range(8, 10);
     const auto Offset8 = bit::get_range<0, 7>(opcode);
+    using enum move_compare_add_subtract_immediate_op;
 
-    if CONSTEXPR (static_cast<move_compare_add_subtract_immediate_op>(Op) == move_compare_add_subtract_immediate_op::MOV)
+    if CONSTEXPR (Op == MOV)
     {
         set_reg_thumb(gba, Rd, Offset8);
         set_logical_flags2<true>(gba, Offset8);
     }
-
-    else if CONSTEXPR(static_cast<move_compare_add_subtract_immediate_op>(Op) == move_compare_add_subtract_immediate_op::CMP)
+    else if CONSTEXPR(Op == CMP)
     {
-        internal_add<true>(gba, get_reg(gba, Rd), ~Offset8 + 1);
+        internal_sub<true>(gba, get_reg(gba, Rd), Offset8);
     }
-
-    else if CONSTEXPR(static_cast<move_compare_add_subtract_immediate_op>(Op) == move_compare_add_subtract_immediate_op::ADD)
+    else if CONSTEXPR(Op == ADD)
     {
         const auto result = internal_add<true>(gba, get_reg(gba, Rd), Offset8);
         set_reg_thumb(gba, Rd, result);
     }
-
-    else if CONSTEXPR(static_cast<move_compare_add_subtract_immediate_op>(Op) == move_compare_add_subtract_immediate_op::SUB)
+    else if CONSTEXPR(Op == SUB)
     {
         const auto result = internal_sub<true>(gba, get_reg(gba, Rd), Offset8);
         set_reg_thumb(gba, Rd, result);

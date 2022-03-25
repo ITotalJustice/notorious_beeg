@@ -7,7 +7,8 @@ gba emulator witten in c++23.
 
 ## changelog
 0.0.2
-- fixed neg flags being treated as logical flags, rather instead of sub. fixes <https://github.com/ITotalJustice/notorious_beeg/issues/1>
+- fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
+- fixed thumb cmp imm doing an add instead with the oprands complemented. this would give the correct result but the flags would be wrong.
 
 0.0.1
 - added readme
