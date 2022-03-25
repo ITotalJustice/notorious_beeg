@@ -8,6 +8,8 @@
 #include "backup/flash.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
+#include "bios.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -21,6 +23,12 @@ namespace gba {
 
 auto Gba::reset() -> void
 {
+    // if the user did not load bios, then load builtin
+    if (!this->has_bios)
+    {
+        gba::bios::load_normmatt_bios(*this);
+    }
+
     this->scheduler.cycles = 0;
     this->cycles2 = 0;
     scheduler::reset(*this);
@@ -74,15 +82,16 @@ auto Gba::loadrom(std::span<const  std::uint8_t> new_rom) -> bool
     return true;
 }
 
-auto Gba::loadbios(std::span<const std::uint8_t> bios) -> bool
+auto Gba::loadbios(std::span<const std::uint8_t> new_bios) -> bool
 {
-    if (bios.size() > std::size(this->mem.bios))
+    if (new_bios.size() > std::size(this->mem.bios))
     {
         assert(!"bios is way too beeg");
         return false;
     }
 
-    std::copy(bios.begin(), bios.end(), std::begin(this->mem.bios));
+    std::ranges::copy(new_bios, this->mem.bios);
+    this->has_bios = true;
 
     return true;
 }

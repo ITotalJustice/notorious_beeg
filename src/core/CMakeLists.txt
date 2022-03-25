@@ -33,6 +33,7 @@ else ()
         dma.cpp
         timer.cpp
         apu/apu.cpp
+        bios.cpp
         bios_hle.cpp
         scheduler.cpp
 

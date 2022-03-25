@@ -13,6 +13,7 @@
 #include "dma.cpp"
 #include "timer.cpp"
 #include "apu/apu.cpp"
+#include "bios.cpp"
 #include "bios_hle.cpp"
 #include "scheduler.cpp"
 

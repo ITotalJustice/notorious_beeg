@@ -12,6 +12,7 @@ gba emulator witten in c++23.
 - sample at 65536hz. this is the max that *most* games want to sample at.
 - correctly init soundbias on reset.
 - change sample format to s16. this change is needed for 9bit depth samples (not yet impl).
+- bundle normmatt's bios as default fallback if a bios isn't provided. addresses [#9](https://github.com/ITotalJustice/notorious_beeg/issues/9)
 
 0.0.1
 - added readme
@@ -88,3 +89,5 @@ gba emulator witten in c++23.
 - dillion for flashmem <https://dillonbeliveau.com/2020/06/05/GBA-FLASH.html>
 - dennis for eeprom <https://densinh.github.io/DenSinH/emulation/2021/02/01/gba-eeprom.html>
 - emudev discord
+- jsmolka for their very helpful tests <https://github.com/jsmolka/gba-tests>
+- normmatt (and vba) for the builtin bios <https://github.com/Nebuleon/ReGBA/tree/master/bios>

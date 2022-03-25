@@ -53,10 +53,11 @@ struct Gba
     // want to savestate this :harold:
     // 32mb(max), 16-bus
     alignas(uint32_t) uint8_t rom[0x2000000];
+    bool has_bios;
 
     auto reset() -> void;
     auto loadrom(std::span<const std::uint8_t> new_rom) -> bool;
-    auto loadbios(std::span<const std::uint8_t> bios) -> bool;
+    auto loadbios(std::span<const std::uint8_t> new_bios) -> bool;
     auto run(std::size_t cycles = 280896) -> void;
 
     // auto loadstate(std::span<const std::uint8_t> state) -> bool;
