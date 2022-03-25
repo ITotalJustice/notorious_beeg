@@ -45,7 +45,16 @@ constexpr scheduler::callback CALLBACKS[4] =
 // we sample at 65536hz
 constexpr auto SAMPLE_RATE = 65536;
 constexpr auto SAMPLE_TICKS = 280896*60/SAMPLE_RATE;
+
 constexpr uint8_t PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
+
+constexpr s8 SQUARE_DUTY_CYCLES[4][8] =
+{
+    /*[0] = */{ -1, -1, -1, -1, -1, -1, -1, +1 },
+    /*[1] = */{ +1, -1, -1, -1, -1, -1, -1, +1 },
+    /*[2] = */{ -1, -1, -1, -1, -1, +1, +1, +1 },
+    /*[3] = */{ -1, +1, +1, +1, +1, +1, +1, -1 },
+};
 
 bool is_apu_enabled(Gba& gba);
 auto apu_on_enabled(Gba& gba) -> void;

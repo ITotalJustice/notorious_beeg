@@ -14,16 +14,13 @@
 namespace gba::arm7tdmi::thumb {
 
 // page 113 (5.2)
-thumb_instruction_template
+template<
+    bool I, // 0=reg, 1=imm
+    bool Op // 0=ADD, 1=SUB
+>
 auto add_subtract(Gba& gba, uint16_t opcode) -> void
 {
-    CONSTEXPR const auto I = bit_decoded_is_set(10); // 0=reg, 1=imm
-    CONSTEXPR const auto Op = bit_decoded_is_set(9); // 0=ADD, 1=SUB
-    #if RELEASE_BUILD == 3
-    CONSTEXPR const auto Rn = bit_decoded_get_range(6, 8); // either reg or imm value
-    #else
     const auto Rn = bit::get_range<6, 8>(opcode); // either reg or imm value
-    #endif
     const auto Rs = bit::get_range<3, 5>(opcode);
     const auto Rd = bit::get_range<0, 2>(opcode);
 
@@ -33,7 +30,7 @@ auto add_subtract(Gba& gba, uint16_t opcode) -> void
     // std::printf("[%s] Rd: %u Rn: %u Rs: %u oprand1: 0x%04X oprand2: 0x%04X\n", I ? "SUB" : "ADD", Rd, Rn, Rs, oprand1, oprand2);
     std::uint32_t result = 0;
 
-    if CONSTEXPR (Op) // SUB
+    if constexpr(Op) // SUB
     {
         result = internal_sub<true>(gba, oprand1, oprand2);
     }

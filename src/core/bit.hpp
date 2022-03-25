@@ -8,7 +8,7 @@
 #include <concepts>
 #include <bit>
 
-namespace gba::bit {
+namespace bit {
 
 using u8 = std::uint8_t;
 using u16 = std::uint16_t;
@@ -218,4 +218,4 @@ static_assert(
     "bit::set_range is broken!"
 );
 
-} // namespace gba::bit
+} // namespace bit

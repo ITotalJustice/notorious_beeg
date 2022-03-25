@@ -13,6 +13,8 @@ gba emulator witten in c++23.
 - correctly init soundbias on reset.
 - change sample format to s16. this change is needed for 9bit depth samples (not yet impl).
 - bundle normmatt's bios as default fallback if a bios isn't provided. addresses [#9](https://github.com/ITotalJustice/notorious_beeg/issues/9)
+- fixed arm templatated builds by removing printf from constexpr function.
+- heavily reduced number of templated functions generated for thumb [#11](https://github.com/ITotalJustice/notorious_beeg/issues/11). removed non-templated thumb option as compile times are still instant.
 
 0.0.1
 - added readme

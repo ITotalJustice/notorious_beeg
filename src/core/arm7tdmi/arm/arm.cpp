@@ -133,7 +133,6 @@ constexpr auto decode(uint32_t opcode) -> Instruction
     }
 
     assert(0 && "how");
-    std::printf("OH NO\n");
     return Instruction::undefined;
 }
 
@@ -255,27 +254,29 @@ auto execute(Gba& gba) -> void
         std::printf("[ARM] PC: 0x%08X opcode: 0x%08X decoded: %s cpsr: 0x%08X spsr: 0x%08X mode: %u\n", get_pc(gba) - (CPU.cpsr.T ? 2 * 2 : 4 * 2), opcode, decode_str(instruction), get_u32_from_cpsr(gba), get_u32_from_spsr(gba), get_mode(gba));
     }
 
-    if (check_cond(gba, opcode >> 28))
+    const auto cond = opcode >> 28;
+    if (cond != COND_AL) [[unlikely]]
     {
-        switch (instruction)
+        if (check_cond(gba, cond) == false)
         {
-            case Instruction::data_processing: data_processing(gba, opcode); break;
-            case Instruction::multiply: multiply(gba, opcode); break;
-            case Instruction::multiply_long: multiply_long(gba, opcode); break;
-            case Instruction::single_data_swap: single_data_swap(gba, opcode); break;
-            case Instruction::branch_and_exchange: branch_and_exchange(gba, opcode); break;
-            case Instruction::halfword_data_transfer_register_offset: halfword_data_transfer_register_offset(gba, opcode); break;
-            case Instruction::halfword_data_transfer_immediate_offset: halfword_data_transfer_immediate_offset(gba, opcode); break;
-            case Instruction::single_data_transfer: single_data_transfer(gba, opcode); break;
-            case Instruction::undefined: assert(!"unimpl undefined"); break;
-            case Instruction::block_data_transfer: block_data_transfer(gba, opcode); break;
-            case Instruction::branch: branch(gba, opcode); break;
-            case Instruction::software_interrupt: software_interrupt(gba, opcode); break;
+            return;
         }
     }
-    else
+
+    switch (instruction)
     {
-        gba_log("skipping instruction! cond: %X\n", opcode >> 28);
+        case Instruction::data_processing: data_processing(gba, opcode); break;
+        case Instruction::multiply: multiply(gba, opcode); break;
+        case Instruction::multiply_long: multiply_long(gba, opcode); break;
+        case Instruction::single_data_swap: single_data_swap(gba, opcode); break;
+        case Instruction::branch_and_exchange: branch_and_exchange(gba, opcode); break;
+        case Instruction::halfword_data_transfer_register_offset: halfword_data_transfer_register_offset(gba, opcode); break;
+        case Instruction::halfword_data_transfer_immediate_offset: halfword_data_transfer_immediate_offset(gba, opcode); break;
+        case Instruction::single_data_transfer: single_data_transfer(gba, opcode); break;
+        case Instruction::undefined: assert(!"unimpl undefined"); break;
+        case Instruction::block_data_transfer: block_data_transfer(gba, opcode); break;
+        case Instruction::branch: branch(gba, opcode); break;
+        case Instruction::software_interrupt: software_interrupt(gba, opcode); break;
     }
 }
 #endif

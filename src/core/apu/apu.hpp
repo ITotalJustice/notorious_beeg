@@ -16,14 +16,6 @@ struct Square1;
 struct Wave;
 struct Noise;
 
-constexpr inline s8 SQUARE_DUTY_CYCLES[4][8] =
-{
-    /*[0] = */{ -1, -1, -1, -1, -1, -1, -1, +1 },
-    /*[1] = */{ +1, -1, -1, -1, -1, -1, -1, +1 },
-    /*[2] = */{ -1, -1, -1, -1, -1, +1, +1, +1 },
-    /*[3] = */{ -1, +1, +1, +1, +1, +1, +1, -1 },
-};
-
 struct FrameSequencer
 {
     static constexpr inline auto tick_rate = 280896*60/512;

@@ -13,11 +13,12 @@
 namespace gba::arm7tdmi::thumb {
 
 // page 138 (5.14)
-thumb_instruction_template
+template<
+    bool L, // 0=push, 1=pop
+    bool R  // 0=non, 1=store lr/load pc
+>
 auto push_pop_registers(Gba& gba, uint16_t opcode) -> void
 {
-    CONSTEXPR const auto L = bit_decoded_is_set(11); // 0=push, 1=pop
-    CONSTEXPR const auto R = bit_decoded_is_set(8); // 0=non, 1=store lr/load pc
     std::uint16_t Rlist = bit::get_range<0, 7>(opcode);
     auto addr = get_sp(gba);
 
@@ -27,9 +28,9 @@ auto push_pop_registers(Gba& gba, uint16_t opcode) -> void
         gba_log("[push_pop_registers] empty rlist edge case\n");
     }
 
-    if CONSTEXPR (L) // pop
+    if constexpr (L) // pop
     {
-        if CONSTEXPR (R)
+        if constexpr (R)
         {
             Rlist = bit::set<PC_INDEX>(Rlist, true);
         }
@@ -49,7 +50,7 @@ auto push_pop_registers(Gba& gba, uint16_t opcode) -> void
     }
     else // push
     {
-        if CONSTEXPR (R)
+        if constexpr (R)
         {
             Rlist = bit::set<LR_INDEX>(Rlist, true);
         }

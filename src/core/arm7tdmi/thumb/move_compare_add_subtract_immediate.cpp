@@ -21,29 +21,29 @@ enum class move_compare_add_subtract_immediate_op
 };
 
 // page 115 (5.3)
-thumb_instruction_template
+template<u8 Op2>
 auto move_compare_add_subtract_immediate(Gba& gba, uint16_t opcode) -> void
 {
-    CONSTEXPR const auto Op = static_cast<move_compare_add_subtract_immediate_op>(bit_decoded_get_range(11, 12));
-    CONSTEXPR const auto Rd = bit_decoded_get_range(8, 10);
+    constexpr auto Op = static_cast<move_compare_add_subtract_immediate_op>(Op2);
+    const auto Rd = bit::get_range<8, 10>(opcode);
     const auto Offset8 = bit::get_range<0, 7>(opcode);
     using enum move_compare_add_subtract_immediate_op;
 
-    if CONSTEXPR (Op == MOV)
+    if constexpr (Op == MOV)
     {
         set_reg_thumb(gba, Rd, Offset8);
         set_logical_flags2<true>(gba, Offset8);
     }
-    else if CONSTEXPR(Op == CMP)
+    else if constexpr(Op == CMP)
     {
         internal_sub<true>(gba, get_reg(gba, Rd), Offset8);
     }
-    else if CONSTEXPR(Op == ADD)
+    else if constexpr(Op == ADD)
     {
         const auto result = internal_add<true>(gba, get_reg(gba, Rd), Offset8);
         set_reg_thumb(gba, Rd, result);
     }
-    else if CONSTEXPR(Op == SUB)
+    else if constexpr(Op == SUB)
     {
         const auto result = internal_sub<true>(gba, get_reg(gba, Rd), Offset8);
         set_reg_thumb(gba, Rd, result);

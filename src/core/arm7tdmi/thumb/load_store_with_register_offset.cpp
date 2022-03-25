@@ -12,16 +12,13 @@
 namespace gba::arm7tdmi::thumb {
 
 // page 124 (5.7)
-thumb_instruction_template
+template<
+    bool L, // 0=STR, 1=LDR
+    bool B // 0=word, 1=byte
+>
 auto load_store_with_register_offset(Gba& gba, uint16_t opcode) -> void
 {
-    CONSTEXPR const auto L = bit_decoded_is_set(11); // 0=STR, 1=LDR
-    CONSTEXPR const auto B = bit_decoded_is_set(10); // 0=word, 1=byte
-    #if RELEASE_BUILD == 3
-    CONSTEXPR const auto Ro = bit_decoded_get_range(6, 8);
-    #else
     const auto Ro = bit::get_range<6, 8>(opcode);
-    #endif
     const auto Rb = bit::get_range<3, 5>(opcode);
     const auto Rd = bit::get_range<0, 2>(opcode);
 
@@ -29,11 +26,11 @@ auto load_store_with_register_offset(Gba& gba, uint16_t opcode) -> void
     const auto offset = get_reg(gba, Ro);
     const auto addr = base + offset;
 
-    if CONSTEXPR (L) // LDR
+    if constexpr (L) // LDR
     {
         std::uint32_t result = 0;
 
-        if CONSTEXPR (B) // byte
+        if constexpr (B) // byte
         {
             result = mem::read8(gba, addr);
         }
@@ -49,7 +46,7 @@ auto load_store_with_register_offset(Gba& gba, uint16_t opcode) -> void
     {
         const auto value = get_reg(gba, Rd);
 
-        if CONSTEXPR (B) // byte
+        if constexpr (B) // byte
         {
             mem::write8(gba, addr, value);
         }

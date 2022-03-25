@@ -12,16 +12,17 @@
 namespace gba::arm7tdmi::thumb {
 
 // page 134 (5.12)
-thumb_instruction_template
+template<
+    bool SP // 0=PC, 1=SP
+>
 auto load_address(Gba& gba, uint16_t opcode) -> void
 {
-    CONSTEXPR const auto SP = bit_decoded_is_set(11); // 0=PC, 1=SP
-    CONSTEXPR const auto Rd = bit_decoded_get_range(8, 10);
+    constexpr const auto src_reg = SP ? SP_INDEX : PC_INDEX;
+    const auto Rd = bit::get_range<8, 10>(opcode);
     const auto word8 = bit::get_range<0, 7>(opcode) << 2; // 10-bit
-    CONSTEXPR const auto src_reg = SP ? SP_INDEX : PC_INDEX;
     auto src_value = get_reg(gba, src_reg);
 
-    if CONSTEXPR (src_reg == PC_INDEX)
+    if constexpr (src_reg == PC_INDEX)
     {
         // fleroviux says it's 32-bit aligned.
         // this is the only way for this to pass: https://github.com/jsmolka/gba-tests/blob/a6447c5404c8fc2898ddc51f438271f832083b7e/thumb/arithmetic.asm#L126

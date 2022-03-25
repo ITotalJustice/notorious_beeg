@@ -13,14 +13,12 @@
 namespace gba::arm7tdmi::thumb {
 
 // page 146 (5.19)
-// thumb_instruction_template
+template<bool H>
 auto long_branch_with_link(Gba& gba, uint16_t opcode) -> void
 {
-    const auto H = bit::is_set<11>(opcode);
-    // CONSTEXPR const auto H = bit_decoded_is_set(11);
     const auto pc = get_pc(gba);
 
-    if (H)
+    if constexpr (H)
     {
         const auto temp = pc - 2; // -2 because faking pipeline
         const auto OffsetLow = bit::get_range<0, 10>(opcode) << 1;

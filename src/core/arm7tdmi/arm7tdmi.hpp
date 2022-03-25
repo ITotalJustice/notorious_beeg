@@ -13,14 +13,6 @@
 
 namespace gba::arm7tdmi {
 
-// RELEASE_BUILD 3 = 15-6
-
-#if RELEASE_BUILD_THUMB
-    #define RELEASE_BUILD 3
-#else
-    #define RELEASE_BUILD 0
-#endif
-
 #if RELEASE_BUILD_ARM == 1
     template<auto b>
     constexpr auto __is_set_arm(auto v)
@@ -68,38 +60,6 @@ namespace gba::arm7tdmi {
     #define arm_instruction_template
     #define bit_decoded_get_range_arm(start, end) bit::get_range<start, end>(opcode)
     #define bit_decoded_is_set_arm(x) bit::is_set<x>(opcode)
-#endif
-
-#if RELEASE_BUILD == 3
-#define CONSTEXPR constexpr
-#define thumb_instruction_template template <std::uint16_t decoded_opcode>
-
-template<auto b>
-constexpr auto __is_set(auto v)
-{
-    static_assert(b >= 6, "invalid");
-    constexpr auto new_bit = b - 6;
-    return bit::is_set<new_bit>(v);
-}
-
-template<u8 start, u8 end>
-constexpr auto __get_range(auto v)
-{
-    static_assert(start >= 6, "invalid");
-    static_assert(end >= 6, "invalid");
-    constexpr u8 new_start = start - 6;
-    constexpr u8 new_end = end - 6;
-    // static_assert(new_start, message);
-    return bit::get_range<new_start, new_end>(v);
-}
-
-#define bit_decoded_get_range(start, end) __get_range<start, end>(decoded_opcode)
-#define bit_decoded_is_set(x) __is_set<x>(decoded_opcode)
-#else
-#define CONSTEXPR
-#define thumb_instruction_template
-#define bit_decoded_get_range(start, end) bit::get_range<start, end>(opcode)
-#define bit_decoded_is_set(x) bit::is_set<x>(opcode)
 #endif
 
 template<uint8_t bits>
@@ -164,16 +124,16 @@ enum class Interrupt : std::uint16_t
 struct Psr
 {
     // condition flags
-    bool N;     // negative, less than
-    bool Z;     // zero
-    bool C;     // carry, borrow, extend
-    bool V;     // overflow
+    bool N:1;     // negative, less than
+    bool Z:1;     // zero
+    bool C:1;     // carry, borrow, extend
+    bool V:1;     // overflow
 
     // control
-    bool I;     // IRQ disable (1=off,0=on)
-    bool F;     // FIQ disable (1=off,0=on)
-    bool T;     // state bit (1=thumb,0=arm)
-    uint8_t M;  // mode
+    bool I:1;     // IRQ disable (1=off,0=on)
+    bool F:1;     // FIQ disable (1=off,0=on)
+    bool T:1;     // state bit (1=thumb,0=arm)
+    uint8_t M:5;  // mode
 };
 
 struct Arm7tdmi

@@ -12,13 +12,15 @@
 
 namespace gba::arm7tdmi::thumb {
 
+template<
+    bool L // 0=store, 1=load
+>
 auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
 {
-    const auto L = bit::is_set<11>(opcode); // 0=store, 1=load
     const auto Rb = bit::get_range<8, 10>(opcode); // base
     auto addr = get_reg(gba, Rb);
 
-    if (L)
+    if constexpr (L)
     {
         const auto value = mem::read32(gba, addr);
         set_pc(gba, value);
@@ -34,24 +36,22 @@ auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
 }
 
 // page 140 (5.15)
-thumb_instruction_template
+template<
+    bool L // 0=store, 1=load
+>
 auto multiple_load_store(Gba& gba, uint16_t opcode) -> void
 {
-    CONSTEXPR const auto L = bit_decoded_is_set(11); // 0=store, 1=load
-    CONSTEXPR const auto Rb = bit_decoded_get_range(8, 10); // base
+    const auto Rb = bit::get_range<8, 10>(opcode); // base
     std::uint16_t Rlist = bit::get_range<0, 7>(opcode);
     auto addr = get_reg(gba, Rb);
 
     if (!Rlist)
     {
-        multiple_load_store_empty_rlist(gba, opcode);
+        multiple_load_store_empty_rlist<L>(gba, opcode);
         return;
     }
 
-    // this can be used for a fast constexpr path
-    //const auto rb_in_rlist = bit::is_set(Rlist, Rb);
-
-    if CONSTEXPR (L) // load
+    if constexpr (L) // load
     {
         bool write_back = true;
 

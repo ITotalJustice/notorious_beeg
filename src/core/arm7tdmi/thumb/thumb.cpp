@@ -35,25 +35,11 @@ enum class Instruction
     undefined,
 };
 
-auto fetch(Gba& gba)
-{
-    const std::uint16_t opcode = CPU.pipeline[0];
-    CPU.pipeline[0] = CPU.pipeline[1];
-    gba.cpu.registers[PC_INDEX] += 2;
-    CPU.pipeline[1] = mem::read16(gba, get_pc(gba));
-    CPU.opcode = opcode;
-
-    return opcode;
-}
-
 // page 108
 constexpr auto decode(uint16_t opcode) -> Instruction
 {
-    #if RELEASE_BUILD == 3
+    // only need bits 5-15
     constexpr auto shift_down = 6;
-    #else
-    constexpr auto shift_down = 0;
-    #endif
 
     constexpr auto multiple_load_store_mask_a = 0b1111'0'000'00000000 >> shift_down;
     constexpr auto multiple_load_store_mask_b = 0b1100'0'000'00000000 >> shift_down;
@@ -222,10 +208,31 @@ constexpr auto decode_str(Instruction i) -> const char*
     std::unreachable();
 }
 
-#if RELEASE_BUILD == 3
 auto undefined(gba::Gba &gba, uint16_t opcode) -> void
 {
-    printf("undefined %04X\n", opcode);
+    std::printf("[THUMB] undefined %04X\n", opcode);
+    assert(!"[THUMB] undefined instruction hit");
+}
+
+template<auto b>
+consteval auto decoded_is_set(auto v)
+{
+    static_assert(b >= 6, "invalid");
+
+    constexpr auto new_bit = b - 6;
+    return bit::is_set<new_bit>(v);
+}
+
+template<u8 start, u8 end>
+consteval auto decoded_get_range(auto v)
+{
+    static_assert(start >= 6, "invalid");
+    static_assert(end >= 6, "invalid");
+
+    constexpr u8 new_start = start - 6;
+    constexpr u8 new_end = end - 6;
+
+    return bit::get_range<new_start, new_end>(v);
 }
 
 template <int i, int end>
@@ -235,26 +242,107 @@ consteval auto fill_table(auto& table) -> void
 
     switch (instruction)
     {
-        case Instruction::move_shifted_register: table[i] = move_shifted_register<i>; break;
-        case Instruction::add_subtract: table[i] = add_subtract<i>; break;
-        case Instruction::move_compare_add_subtract_immediate: table[i] = move_compare_add_subtract_immediate<i>; break;
-        case Instruction::alu_operations: table[i] = alu_operations<i>; break;
-        case Instruction::hi_register_operations: table[i] = hi_register_operations<i>; break;
-        case Instruction::pc_relative_load: table[i] = pc_relative_load<i>; break;
-        case Instruction::load_store_with_register_offset: table[i] = load_store_with_register_offset<i>; break;
-        case Instruction::load_store_sign_extended_byte_halfword: table[i] = load_store_sign_extended_byte_halfword<i>; break;
-        case Instruction::load_store_with_immediate_offset: table[i] = load_store_with_immediate_offset<i>; break;
-        case Instruction::load_store_halfword: table[i] = load_store_halfword<i>; break;
-        case Instruction::sp_relative_load_store: table[i] = sp_relative_load_store<i>; break;
-        case Instruction::load_address: table[i] = load_address<i>; break;
-        case Instruction::add_offset_to_stack_pointer: table[i] = add_offset_to_stack_pointer; break;
-        case Instruction::push_pop_registers: table[i] = push_pop_registers<i>; break;
-        case Instruction::multiple_load_store: table[i] = multiple_load_store<i>; break;
-        case Instruction::conditional_branch: table[i] = conditional_branch; break;
-        case Instruction::software_interrupt: table[i] = software_interrupt; break;
-        case Instruction::unconditional_branch: table[i] = unconditional_branch; break;
-        case Instruction::long_branch_with_link: table[i] = long_branch_with_link; break;
-        case Instruction::undefined: table[i] = undefined; break;
+        case Instruction::move_shifted_register: {
+            constexpr auto Op = decoded_get_range<11, 12>(i);
+            table[i] = move_shifted_register<Op>;
+        } break;
+
+        case Instruction::add_subtract: {
+            constexpr auto I = decoded_is_set<10>(i); // 0=reg, 1=imm
+            constexpr auto Op = decoded_is_set<9>(i); // 0=ADD, 1=SUB
+            table[i] = add_subtract<I, Op>;
+        } break;
+
+        case Instruction::move_compare_add_subtract_immediate: {
+            constexpr auto Op = decoded_get_range<11, 12>(i);
+            table[i] = move_compare_add_subtract_immediate<Op>;
+        } break;
+
+        case Instruction::alu_operations: {
+            constexpr auto Op = decoded_get_range<6, 9>(i);
+            table[i] = alu_operations<Op>;
+        } break;
+
+        case Instruction::hi_register_operations: {
+            constexpr auto Op = decoded_get_range<8, 9>(i);
+            constexpr auto H1 = decoded_is_set<7>(i) ? 8 : 0;
+            constexpr auto H2 = decoded_is_set<6>(i) ? 8 : 0;
+            table[i] = hi_register_operations<Op, H1, H2>;
+        } break;
+
+        case Instruction::pc_relative_load: {
+            table[i] = pc_relative_load;
+        } break;
+
+        case Instruction::load_store_with_register_offset: {
+            constexpr auto L = decoded_is_set<11>(i); // 0=STR, 1=LDR
+            constexpr auto B = decoded_is_set<10>(i); // 0=word, 1=byte
+            table[i] = load_store_with_register_offset<L, B>;
+        } break;
+
+        case Instruction::load_store_sign_extended_byte_halfword: {
+            constexpr auto H = decoded_is_set<11>(i); // 0=STR, 1=LDR
+            constexpr auto S = decoded_is_set<10>(i); // 0=normal, 1=sign-extended
+            table[i] = load_store_sign_extended_byte_halfword<H, S>;
+        } break;
+
+        case Instruction::load_store_with_immediate_offset: {
+            constexpr auto B = decoded_is_set<12>(i); // 0=word, 1=byte
+            constexpr auto L = decoded_is_set<11>(i); // 0=STR, 1=LDR
+            table[i] = load_store_with_immediate_offset<B, L>;
+        } break;
+
+        case Instruction::load_store_halfword: {
+            constexpr auto L = decoded_is_set<11>(i); // 0=STR, 1=LDR
+            table[i] = load_store_halfword<L>;
+        } break;
+
+        case Instruction::sp_relative_load_store: {
+            constexpr auto L = decoded_is_set<11>(i); // 0=STR, 1=LDR
+            table[i] = sp_relative_load_store<L>;
+        } break;
+
+        case Instruction::load_address: {
+            constexpr auto SP = decoded_is_set<11>(i); // 0=PC, 1=SP
+            table[i] = load_address<SP>;
+        } break;
+
+        case Instruction::add_offset_to_stack_pointer: {
+            constexpr auto S = decoded_is_set<7>(i); // 0=unsigned, 1=signed
+            table[i] = add_offset_to_stack_pointer<S>;
+        } break;
+
+        case Instruction::push_pop_registers: {
+            constexpr auto L = decoded_is_set<11>(i); // 0=push, 1=pop
+            constexpr auto R = decoded_is_set<8>(i); // 0=non, 1=store lr/load pc
+            table[i] = push_pop_registers<L, R>;
+        } break;
+
+        case Instruction::multiple_load_store: {
+            constexpr auto L = decoded_is_set<11>(i); // 0=store, 1=load
+            table[i] = multiple_load_store<L>;
+        } break;
+
+        case Instruction::conditional_branch: {
+            table[i] = conditional_branch;
+        } break;
+
+        case Instruction::software_interrupt: {
+            table[i] = software_interrupt;
+        } break;
+
+        case Instruction::unconditional_branch: {
+            table[i] = unconditional_branch;
+        } break;
+
+        case Instruction::long_branch_with_link: {
+            constexpr auto H = decoded_is_set<11>(i);
+            table[i] = long_branch_with_link<H>;
+        } break;
+
+        case Instruction::undefined: {
+            table[i] = undefined;
+        } break;
     }
 
     if constexpr (i == end)
@@ -267,12 +355,11 @@ consteval auto fill_table(auto& table) -> void
     }
 }
 
-using func_type = void (*)(gba::Gba&, uint16_t);
-
 consteval auto generate_function_table()
 {
+    using func_type = void (*)(gba::Gba&, uint16_t);
     std::array<func_type, 1024> table{};
-    table.fill(undefined);
+    table.fill(undefined); // also handled in fill_table.
 
     fill_table<0x0000, 0x00FF>(table);
     fill_table<0x0100, 0x01FF>(table);
@@ -284,49 +371,21 @@ consteval auto generate_function_table()
 
 constexpr auto func_table = generate_function_table();
 
+auto fetch(Gba& gba)
+{
+    const std::uint16_t opcode = CPU.pipeline[0];
+    CPU.pipeline[0] = CPU.pipeline[1];
+    gba.cpu.registers[PC_INDEX] += 2;
+    CPU.pipeline[1] = mem::read16(gba, get_pc(gba));
+    CPU.opcode = opcode;
+
+    return opcode;
+}
+
 auto execute(Gba& gba) -> void
 {
     const auto opcode = fetch(gba);
     func_table[opcode>>6](gba, opcode);
 }
-#else
-
-// page 108
-auto execute(Gba& gba) -> void
-{
-    const auto opcode = fetch(gba);
-    const auto instruction = decode(opcode);
-
-    // if (CPU.breakpoint)
-    // {
-    //     std::printf("[THUMB] PC: 0x%08X opcode: 0x%04X decoded: %s\n", get_pc(gba) - (CPU.cpsr.T ? 2 * 2 : 4 * 2), opcode, decode_str(instruction));
-    //     // std::printf("[ARM] PC: 0x%08X opcode: 0x%08X decoded: %s", get_pc(gba), opcode, decode_str(instruction));
-    // }
-
-    switch (instruction)
-    {
-        case Instruction::move_shifted_register: move_shifted_register(gba, opcode); break;
-        case Instruction::add_subtract: add_subtract(gba, opcode); break;
-        case Instruction::move_compare_add_subtract_immediate: move_compare_add_subtract_immediate(gba, opcode); break;
-        case Instruction::alu_operations: alu_operations(gba, opcode); break;
-        case Instruction::hi_register_operations: hi_register_operations(gba, opcode); break;
-        case Instruction::pc_relative_load: pc_relative_load(gba, opcode); break;
-        case Instruction::load_store_with_register_offset: load_store_with_register_offset(gba, opcode); break;
-        case Instruction::load_store_sign_extended_byte_halfword: load_store_sign_extended_byte_halfword(gba, opcode); break;
-        case Instruction::load_store_with_immediate_offset: load_store_with_immediate_offset(gba, opcode); break;
-        case Instruction::load_store_halfword: load_store_halfword(gba, opcode); break;
-        case Instruction::sp_relative_load_store: sp_relative_load_store(gba, opcode); break;
-        case Instruction::load_address: load_address(gba, opcode); break;
-        case Instruction::add_offset_to_stack_pointer: add_offset_to_stack_pointer(gba, opcode); break;
-        case Instruction::push_pop_registers: push_pop_registers(gba, opcode); break;
-        case Instruction::multiple_load_store: multiple_load_store(gba, opcode); break;
-        case Instruction::conditional_branch: conditional_branch(gba, opcode); break;
-        case Instruction::software_interrupt: software_interrupt(gba, opcode); break;
-        case Instruction::unconditional_branch: unconditional_branch(gba, opcode); break;
-        case Instruction::long_branch_with_link: long_branch_with_link(gba, opcode); break;
-        case Instruction::undefined: assert(!"[THUMB] unimpl undefined"); break;
-    }
-}
-#endif
 
 } // namespace gba::arm7tdmi::thumb

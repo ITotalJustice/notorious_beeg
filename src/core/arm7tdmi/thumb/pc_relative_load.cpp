@@ -12,10 +12,9 @@
 namespace gba::arm7tdmi::thumb {
 
 // page 122 (5.6)
-thumb_instruction_template
 auto pc_relative_load(Gba& gba, uint16_t opcode) -> void
 {
-    CONSTEXPR const auto Rd = bit_decoded_get_range(8, 10);
+    const auto Rd = bit::get_range<8, 10>(opcode);
     // shifted to 10-bit value (unsigned)
     const auto Word8 = bit::get_range<0, 7>(opcode) << 2;
     const auto pc = get_pc(gba) & ~0x3;
