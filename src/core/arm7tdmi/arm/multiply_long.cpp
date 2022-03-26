@@ -7,22 +7,19 @@
 #include "mem.hpp"
 #include <bit>
 #include <cstdint>
-#include <cstdio>
-#include <type_traits>
 
 namespace gba::arm7tdmi::arm {
 
 // T1 = final type (u64/i64)
 // T2 = base type (u32/i32) this is used for sign extending
-#if RELEASE_BUILD_ARM == 1
-template<typename T1, typename T2, std::uint16_t decoded_opcode>
-#else
-template<typename T1, typename T2>
-#endif
+template<
+    typename T1, // final type (u64/i64)
+    typename T2, // base type (u32/i32) this is used for sign extending
+    bool A,
+    bool S
+>
 auto multiply_long(Gba& gba, std::uint32_t opcode) -> void
 {
-    CONSTEXPR_ARM const auto A = bit_decoded_is_set_arm(21); // 0=mull, 1=mlal and accumulate
-    CONSTEXPR_ARM const auto S = bit_decoded_is_set_arm(20); // 0=no flags, 1=mod flags
     const auto RdHi = bit::get_range<16, 19>(opcode); // dst Hi
     const auto RdLo = bit::get_range<12, 15>(opcode); // dst Lo
     const auto Rs   = bit::get_range<8, 11>(opcode); // oprand
@@ -33,7 +30,7 @@ auto multiply_long(Gba& gba, std::uint32_t opcode) -> void
 
     u64 result = 0;
 
-    if CONSTEXPR_ARM (A) // MLAL
+    if constexpr(A) // MLAL
     {
         const u64 add_a = get_reg(gba, RdHi);
         const u64 add_b = get_reg(gba, RdLo);
@@ -46,8 +43,7 @@ auto multiply_long(Gba& gba, std::uint32_t opcode) -> void
         result = oprand1 * oprand2;
     }
 
-    // update flags
-    if CONSTEXPR_ARM (S)
+    if constexpr(S) // update flags
     {
         CPU.cpsr.Z = result == 0;
         CPU.cpsr.N = bit::is_set<63>(result);
@@ -58,30 +54,21 @@ auto multiply_long(Gba& gba, std::uint32_t opcode) -> void
 }
 
 // page 67 (4.8)
-arm_instruction_template
+template<
+    bool U, // 0=unsigned, 1=signed
+    bool A, // 0=mull, 1=mlal and accumulate
+    bool S  // 0=no flags, 1=mod flags
+>
 auto multiply_long(Gba& gba, uint32_t opcode) -> void
 {
-    CONSTEXPR_ARM const auto U = bit_decoded_is_set_arm(22); // 0=unsigned, 1=signed
-
-    #if RELEASE_BUILD_ARM == 1
-    if CONSTEXPR_ARM (U) // signed
+    if constexpr(U) // signed
     {
-        multiply_long<std::int64_t, std::int32_t, decoded_opcode>(gba, opcode);
+        multiply_long<std::int64_t, std::int32_t, A, S>(gba, opcode);
     }
     else // unsigned
     {
-        multiply_long<u64, std::uint32_t, decoded_opcode>(gba, opcode);
+        multiply_long<u64, std::uint32_t, A, S>(gba, opcode);
     }
-    #else
-    if (U) // signed
-    {
-        multiply_long<std::int64_t, std::int32_t>(gba, opcode);
-    }
-    else // unsigned
-    {
-        multiply_long<u64, std::uint32_t>(gba, opcode);
-    }
-    #endif
 }
 
 } // namespace gba::arm7tdmi::arm

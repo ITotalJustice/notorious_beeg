@@ -931,7 +931,7 @@ void on_nr52_write(Gba& gba, uint8_t value)
     {
         if (master_enable == 0)
         {
-            std::printf("\tapu disabled\n");
+            gba_log("\tapu disabled\n");
             apu_on_disabled(gba);
         }
     }
@@ -939,7 +939,7 @@ void on_nr52_write(Gba& gba, uint8_t value)
     {
         if (master_enable)
         {
-            std::printf("\tapu enabled\n");
+            gba_log("\tapu enabled\n");
             apu_on_enabled(gba);
         }
     }

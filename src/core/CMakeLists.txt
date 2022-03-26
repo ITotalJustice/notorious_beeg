@@ -15,8 +15,6 @@ cmake_minimum_required(VERSION 3.20.0)
 set(ENABLE_SCHEDULER ON)
 # compiler basically inlines everything
 set(SINGLE_FILE OFF)
-# very big speedup
-set(RELEASE_BUILD_ARM OFF)
 # enable sanitizers
 set(GBA_DEV OFF)
 
@@ -44,23 +42,6 @@ else ()
         arm7tdmi/arm/arm.cpp
         arm7tdmi/thumb/thumb.cpp
     )
-
-    # these .cpp files are #included in the source
-    # on realse builds, due to them being template functions
-    if (NOT RELEASE_BUILD_ARM)
-        target_sources(GBA PRIVATE
-            arm7tdmi/arm/branch.cpp
-            arm7tdmi/arm/data_processing.cpp
-            arm7tdmi/arm/halfword_data_transfer.cpp
-            arm7tdmi/arm/single_data_transfer.cpp
-            arm7tdmi/arm/block_data_transfer.cpp
-            arm7tdmi/arm/multiply.cpp
-            arm7tdmi/arm/software_interrupt.cpp
-            arm7tdmi/arm/branch_and_exchange.cpp
-            arm7tdmi/arm/multiply_long.cpp
-            arm7tdmi/arm/single_data_swap.cpp
-        )
-    endif()
 endif()
 
 target_include_directories(GBA PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -99,7 +80,6 @@ target_compile_definitions(GBA PRIVATE
     GBA_DEBUG=$<BOOL:${GBA_DEBUG}>
     SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
     ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
-    RELEASE_BUILD_ARM=$<BOOL:${RELEASE_BUILD_ARM}>
 )
 
 # enable LTO (only in release builds)

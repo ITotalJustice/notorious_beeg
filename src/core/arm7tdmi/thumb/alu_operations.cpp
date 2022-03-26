@@ -78,7 +78,6 @@ auto alu_operations(Gba& gba, uint16_t opcode) -> void
     }
     else if constexpr (Op == ADC)
     {
-        gba_log("adding: a: %u b: %u carry: %u\n", oprand1, oprand2, CPU.cpsr.C);
         const auto result = internal_add<true>(gba, oprand1, oprand2, CPU.cpsr.C);
         set_reg_thumb(gba, Rd, result);
     }
@@ -105,7 +104,6 @@ auto alu_operations(Gba& gba, uint16_t opcode) -> void
     }
     else if constexpr (Op == CMP)
     {
-        gba_log("\tcmp r%u, r%u oprand1: 0x%08X oprand2: 0x%08X\n", Rd, Rs, oprand1, oprand2);
         internal_sub<true>(gba, oprand1, oprand2);
     }
     else if constexpr (Op == CMN)

@@ -5,11 +5,19 @@
 
 #include "gba.hpp"
 #include "arm7tdmi/arm7tdmi.hpp"
+#include "arm7tdmi/barrel_shifter.hpp"
 
+// generic enough functions used in multiple instructions.
+// i am yet to decide on a better name for the file.
 namespace gba::arm7tdmi {
 
+inline auto calc_vflag(uint32_t a, uint32_t b, uint32_t r) -> bool
+{
+    return (bit::is_set<31>(a) == bit::is_set<31>(b)) && (bit::is_set<31>(a) != bit::is_set<31>(r));
+}
+
 template<bool S>
-auto internal_add(Gba& gba, uint32_t a, uint32_t b, bool carry = false) -> uint32_t
+inline auto internal_add(Gba& gba, uint32_t a, uint32_t b, bool carry = false) -> uint32_t
 {
     const uint32_t result = a + b + carry;
 
@@ -25,11 +33,10 @@ auto internal_add(Gba& gba, uint32_t a, uint32_t b, bool carry = false) -> uint3
 }
 
 template<bool S>
-auto internal_sub(Gba& gba, uint32_t a, uint32_t b, bool carry = false) -> uint32_t
+inline auto internal_sub(Gba& gba, uint32_t a, uint32_t b, bool carry = false) -> uint32_t
 {
     const uint32_t result = a - (b + carry);
 
-    // only update cpsr if S bit was set
     if constexpr(S)
     {
         CPU.cpsr.Z = result == 0;
@@ -42,7 +49,7 @@ auto internal_sub(Gba& gba, uint32_t a, uint32_t b, bool carry = false) -> uint3
 }
 
 template<bool S>
-auto set_logical_flags(Gba& gba, std::uint32_t result, bool carry) -> void
+inline auto set_logical_flags(Gba& gba, std::uint32_t result, bool carry) -> void
 {
     if constexpr(S)
     {
@@ -54,7 +61,7 @@ auto set_logical_flags(Gba& gba, std::uint32_t result, bool carry) -> void
 
 // same as above but doesnt modify carry
 template<bool S>
-auto set_logical_flags2(Gba& gba, std::uint32_t result) -> void
+inline auto set_logical_flags2(Gba& gba, std::uint32_t result) -> void
 {
     if constexpr(S)
     {
@@ -63,17 +70,37 @@ auto set_logical_flags2(Gba& gba, std::uint32_t result) -> void
     }
 }
 
-#if RELEASE_BUILD_ARM == 1
-#define set_logical_flags_arm(gba, S, result, new_carry) set_logical_flags<S>(gba, result, new_carry)
-#define internal_add_arm(gba, S, a, b) internal_add<S>(gba, a, b)
-#define internal_addc_arm(gba, S, a, b, c) internal_add<S>(gba, a, b, c)
-#define internal_sub_arm(gba, S, a, b) internal_sub<S>(gba, a, b)
-#define internal_subc_arm(gba, S, a, b, c) internal_sub<S>(gba, a, b, c)
-#else
-#define set_logical_flags_arm(gba, S, result, new_carry) set_logical_flags(gba, S, result, new_carry)
-#define internal_add_arm(gba, S, a, b) internal_add(gba, S, a, b)
-#define internal_addc_arm(gba, S, a, b, c) internal_add(gba, S, a, b, c)
-#define internal_sub_arm(gba, S, a, b) internal_sub(gba, S, a, b)
-#define internal_subc_arm(gba, S, a, b, c) internal_sub(gba, S, a, b, c)
-#endif
+// marking this inline saves about 20KiB for some reason
+template<
+    u8 shift_type, // see barrel_shifter.hpp
+    bool reg_shift // 0=shift reg by imm, 1=shift reg by reg
+>
+inline auto shift_thing2(Gba& gba, const uint32_t opcode, std::uint32_t& oprand1, std::uint8_t Rn)
+{
+    const auto Rm = bit::get_range<0, 3>(opcode);
+    const auto old_carry = CPU.cpsr.C;
+    auto reg_to_shift = get_reg(gba, Rm);
+
+    if constexpr(reg_shift)
+    {
+        if (Rm == PC_INDEX) [[unlikely]]
+        {
+            reg_to_shift += 4;
+        }
+        if (Rn == PC_INDEX) [[unlikely]]
+        {
+            oprand1 += 4;
+        }
+        const auto Rs = bit::get_range<8, 11>(opcode);
+        assert(Rs != PC_INDEX);
+        const auto shift_amount = get_reg(gba, Rs) & 0xFF;
+        return barrel::shift_reg<shift_type>(reg_to_shift, shift_amount, old_carry);
+    }
+    else
+    {
+        const auto shift_amount = bit::get_range<7, 11>(opcode);
+        return barrel::shift_imm<shift_type>(reg_to_shift, shift_amount, old_carry);
+    }
+}
+
 } // namespace gba::arm7tdmi

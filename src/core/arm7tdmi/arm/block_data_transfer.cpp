@@ -5,26 +5,26 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
-#include <bit>
 #include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::arm {
 
-arm_instruction_template
+// I don't template this function because it's mostly very unnecessary
+// because rlist=0 is not very common case, thus, its a waste of
+// icache space.
 auto block_data_transfer_empty_rlist(Gba& gba, uint32_t opcode) -> void
 {
-    auto P = bit_decoded_is_set_arm(24);
-    CONSTEXPR_ARM const auto U = bit_decoded_is_set_arm(23);
-    auto W = bit_decoded_is_set_arm(21);
-    CONSTEXPR_ARM const auto L = bit_decoded_is_set_arm(20); // 0=STM, 1=LDM
+    auto P = bit::is_set<24>(opcode);
+    const auto U = bit::is_set<23>(opcode);
+    auto W = bit::is_set<21>(opcode);
+    const auto L = bit::is_set<20>(opcode);
     const auto Rn = bit::get_range<16, 19>(opcode);
 
     auto addr = get_reg(gba, Rn);
     auto final_addr = addr;
 
     // if set we are incrementing, else, going down
-    if CONSTEXPR_ARM (U)
+    if (U)
     {
         final_addr = addr + 0x40;
     }
@@ -42,7 +42,7 @@ auto block_data_transfer_empty_rlist(Gba& gba, uint32_t opcode) -> void
 
     const auto pre = P ? 4 : 0;
 
-    if CONSTEXPR_ARM (L)
+    if (L)
     {
         addr += pre;
         const auto value = mem::read32(gba, addr);
@@ -62,39 +62,35 @@ auto block_data_transfer_empty_rlist(Gba& gba, uint32_t opcode) -> void
 }
 
 // page 82
-arm_instruction_template
+template<
+    bool P2,
+    bool U,
+    bool S,
+    bool W2,
+    bool L  // 0=STM, 1=LDM
+>
 auto block_data_transfer(Gba& gba, uint32_t opcode) -> void
 {
-    auto P = bit_decoded_is_set_arm(24);
-    CONSTEXPR_ARM const auto U = bit_decoded_is_set_arm(23);
-    CONSTEXPR_ARM const auto S = bit_decoded_is_set_arm(22);
-    auto W = bit_decoded_is_set_arm(21);
-    CONSTEXPR_ARM const auto L = bit_decoded_is_set_arm(20); // 0=STM, 1=LDM
+    auto P = P2;
+    auto W = W2;
     const auto Rn = bit::get_range<16, 19>(opcode);
     auto Rlist = bit::get_range<0, 15>(opcode);
 
     if (!Rlist)
     {
-        gba_log("\tempty rlist in block_data_transfer\n");
-        #if RELEASE_BUILD_ARM == 1
-        block_data_transfer_empty_rlist<decoded_opcode>(gba, opcode);
-        #else
-        block_data_transfer_empty_rlist(gba, opcode);
-        #endif
         // this just simplifies stuff
+        gba_log("\tempty rlist in block_data_transfer\n");
+        block_data_transfer_empty_rlist(gba, opcode);
         return;
     }
 
-    gba_log("\tblock_data_transfer: %s Rn: %u\n", L ? "LDM" : "STM", Rn);
-
     const auto r15_in_rlist = bit::is_set<PC_INDEX>(Rlist);
-    //const auto rn_in_rlist = bit::is_set(Rlist, Rn);
 
     bool did_swap_modes = false;
     auto old_mode = get_mode(gba);
 
     // this is where the pain begins (it never ends)
-    if CONSTEXPR_ARM (S)
+    if constexpr(S)
     {
         if (r15_in_rlist && L)
         {
@@ -115,7 +111,7 @@ auto block_data_transfer(Gba& gba, uint32_t opcode) -> void
     auto final_addr = addr;
 
     // if set we are incrementing, else, going down
-    if CONSTEXPR_ARM (U)
+    if constexpr(U)
     {
         final_addr = addr + (std::popcount(Rlist) * 4);
     }
@@ -136,7 +132,7 @@ auto block_data_transfer(Gba& gba, uint32_t opcode) -> void
     const auto post = P ? 0 : 4;
 
     // if set, load, else, store
-    if CONSTEXPR_ARM (L)
+    if constexpr(L)
     {
         while (Rlist)
         {

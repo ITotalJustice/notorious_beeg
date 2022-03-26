@@ -4,7 +4,6 @@
 #include "eeprom.hpp"
 #include "gba.hpp"
 #include <algorithm>
-#include <iterator>
 #include <ranges>
 #include <cstdint>
 

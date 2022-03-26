@@ -119,19 +119,19 @@ auto Sqrt(Gba& gba) -> void
 
 auto hle(Gba& gba, std::uint8_t comment_field) -> bool
 {
-    //std::printf("[SWI] comment_field: %u %s\n", comment_field, SWI_STR[comment_field]);
+    //gba_log("[SWI] comment_field: %u %s\n", comment_field, SWI_STR[comment_field]);
 
     switch (comment_field)
     {
         case 0x02: Halt(gba); return true;
 
-        // case 0x04: std::printf("[BIOS-HLE] IntrWait\n"); return false;
-        // case 0x05: std::printf("[BIOS-HLE] VBlankIntrWait\n"); return false;
+        // case 0x04: gba_log("[BIOS-HLE] IntrWait\n"); return false;
+        // case 0x05: gba_log("[BIOS-HLE] VBlankIntrWait\n"); return false;
 
-        case 0x06: std::printf("[BIOS-HLE] Div\n"); Div(gba); return true;
-        case 0x08: std::printf("[BIOS-HLE] Sqrt\n"); Sqrt(gba); return true;
-        // case 0x09: std::printf("[BIOS-HLE] ArcTan\n"); ArcTan(gba); return true;
-        // case 0x0A: std::printf("[BIOS-HLE] ArcTan2\n"); ArcTan2(gba); return true;
+        case 0x06: gba_log("[BIOS-HLE] Div\n"); Div(gba); return true;
+        case 0x08: gba_log("[BIOS-HLE] Sqrt\n"); Sqrt(gba); return true;
+        // case 0x09: gba_log("[BIOS-HLE] ArcTan\n"); ArcTan(gba); return true;
+        // case 0x0A: gba_log("[BIOS-HLE] ArcTan2\n"); ArcTan2(gba); return true;
 
         default:
             gba_log("unhandled hle: 0x%02X\n", comment_field);

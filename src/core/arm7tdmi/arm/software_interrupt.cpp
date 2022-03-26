@@ -4,7 +4,6 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include "mem.hpp"
 
 namespace gba::arm7tdmi::arm {
 

@@ -5,9 +5,10 @@
 #include "gba.hpp"
 #include "timer.hpp"
 #include "dma.hpp"
-#include <utility>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 
 namespace gba::scheduler
 {

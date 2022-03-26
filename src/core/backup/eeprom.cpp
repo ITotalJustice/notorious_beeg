@@ -3,6 +3,7 @@
 
 #include "eeprom.hpp"
 #include "gba.hpp"
+#include <cassert>
 #include <algorithm>
 #include <ranges>
 #include <cstdint>

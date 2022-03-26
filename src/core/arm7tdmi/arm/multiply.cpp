@@ -7,15 +7,16 @@
 #include "mem.hpp"
 #include <bit>
 #include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::arm {
 
 // page 65 (4.7)
+template<
+    bool A, // 0=mul, 1=mul and accumulate
+    bool S  // 0=no flags, 1=mod flags
+>
 auto multiply(Gba& gba, uint32_t opcode) -> void
 {
-    const auto A = bit::is_set<21>(opcode); // 0=mul, 1=mul and accumulate
-    const auto S = bit::is_set<20>(opcode); // 0=no flags, 1=mod flags
     const auto Rd = bit::get_range<16, 19>(opcode); // dst
     const auto Rn = bit::get_range<12, 15>(opcode); // oprand
     const auto Rs = bit::get_range<8, 11>(opcode); // oprand
@@ -30,7 +31,7 @@ auto multiply(Gba& gba, uint32_t opcode) -> void
 
     const std::uint32_t result = a * b + c;
 
-    if (S)
+    if constexpr (S)
     {
         // todo: carry is set to random value???
         CPU.cpsr.Z = result == 0;

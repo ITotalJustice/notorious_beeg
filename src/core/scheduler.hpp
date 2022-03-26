@@ -6,7 +6,7 @@
 #include "fwd.hpp"
 #include <cstdint>
 #include <array>
-#include <concepts>
+#include <utility>
 
 namespace gba::scheduler
 {

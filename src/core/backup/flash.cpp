@@ -1,7 +1,6 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include "backup.hpp"
 #include "backup/flash.hpp"
 #include "fwd.hpp"
 #include "gba.hpp"

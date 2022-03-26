@@ -59,7 +59,7 @@ auto check_cond(const Gba& gba, uint8_t cond) -> bool
         case COND_LT: return CPU.cpsr.N != CPU.cpsr.V;
         case COND_GT: return !CPU.cpsr.Z && (CPU.cpsr.N == CPU.cpsr.V);
         case COND_LE: return CPU.cpsr.Z || (CPU.cpsr.N != CPU.cpsr.V);
-        [[likely]] case COND_AL: return true;
+        case COND_AL: return true;
     }
 
     assert(!"unreachable hit");
@@ -335,11 +335,7 @@ auto set_reg(Gba& gba, uint8_t reg, uint32_t value) -> void
     // hack for thumb, todo, fix
     if (reg == PC_INDEX) [[unlikely]]
     {
-        // CPU.registers[PC_INDEX] &= ~0x1;
-        // if (get_state(gba) == State::THUMB)
-            CPU.registers[PC_INDEX] &= ~0x1;
-        // else
-            // CPU.registers[PC_INDEX] &= ~0x3;
+        CPU.registers[PC_INDEX] &= ~0x1;
         refill_pipeline(gba);
     }
 }
@@ -354,12 +350,7 @@ auto set_reg_data_processing(Gba& gba, uint8_t reg, uint32_t value) -> void
     // hack for thumb, todo, fix
     if (reg == PC_INDEX) [[unlikely]]
     {
-        // if (get_state(gba) == State::THUMB)
-        // if (get_state(gba) == State::THUMB)
-            CPU.registers[PC_INDEX] &= ~0x1;
-        // else
-            // CPU.registers[PC_INDEX] &= ~0x3;
-        // CPU.registers[reg] &= ~0x1;
+        CPU.registers[PC_INDEX] &= ~0x1;
     }
 }
 
@@ -438,53 +429,6 @@ auto wallmart_debugger(Gba& gba) -> void
     }
 }
 
-auto calc_vflag(const uint32_t a, const uint32_t b, const uint32_t r) -> bool
-{
-    return (bit::is_set<31>(a) == bit::is_set<31>(b)) && (bit::is_set<31>(a) != bit::is_set<31>(r));
-}
-
-auto internal_add(Gba& gba, bool S, uint32_t a, uint32_t b, bool carry) -> uint32_t
-{
-    const uint32_t result = a + b + carry;
-
-    // only update cpsr if S bit was set
-    if (S) [[likely]]
-    {
-        CPU.cpsr.Z = result == 0;
-        CPU.cpsr.C = (static_cast<uint64_t>(a) + static_cast<uint64_t>(b) + carry) > UINT32_MAX;
-        CPU.cpsr.N = bit::is_set<31>(result);
-        CPU.cpsr.V = calc_vflag(a, b, result);
-    }
-
-    return result;
-}
-
-auto internal_sub(Gba& gba, bool S, uint32_t a, uint32_t b, bool carry) -> uint32_t
-{
-    const uint32_t result = a - (b + carry);
-
-    // only update cpsr if S bit was set
-    if (S) [[likely]]
-    {
-        CPU.cpsr.Z = result == 0;
-        CPU.cpsr.C = !(a < (b + carry));
-        CPU.cpsr.N = bit::is_set<31>(result);
-        CPU.cpsr.V = calc_vflag(a, ~b, result);
-    }
-
-    return result;
-}
-
-auto set_logical_flags(Gba& gba, bool S, std::uint32_t result, bool carry) -> void
-{
-    if (S) [[likely]]
-    {
-        CPU.cpsr.Z = result == 0;
-        CPU.cpsr.C = carry;
-        CPU.cpsr.N = bit::is_set<31>(result);
-    }
-};
-
 auto fire_interrupt(Gba& gba, Interrupt i) -> void
 {
     REG_IF |= static_cast<std::uint16_t>(i);
@@ -504,8 +448,6 @@ auto toggle_breakpoint(Gba& gba, bool enable) -> void
 
 auto on_int(Gba& gba)
 {
-    //toggle_breakpoint(gba, true);
-    // CPU.breakpoint=true;
     //printf("performing irq IE: 0x%04X IF 0x%04X lr: 0x%08X pc: 0x%08X mode: %u state: %s\n", REG_IE, REG_IF, get_lr(gba), get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
 
     const auto state = get_state(gba);
@@ -573,13 +515,19 @@ auto on_halt_event(Gba& gba) -> void
 
 auto on_halt_trigger(Gba& gba, HaltType type) -> void
 {
-    if ((REG_IME & 1) && REG_IE && !gba.cpu.cpsr.I)
+    // halt can actually always be enabled regardless of
+    // the value of IE and if interrupts are disabled or not.
+    // however, we esnure the halt is valid, in order to catch bugs.
+    if (REG_IE && !gba.cpu.cpsr.I) [[likely]]
     {
         if (type == HaltType::write)
         {
-            // fleroviux: I noticed that HALTCNT actually only seems accessible from BIOS code
-            assert((arm7tdmi::get_pc(gba) >> 24) == 0x0 && "halt called outside bios region, let fleroviux know the game");
-            return;
+            if ((arm7tdmi::get_pc(gba) >> 24) != 0x0) [[unlikely]]
+            {
+                // fleroviux: I noticed that HALTCNT actually only seems accessible from BIOS code
+                assert((arm7tdmi::get_pc(gba) >> 24) == 0x0 && "halt called outside bios region, let fleroviux know the game");
+                return;
+            }
         }
 
         assert(gba.cpu.halted == false);

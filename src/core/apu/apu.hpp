@@ -4,7 +4,6 @@
 #pragma once
 
 #include "fwd.hpp"
-#include <bitset>
 #include <cstddef>
 #include <cstdint>
 

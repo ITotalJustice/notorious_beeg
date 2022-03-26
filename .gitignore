@@ -11,3 +11,4 @@ src/core/old/
 *.raw
 *.zip
 misc/
+.clangd

@@ -12,20 +12,11 @@
 
 namespace gba::arm7tdmi::arm {
 
-auto fetch(Gba& gba)
-{
-    const auto opcode = CPU.pipeline[0];
-    CPU.pipeline[0] = CPU.pipeline[1];
-    gba.cpu.registers[PC_INDEX] += 4;
-    CPU.pipeline[1] = mem::read32(gba, get_pc(gba));
-    CPU.opcode = opcode;
-
-    return opcode;
-}
-
 enum class Instruction
 {
     data_processing,
+    msr,
+    mrs,
     multiply,
     multiply_long,
     single_data_swap,
@@ -41,18 +32,20 @@ enum class Instruction
 
 constexpr auto decode_template(auto opcode)
 {
-    #if RELEASE_BUILD_ARM == 1
     return (bit::get_range<20, 27>(opcode) << 4) | (bit::get_range<4, 7>(opcode));
-    #else
-    return opcode;
-    #endif
 }
 
 // page 44
-constexpr auto decode(uint32_t opcode) -> Instruction
+consteval auto decode(uint32_t opcode) -> Instruction
 {
     constexpr auto data_processing_mask_a = decode_template(0b0000'110'0000'0'0000'0000'000000000000);
     constexpr auto data_processing_mask_b = decode_template(0b0000'000'0000'0'0000'0000'000000000000);
+
+    constexpr auto mrs_mask_a = decode_template(0b0000'11111'0'111111'0000'111111111111);
+    constexpr auto mrs_mask_b = decode_template(0b0000'00010'0'001111'0000'000000000000);
+
+    constexpr auto msr_mask_a = decode_template(0b0000'11'0'11'0'1'1'0'0'0'0'1111'000000000000);
+    constexpr auto msr_mask_b = decode_template(0b0000'00'0'10'0'1'0'0'0'0'0'1111'000000000000);
 
     constexpr auto multiply_mask_a = decode_template(0b0000'111111'0'0'0000'0000'0000'1'11'1'0000);
     constexpr auto multiply_mask_b = decode_template(0b0000'000000'0'0'0000'0000'0000'1'00'1'0000);
@@ -127,45 +120,209 @@ constexpr auto decode(uint32_t opcode) -> Instruction
     {
         return Instruction::halfword_data_transfer_register_offset;
     }
+    else if ((opcode & msr_mask_a) == msr_mask_b)
+    {
+        return Instruction::msr;
+    }
+    else if ((opcode & mrs_mask_a) == mrs_mask_b)
+    {
+        return Instruction::mrs;
+    }
     else if ((opcode & data_processing_mask_a) == data_processing_mask_b)
     {
         return Instruction::data_processing;
     }
 
-    assert(0 && "how");
     return Instruction::undefined;
 }
 
-#if RELEASE_BUILD_ARM == 1
+constexpr auto decode_str(Instruction i) -> const char*
+{
+    switch (i)
+    {
+        case Instruction::data_processing: return "data_processing";
+        case Instruction::msr: return "msr";
+        case Instruction::mrs: return "mrs";
+        case Instruction::multiply: return "multiply";
+        case Instruction::multiply_long: return "multiply_long";
+        case Instruction::single_data_swap: return "single_data_swap";
+        case Instruction::branch_and_exchange: return "branch_and_exchange";
+        case Instruction::halfword_data_transfer_register_offset: return "halfword_data_transfer_register_offset";
+        case Instruction::halfword_data_transfer_immediate_offset: return "halfword_data_transfer_immediate_offset";
+        case Instruction::single_data_transfer: return "single_data_transfer";
+        case Instruction::undefined: return "undefined";
+        case Instruction::block_data_transfer: return "block_data_transfer";
+        case Instruction::branch: return "branch";
+        case Instruction::software_interrupt: return "software_interrupt";
+    }
+
+    std::unreachable();
+}
 
 auto undefined(Gba& gba, u32 opcode) -> void
 {
-    (void)gba;
-    printf("[arm] undefined %08X\n", opcode);
+    std::printf("[arm] undefined %08X\n", opcode);
+    assert(!"[arm] undefined");
 }
 
-template <u16 i, u16 end>
+template<auto b>
+consteval auto decoded_is_set(auto v)
+{
+    // 27-20 and 7-4
+    static_assert((b <= 27 && b >= 20) || (b <= 7 && b >= 4), "invalid");
+    if constexpr(b <= 27 && b >= 20)
+    {
+        constexpr auto new_bit = (b - 20) + 4;
+        return bit::is_set<new_bit>(v);
+    }
+    else
+    {
+        constexpr auto new_bit = b - 4;
+        return bit::is_set<new_bit>(v);
+    }
+}
+
+template<u8 start, u8 end>
+consteval auto decoded_get_range(auto v)
+{
+    static_assert((start <= 27 && start >= 20) || (start <= 7 && start >= 4), "invalid");
+    static_assert((end <= 27 && end >= 20) || (end <= 7 && end >= 4), "invalid");
+
+    if constexpr(start <= 27 && start >= 20)
+    {
+        constexpr u8 new_start = (start - 20) + 4;
+        constexpr u8 new_end = (end - 20) + 4;
+        return bit::get_range<new_start, new_end>(v);
+    }
+    else
+    {
+        constexpr u8 new_start = start - 4;
+        constexpr u8 new_end = end - 4;
+        return bit::get_range<new_start, new_end>(v);
+    }
+}
+
+template <int i, int end>
 consteval auto fill_table(auto& table) -> void
 {
     constexpr auto instruction = decode(i);
 
     switch (instruction)
     {
-        case Instruction::data_processing: table[i] = data_processing<i>; break;
-        case Instruction::multiply: table[i] = multiply; break;
-        case Instruction::multiply_long: table[i] = multiply_long<i>; break;
-        case Instruction::single_data_swap: table[i] = single_data_swap; break;
-        case Instruction::branch_and_exchange: table[i] = branch_and_exchange; break;
-        case Instruction::halfword_data_transfer_register_offset: table[i] = halfword_data_transfer_register_offset<i>; break;
-        case Instruction::halfword_data_transfer_immediate_offset: table[i] = halfword_data_transfer_immediate_offset<i>; break;
-        case Instruction::single_data_transfer: table[i] = single_data_transfer<i>; break;
-        case Instruction::undefined: table[i] = undefined; break;
-        case Instruction::block_data_transfer: table[i] = block_data_transfer<i>; break;
-        case Instruction::branch: table[i] = branch; break;
-        case Instruction::software_interrupt: table[i] = software_interrupt; break;
+        case Instruction::data_processing: {
+            constexpr auto I = decoded_is_set<25>(i);
+            constexpr auto S = decoded_is_set<20>(i);
+            constexpr auto Op = decoded_get_range<21, 24>(i);
+
+            if constexpr(I == 0) // reg
+            {
+                constexpr auto shift_type = decoded_get_range<5, 6>(i);
+                constexpr auto reg_shift = decoded_is_set<4>(i);
+                table[i] = data_processing_reg<S, Op, shift_type, reg_shift>;
+            }
+            else // imm
+            {
+                table[i] = data_processing_imm<S, Op>;
+            }
+        } break;
+
+        case Instruction::msr: {
+            constexpr auto I = decoded_is_set<25>(i); // 0=reg, 1=imm
+            constexpr auto P = decoded_is_set<22>(i); // 0=cpsr, 1=spsr
+            table[i] = msr<I, P>;
+        } break;
+
+        case Instruction::mrs: {
+            constexpr auto P = decoded_is_set<22>(i); // 0=cpsr, 1=spsr
+            table[i] = mrs<P>;
+        } break;
+
+        case Instruction::multiply: {
+            constexpr auto A = decoded_is_set<21>(i); // 0=mul, 1=mul and accumulate
+            constexpr auto S = decoded_is_set<20>(i); // 0=no flags, 1=mod flags
+            table[i] = multiply<A, S>;
+        } break;
+
+        case Instruction::multiply_long: {
+            constexpr auto U = decoded_is_set<22>(i); // 0=unsigned, 1=signed
+            constexpr auto A = decoded_is_set<21>(i); // 0=mull, 1=mlal and accumulate
+            constexpr auto S = decoded_is_set<20>(i); // 0=no flags, 1=mod flags
+            table[i] = multiply_long<U, A, S>;
+        } break;
+
+        case Instruction::single_data_swap: {
+            constexpr auto B = decoded_is_set<22>(i); // 0=word, 1=byte
+            table[i] = single_data_swap<B>;
+        } break;
+
+        case Instruction::branch_and_exchange: {
+            table[i] = branch_and_exchange;
+        } break;
+
+        case Instruction::halfword_data_transfer_register_offset: {
+            constexpr auto P = decoded_is_set<24>(i);
+            constexpr auto U = decoded_is_set<23>(i);
+            constexpr auto W = decoded_is_set<21>(i);
+            constexpr auto L = decoded_is_set<20>(i);
+            constexpr auto S = decoded_is_set<6>(i);
+            constexpr auto H = decoded_is_set<5>(i);
+            table[i] = halfword_data_transfer_register_offset<P, U, W, L, S, H>;
+        } break;
+
+        case Instruction::halfword_data_transfer_immediate_offset: {
+            constexpr auto P = decoded_is_set<24>(i);
+            constexpr auto U = decoded_is_set<23>(i);
+            constexpr auto W = decoded_is_set<21>(i);
+            constexpr auto L = decoded_is_set<20>(i);
+            constexpr auto S = decoded_is_set<6>(i);
+            constexpr auto H = decoded_is_set<5>(i);
+            table[i] = halfword_data_transfer_immediate_offset<P, U, W, L, S, H>;
+        } break;
+
+        case Instruction::single_data_transfer: {
+            constexpr auto I = decoded_is_set<25>(i); // 0=imm,1=reg
+            constexpr auto P = decoded_is_set<24>(i); // 0=post,1=pre
+            constexpr auto U = decoded_is_set<23>(i); // 0=sub,1=add
+            constexpr auto L = decoded_is_set<20>(i); // 0=str,1=ldr
+            constexpr auto B = decoded_is_set<22>(i); // 0=byte,1=word
+            constexpr auto W = decoded_is_set<21>(i); // 0=none,1=write
+
+            if constexpr(I == 0) // imm
+            {
+                table[i] = single_data_transfer_imm<P, U, L, B, W>;
+            }
+            else
+            {
+                constexpr auto shift_type = decoded_get_range<5, 6>(i);
+                constexpr auto reg_shift = decoded_is_set<4>(i);
+                table[i] = single_data_transfer_reg<P, U, L, B, W, shift_type, reg_shift>;
+            }
+        } break;
+
+        case Instruction::undefined: {
+            table[i] = undefined;
+        } break;
+
+        case Instruction::block_data_transfer: {
+            constexpr auto P = decoded_is_set<24>(i);
+            constexpr auto U = decoded_is_set<23>(i);
+            constexpr auto S = decoded_is_set<22>(i);
+            constexpr auto W = decoded_is_set<21>(i);
+            constexpr auto L = decoded_is_set<20>(i); // 0=STM, 1=LDM
+            table[i] = block_data_transfer<P, U, S, W, L>;
+        } break;
+
+        case Instruction::branch: {
+            constexpr const auto L = decoded_is_set<24>(i);
+            table[i] = branch<L>;
+        } break;
+
+        case Instruction::software_interrupt: {
+            table[i] = software_interrupt;
+        } break;
     }
 
-    if constexpr (i == end)
+    if constexpr(i == end)
     {
         return;
     }
@@ -175,10 +332,9 @@ consteval auto fill_table(auto& table) -> void
     };
 }
 
-using func_type = void (*)(Gba&, uint32_t);
-
 consteval auto generate_function_table()
 {
+    using func_type = void (*)(Gba&, uint32_t);
     std::array<func_type, 4096> table{};
     table.fill(undefined);
 
@@ -204,81 +360,33 @@ consteval auto generate_function_table()
 
 constexpr auto func_table = generate_function_table();
 
-auto execute(Gba& gba) -> void
+auto fetch(Gba& gba)
 {
-    const auto opcode = fetch(gba);
+    const auto opcode = CPU.pipeline[0];
+    CPU.pipeline[0] = CPU.pipeline[1];
+    gba.cpu.registers[PC_INDEX] += 4;
+    CPU.pipeline[1] = mem::read32(gba, get_pc(gba));
+    CPU.opcode = opcode;
 
-    if (check_cond(gba, opcode >> 28))
-    {
-        func_table[decode_template(opcode)](gba, opcode);
-    }
-}
-#else
-auto decode_str(Instruction i) -> const char*
-{
-    switch (i)
-    {
-        case Instruction::data_processing: return "data_processing";
-        case Instruction::multiply: return "multiply";
-        case Instruction::multiply_long: return "multiply_long";
-        case Instruction::single_data_swap: return "single_data_swap";
-        case Instruction::branch_and_exchange: return "branch_and_exchange";
-        case Instruction::halfword_data_transfer_register_offset: return "halfword_data_transfer_register_offset";
-        case Instruction::halfword_data_transfer_immediate_offset: return "halfword_data_transfer_immediate_offset";
-        case Instruction::single_data_transfer: return "single_data_transfer";
-        case Instruction::undefined: return "undefined";
-        case Instruction::block_data_transfer: return "block_data_transfer";
-        case Instruction::branch: return "branch";
-        case Instruction::software_interrupt: return "software_interrupt";
-    }
-
-    return "NULL";
+    return opcode;
 }
 
 auto execute(Gba& gba) -> void
 {
     const auto opcode = fetch(gba);
-    const auto instruction = decode(opcode);
+    const auto cond = bit::get_range<28, 31>(opcode);
 
-    if (instruction == Instruction::undefined)
-    {
-        std::printf("[ARM] PC: 0x%08X opcode: 0x%08X decoded: %s\n", get_pc(gba) - (CPU.cpsr.T ? 2 * 2 : 4 * 2), opcode, decode_str(instruction));
-        print_bits<32>(opcode);
-        std::printf("cpsr: 0x%08X\n", get_u32_from_cpsr(gba));
-        std::printf("spsr: 0x%08X\n", get_u32_from_spsr(gba));
-        assert(instruction != Instruction::undefined);
-    }
-
-    if (CPU.breakpoint)
-    {
-        std::printf("[ARM] PC: 0x%08X opcode: 0x%08X decoded: %s cpsr: 0x%08X spsr: 0x%08X mode: %u\n", get_pc(gba) - (CPU.cpsr.T ? 2 * 2 : 4 * 2), opcode, decode_str(instruction), get_u32_from_cpsr(gba), get_u32_from_spsr(gba), get_mode(gba));
-    }
-
-    const auto cond = opcode >> 28;
+    // it's highly likely that cond == 0xE, so we optimise for that
+    // before hitting the switch (slower).
     if (cond != COND_AL) [[unlikely]]
     {
-        if (check_cond(gba, cond) == false)
+        if (!check_cond(gba, cond))
         {
             return;
         }
     }
 
-    switch (instruction)
-    {
-        case Instruction::data_processing: data_processing(gba, opcode); break;
-        case Instruction::multiply: multiply(gba, opcode); break;
-        case Instruction::multiply_long: multiply_long(gba, opcode); break;
-        case Instruction::single_data_swap: single_data_swap(gba, opcode); break;
-        case Instruction::branch_and_exchange: branch_and_exchange(gba, opcode); break;
-        case Instruction::halfword_data_transfer_register_offset: halfword_data_transfer_register_offset(gba, opcode); break;
-        case Instruction::halfword_data_transfer_immediate_offset: halfword_data_transfer_immediate_offset(gba, opcode); break;
-        case Instruction::single_data_transfer: single_data_transfer(gba, opcode); break;
-        case Instruction::undefined: assert(!"unimpl undefined"); break;
-        case Instruction::block_data_transfer: block_data_transfer(gba, opcode); break;
-        case Instruction::branch: branch(gba, opcode); break;
-        case Instruction::software_interrupt: software_interrupt(gba, opcode); break;
-    }
+    func_table[decode_template(opcode)](gba, opcode);
 }
-#endif
 
 } // namespace gba::arm7tdmi::arm

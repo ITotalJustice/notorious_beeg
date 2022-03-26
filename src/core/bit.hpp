@@ -38,21 +38,6 @@ consteval auto get_mask() -> T {
     }
 }
 
-// [[nodiscard]]
-// constexpr u32 rotr(const u32 value, const u32 shift) {
-//     return std::rotr(value, shift);
-// }
-
-// static_assert(
-//     rotr(0b1111'1111'1111'1111'1111'1111'1111'1111, 2) == 0b1111'1111'1111'1111'1111'1111'1111'1111 &&
-//     rotr(0b0011'1111'1111'1111'1111'1111'1111'1111, 2) == 0b1100'1111'1111'1111'1111'1111'1111'1111 &&
-//     // all 1's
-//     rotr(0b1111'1111'1111'1111'1111'1111'1111'1111, 69) == 0b1111'1111'1111'1111'1111'1111'1111'1111 &&
-//     // same as rotr(x, 2)
-//     rotr(0b0011'1111'1111'1111'1111'1111'1111'1111, 34) == 0b1100'1111'1111'1111'1111'1111'1111'1111,
-//     "bit::rotr is broken!"
-// );
-
 // bit value should probably be either masked or, in debug mode,
 // check if bit is ever >= 32, if so, throw.
 template <IntV T> [[nodiscard]]
@@ -60,19 +45,6 @@ constexpr auto is_set(const T value, const u32 bit) -> bool {
     assert(bit < (sizeof(T) * 8) && "bit value out of bounds!");
     return !!(value & (1ULL << bit));
 }
-
-// these are broken!! no mask range is applied!
-// template <IntV T> [[nodiscard]]
-// constexpr T set(const T value, const u32 bit, const bool on) {
-//     assert(bit < (sizeof(T) * 8) && "bit value out of bounds!");
-//     return value | (on << bit);
-// }
-
-// template <IntV T> [[nodiscard]]
-// constexpr T unset(const T value, const u32 bit) {
-//     assert(bit < (sizeof(T) * 8) && "bit value out of bounds!");
-//     return value & (~(1ULL << bit));
-// }
 
 // compile-time bit-size checked checked alternitives
 template <u8 bit, IntV T> [[nodiscard]]
@@ -120,12 +92,12 @@ static_assert(
 // NOTE: the bit<> starts at 1!
 // so for bit0, use bit<1> instead!
 template <u8 start_size> [[nodiscard]]
-constexpr auto sign_extend(const u32 value) -> s32 {
+constexpr auto sign_extend(const s32 value) -> s32 {
     static_assert(start_size != 0, "bad start size");
     static_assert(start_size <= 31, "bit start size is out of bounds!");
 
-    const u8 bits = 32 - start_size;
-    return static_cast<s32>(value << bits) >> bits;
+    constexpr u8 bits = 32 - start_size;
+    return (value << bits) >> bits;
 }
 
 template <u8 start_size, u32 value> [[nodiscard]]
@@ -166,11 +138,6 @@ consteval auto get_mask() -> T {
 
     return result;
 }
-
-// template <u8 start, u8 end, IntV T> [[nodiscard]]
-// constexpr auto mask(T value) -> T {
-//     return value & get_mask<start, end, T>();
-// }
 
 static_assert(
     bit::get_mask<3, 5, u32>() == 0b111'000 &&

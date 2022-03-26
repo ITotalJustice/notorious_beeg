@@ -4,10 +4,7 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include "mem.hpp"
-#include <bit>
 #include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::arm {
 
@@ -24,7 +21,6 @@ auto branch_and_exchange(Gba& gba, uint32_t opcode) -> void
         CPU.cpsr.T = static_cast<bool>(gba::arm7tdmi::State::THUMB);
         set_pc(gba, addr & ~0x1);
     }
-
     else
     {
         gba_log("[ARM-BX] switching to ARM Rn: %u addr: 0x%08X\n", Rn, addr);

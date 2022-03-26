@@ -7,65 +7,15 @@
 #include <cstddef>
 #include <cstdint>
 // todo: remove, this is a helper function for debugging
-#include <bitset>
-#include <iostream>
-#include "bit.hpp"
+// #include <bitset>
+// #include <iostream>
 
 namespace gba::arm7tdmi {
-
-#if RELEASE_BUILD_ARM == 1
-    template<auto b>
-    constexpr auto __is_set_arm(auto v)
-    {
-        // 27-20 and 7-4
-        static_assert((b <= 27 && b >= 20) || (b <= 7 && b >= 4), "invalid");
-        if constexpr(b <= 27 && b >= 20)
-        {
-            constexpr auto new_bit = (b - 20) + 4;
-            return bit::is_set<new_bit>(v);
-        }
-        else
-        {
-            constexpr auto new_bit = b - 4;
-            return bit::is_set<new_bit>(v);
-        }
-    }
-
-    template<u8 start, u8 end>
-    constexpr auto __get_range_arm(auto v)
-    {
-        static_assert((start <= 27 && start >= 20) || (start <= 7 && start >= 4), "invalid");
-        static_assert((end <= 27 && end >= 20) || (end <= 7 && end >= 4), "invalid");
-
-        if constexpr(start <= 27 && start >= 20)
-        {
-            constexpr u8 new_start = (start - 20) + 4;
-            constexpr u8 new_end = (end - 20) + 4;
-            return bit::get_range<new_start, new_end>(v);
-        }
-        else
-        {
-            constexpr u8 new_start = start - 4;
-            constexpr u8 new_end = end - 4;
-            return bit::get_range<new_start, new_end>(v);
-        }
-    }
-
-    #define CONSTEXPR_ARM constexpr
-    #define arm_instruction_template template <std::uint16_t decoded_opcode>
-    #define bit_decoded_get_range_arm(start, end) __get_range_arm<start, end>(decoded_opcode)
-    #define bit_decoded_is_set_arm(x) __is_set_arm<x>(decoded_opcode)
-#else
-    #define CONSTEXPR_ARM
-    #define arm_instruction_template
-    #define bit_decoded_get_range_arm(start, end) bit::get_range<start, end>(opcode)
-    #define bit_decoded_is_set_arm(x) bit::is_set<x>(opcode)
-#endif
 
 template<uint8_t bits>
 auto print_bits(auto value) -> void
 {
-    std::cout << std::bitset<bits>(value) << '\n';
+    // std::cout << std::bitset<bits>(value) << '\n';
 }
 
 constexpr auto SP_INDEX = 13; // stack pointer
@@ -213,12 +163,6 @@ STATIC_INLINE auto set_reg_data_processing(Gba& gba, uint8_t reg, uint32_t value
 STATIC_INLINE auto set_reg_thumb(Gba& gba, uint8_t reg, uint32_t value) -> void;
 
 STATIC_INLINE auto run(Gba& gba) -> void;
-
-[[nodiscard]]
-STATIC_INLINE auto calc_vflag(uint32_t a, uint32_t b, uint32_t r) -> bool;
-STATIC_INLINE auto internal_add(Gba& gba, bool S, uint32_t a, uint32_t b, bool carry = false) -> uint32_t;
-STATIC_INLINE auto internal_sub(Gba& gba, bool S, uint32_t a, uint32_t b, bool carry = false) -> uint32_t;
-STATIC_INLINE auto set_logical_flags(Gba& gba, bool S, std::uint32_t result, bool carry) -> void;
 
 // on halt event
 enum class HaltType

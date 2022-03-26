@@ -176,13 +176,13 @@ auto on_fifo_empty(Gba& gba, std::uint8_t num) -> void
 
     if (i == 1 && gba.dma[i].dst_addr != mem::IO_FIFO_A_L && gba.dma[i].mode == Channel::Mode::special)
     {
-        std::printf("addr: 0x%08X\n", gba.dma[i].dst_addr);
+        gba_log("addr: 0x%08X\n", gba.dma[i].dst_addr);
         assert(0);
         return;
     }
     if (i == 2 && gba.dma[i].dst_addr != mem::IO_FIFO_B_L && gba.dma[i].mode == Channel::Mode::special)
     {
-        std::printf("addr: 0x%08X\n", gba.dma[i].dst_addr);
+        gba_log("addr: 0x%08X\n", gba.dma[i].dst_addr);
         assert(0);
         return;
     }

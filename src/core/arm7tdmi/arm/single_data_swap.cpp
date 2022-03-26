@@ -7,14 +7,15 @@
 #include "mem.hpp"
 #include <bit>
 #include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::arm {
 
 // page 89 (4.12)
+template<
+    bool B // 0=word, 1=byte
+>
 auto single_data_swap(Gba& gba, uint32_t opcode) -> void
 {
-    const auto B = bit::is_set<22>(opcode); // 0=word, 1=byte
     const auto Rn = bit::get_range<16, 19>(opcode); // base address
     const auto Rd = bit::get_range<12, 15>(opcode); // dst
     const auto Rm = bit::get_range<0, 3>(opcode); // src value
@@ -22,7 +23,7 @@ auto single_data_swap(Gba& gba, uint32_t opcode) -> void
     const auto base_address = get_reg(gba, Rn);
     const auto to_mem = get_reg(gba, Rm);
 
-    if (B) // byte
+    if constexpr(B) // byte
     {
         const auto to_reg = mem::read8(gba, base_address);
         mem::write8(gba, base_address, to_mem);

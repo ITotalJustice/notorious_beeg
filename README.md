@@ -15,6 +15,7 @@ gba emulator witten in c++23.
 - bundle normmatt's bios as default fallback if a bios isn't provided. addresses [#9](https://github.com/ITotalJustice/notorious_beeg/issues/9)
 - fixed arm templatated builds by removing printf from constexpr function.
 - heavily reduced number of templated functions generated for thumb [#11](https://github.com/ITotalJustice/notorious_beeg/issues/11). removed non-templated thumb option as compile times are still instant.
+- heavily reduced number of templated functions generated for arm [#11](https://github.com/ITotalJustice/notorious_beeg/issues/11). removed non-templated arm option as compile times are still instant.
 
 0.0.1
 - added readme
@@ -79,9 +80,18 @@ gba emulator witten in c++23.
 - metroid zero 3k fps (title) 2-3k fps (in game)
 
 ## todo
-- reduce template bloat for arm/thumb instructions by creating dedicated functions for every possible version, ie, data_proc_add_imm_s. this will GREATLY reduce bloat, which is nicer for icache and also compile times. to achive this, still have normal template function, such as data_proc, so data_proc_add_imm_s will call that template func. the template<> will have to be toggled by a macro so that debug builds can still be fast (instant) and not templated at all.
 - better optimise vram r/w (somehow adjust the masking so it always works).
 - refcator code. make functions into methods where possible (and if it makes sense).
+
+## optimisations
+- further reduce template bloat for arm/thumb instructions. this will help for platforms that have a small-ish icache.
+- measure dmg apu channels on scheduler VS ticking them on sample(), likely it's faster to tick on sample().
+- batch samples. basically, on sample callback, save everything needed (about 8 bytes) to an array. after X amount of entries added, process all samples at once. this can be processed on the audio thread (frontend) or still in emu core.
+- tick arm/thumb in a loop. break out of this loop only on new_frame_event or state changed. this avoids the switch(state) on each ittr.
+- once the above tick arm/thumb is impl, start impl computed goto. along side this (or first), impl switch() version as well. measure all 3 versions!
+- prioritise ewram access first as thats the most common path.
+- check for fast paths in dma's. check if they can be memcpy (doesnt cross boundries) / memset (if the src addr doesnt change). cache this check if R (repeat) is set, so on next dma fire, we know its fast path already.
+- measure different impl of mem r/w. current impl uses fastmem, with a fallback to a function table. should be very fast, but maybe the indirection of all r/w access is too slow.
 
 ## thanks
 - cowbite spec <https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm>
