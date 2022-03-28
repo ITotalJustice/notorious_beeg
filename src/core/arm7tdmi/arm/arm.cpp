@@ -340,7 +340,7 @@ consteval auto fill_table(auto& table) -> void
     else
     {
         fill_table<i + 1, end>(table);
-    };
+    }
 }
 
 consteval auto generate_function_table()

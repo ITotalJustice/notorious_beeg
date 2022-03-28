@@ -7,22 +7,212 @@
 #include <gba.hpp>
 #include <cstdint>
 #include <fstream>
+#include <memory>
 #include <vector>
-#include <optional>
 #include <SDL.h>
 #include <chrono>
 
 namespace {
 
-static gba::Gba gameboy_advance{};
-static SDL_AudioDeviceID audio_device{};
-static SDL_AudioStream* audio_stream{};
-static SDL_AudioSpec aspec_wnt{};
-static SDL_AudioSpec aspec_got{};
+struct System
+{
+    ~System();
 
-auto running = true;
+    auto init(int argc, char** argv) -> bool;
+    auto run() -> void;
+    auto on_key_event(const SDL_KeyboardEvent& e) -> void;
 
-auto on_key_event(const SDL_KeyboardEvent& e) -> void
+    auto loadrom(std::string path) -> bool;
+
+    auto loadsave(std::string path) -> bool;
+    auto savegame(std::string path) const -> bool;
+
+    auto loadstate(std::string path) -> bool;
+    auto savestate(std::string path) const -> bool;
+
+    static inline gba::Gba gameboy_advance{};
+    static inline SDL_Window* window{};
+    static inline SDL_Renderer* renderer{};
+    static inline SDL_Texture* texture{};
+    static inline SDL_AudioDeviceID audio_device{};
+    static inline SDL_AudioStream* audio_stream{};
+    static inline SDL_AudioSpec aspec_wnt{};
+    static inline SDL_AudioSpec aspec_got{};
+    static constexpr inline auto width = 240;
+    static constexpr inline auto height = 160;
+    static constexpr inline auto scale = 2;
+    std::string rom_path{};
+    bool has_rom{false};
+    bool running{true};
+};
+
+auto audio_callback(void* user, Uint8* data, int len) -> void
+{
+    auto sys = static_cast<System*>(user);
+
+    // this shouldn't be needed, however it causes less pops on startup
+    if (SDL_AudioStreamAvailable(sys->audio_stream) < len * 4)
+    {
+        std::memset(data, sys->aspec_got.silence, len);
+        return;
+    }
+
+    SDL_AudioStreamGet(sys->audio_stream, data, len);
+}
+
+auto push_sample_callback(void* user, std::int16_t left, std::int16_t right) -> void
+{
+#if SPEED_TEST == 0
+    auto sys = static_cast<System*>(user);
+    const int16_t samples[2] = {left, right};
+    SDL_AudioStreamPut(sys->audio_stream, samples, sizeof(samples));
+#endif
+}
+
+auto dumpfile(std::string path, std::span<const std::uint8_t> data) -> bool
+{
+    std::ofstream fs{path.c_str(), std::ios_base::binary};
+
+    if (fs.good())
+    {
+        fs.write(reinterpret_cast<const char*>(data.data()), data.size());
+
+        if (fs.good())
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+auto loadfile(std::string path) -> std::vector<std::uint8_t>
+{
+    std::ifstream fs{path.c_str(), std::ios_base::binary};
+
+    if (fs.good()) {
+        fs.seekg(0, std::ios_base::end);
+        const auto size = fs.tellg();
+        fs.seekg(0, std::ios_base::beg);
+
+        std::vector<std::uint8_t> data;
+        data.resize(size);
+
+        fs.read(reinterpret_cast<char*>(data.data()), data.size());
+
+        if (fs.good())
+        {
+            return data;
+        }
+    }
+
+    return {};
+}
+
+auto create_save_path(const std::string& path) -> std::string
+{
+    return path + ".sav";
+}
+
+auto create_state_path(const std::string& path) -> std::string
+{
+    return path  + ".state";
+}
+
+System::~System()
+{
+    // save game on exit
+    if (this->has_rom)
+    {
+        this->savegame(this->rom_path);
+    }
+    if (audio_device) SDL_CloseAudioDevice(audio_device);
+    if (audio_stream) SDL_FreeAudioStream(audio_stream);
+    if (texture) SDL_DestroyTexture(texture);
+    if (renderer) SDL_DestroyRenderer(renderer);
+    if (window) SDL_DestroyWindow(window);
+    SDL_Quit();
+}
+
+auto System::loadrom(std::string path) -> bool
+{
+    if (this->has_rom)
+    {
+        this->savegame(this->rom_path);
+        this->has_rom = false;
+    }
+
+    this->rom_path = path;
+    const auto rom_data = loadfile(this->rom_path);
+    if (rom_data.empty())
+    {
+        return false;
+    }
+
+    if (!gameboy_advance.loadrom(rom_data))
+    {
+        return false;
+    }
+
+    this->has_rom = true;
+    this->loadsave(this->rom_path);
+
+    return true;
+}
+
+auto System::loadsave(std::string path) -> bool
+{
+    const auto save_path = create_save_path(path);
+    const auto save_data = loadfile(save_path);
+    if (!save_data.empty())
+    {
+        std::printf("loading save from: %s\n", save_path.c_str());
+        return gameboy_advance.loadsave(save_data);
+    }
+
+    return false;
+}
+
+auto System::savegame(std::string path) const -> bool
+{
+    const auto save_path = create_save_path(path);
+    const auto save_data = gameboy_advance.getsave();
+    if (!save_data.empty())
+    {
+        std::printf("dumping save to: %s\n", save_path.c_str());
+        return dumpfile(save_path, save_data);
+    }
+
+    return false;
+}
+
+auto System::loadstate(std::string path) -> bool
+{
+    const auto state_path = create_state_path(path);
+    const auto state_data = loadfile(state_path);
+    if (!state_data.empty() && state_data.size() == sizeof(gba::State))
+    {
+        std::printf("loadstate from: %s\n", state_path.c_str());
+        auto state = std::make_unique<gba::State>();
+        std::memcpy(state.get(), state_data.data(), state_data.size());
+        return this->gameboy_advance.loadstate(*state);
+    }
+    return false;
+}
+
+auto System::savestate(std::string path) const -> bool
+{
+    auto state = std::make_unique<gba::State>();
+    if (this->gameboy_advance.savestate(*state))
+    {
+        const auto state_path = create_state_path(path);
+        std::printf("savestate to: %s\n", state_path.c_str());
+        return dumpfile(state_path, {reinterpret_cast<std::uint8_t*>(state.get()), sizeof(gba::State)});
+    }
+    return false;
+}
+
+auto System::on_key_event(const SDL_KeyboardEvent& e) -> void
 {
     const auto down = e.type == SDL_KEYDOWN;
     const auto ctrl = (e.keysym.mod & KMOD_CTRL) > 0;
@@ -30,6 +220,11 @@ auto on_key_event(const SDL_KeyboardEvent& e) -> void
 
     if (ctrl)
     {
+        if (down)
+        {
+            return;
+        }
+
         if (shift)
         {
         }
@@ -38,11 +233,11 @@ auto on_key_event(const SDL_KeyboardEvent& e) -> void
             switch (e.keysym.scancode)
             {
                 case SDL_SCANCODE_S:
-                    gameboy_advance.savestate("rom.state");
+                    this->savestate(this->rom_path);
                     break;
 
                 case SDL_SCANCODE_L:
-                    gameboy_advance.loadstate("rom.state");
+                    this->loadstate(this->rom_path);
                     break;
 
                 default: break; // silence enum warning
@@ -73,97 +268,51 @@ auto on_key_event(const SDL_KeyboardEvent& e) -> void
     }
 }
 
-auto load(std::string_view path) -> std::optional<std::vector<std::uint8_t>> {
-    std::ifstream fs{path.data(), std::ios_base::binary};
-
-    if (fs.good()) {
-        fs.seekg(0, std::ios_base::end);
-        const auto size = fs.tellg();
-        fs.seekg(0, std::ios_base::beg);
-
-        std::vector<std::uint8_t> data;
-        data.resize(size);
-
-        fs.read(reinterpret_cast<char*>(data.data()), data.size());
-        return data;
-    }
-
-    return std::nullopt;
-}
-
 } // namespace
 
-auto audio_callback(void* user, Uint8* data, int len) -> void
-{
-    // this shouldn't be needed, however it causes less pops on startup
-    if (SDL_AudioStreamAvailable(audio_stream) < len * 4)
-    {
-        std::memset(data, aspec_got.silence, len);
-        return;
-    }
-
-    SDL_AudioStreamGet(audio_stream, data, len);
-}
-
-auto push_sample(std::int16_t left, std::int16_t right) -> void
-{
-#if SPEED_TEST == 0
-    const int16_t samples[2] = {left, right};
-    SDL_AudioStreamPut(audio_stream, samples, sizeof(samples));
-#endif
-}
-
-auto main(int argc, char** argv) -> int
+auto System::init(int argc, char** argv) -> bool
 {
     // enable to record audio
     #if DUMP_AUDIO
         SDL_setenv("SDL_AUDIODRIVER", "disk", 1);
     #endif
 
-    std::printf("argc: %d argv[0]: %s argv[1]: %s\n", argc, argv[0], argv[1]);
-
     if (argc < 2)
     {
-        return -1;
+        return false;
     }
 
-    const auto rom = load(argv[1]);
-    if (rom->empty())
+    if (!this->loadrom(argv[1]))
     {
-        return -1;
-    }
-
-    if (!gameboy_advance.loadrom(rom.value()))
-    {
-        return -1;
+        return false;
     }
 
     if (argc == 3)
     {
         std::printf("loading bios\n");
-        const auto bios = load(argv[2]);
-        if (bios->empty())
+        const auto bios = loadfile(argv[2]);
+        if (bios.empty())
         {
-            return -1;
+            return false;
         }
 
-        gameboy_advance.loadbios(bios.value());
+        if (!gameboy_advance.loadbios(bios))
+        {
+            return false;
+        }
     }
 
-    constexpr auto width = 240;
-    constexpr auto height = 160;
-    constexpr auto scale = 2;
+    // set audio callback and user data
+    this->gameboy_advance.set_userdata(this);
+    this->gameboy_advance.set_audio_callback(push_sample_callback);
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
-    auto window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, 0);
-    auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    auto texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
+    this->window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, 0);
+    this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    this->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
     #if SPEED_TEST == 0
     SDL_RenderSetVSync(renderer, 1);
     #endif
-
-    auto start_time = std::chrono::high_resolution_clock::now();
-    auto fps = 0;
 
     aspec_wnt = SDL_AudioSpec
     {
@@ -175,7 +324,7 @@ auto main(int argc, char** argv) -> int
         .padding = 0,
         .size = 0,
         .callback = audio_callback,
-        .userdata = NULL,
+        .userdata = this,
     };
 
     // allow all apsec to be changed if needed.
@@ -183,7 +332,7 @@ auto main(int argc, char** argv) -> int
     audio_device = SDL_OpenAudioDevice(nullptr, 0, &aspec_wnt, &aspec_got, SDL_AUDIO_ALLOW_ANY_CHANGE);
     if (audio_device == 0)
     {
-        return -1;
+        return false;
     }
 
     audio_stream = SDL_NewAudioStream(
@@ -199,8 +348,15 @@ auto main(int argc, char** argv) -> int
 
     SDL_PauseAudioDevice(audio_device, 0);
 
+    return true;
+}
+
+auto System::run() -> void
+{
     #if SPEED_TEST == 1
+    auto start_time = std::chrono::high_resolution_clock::now();
     auto start_frame_time = std::chrono::high_resolution_clock::now();
+    auto fps = 0;
     #endif
 
     while (running)
@@ -254,13 +410,16 @@ auto main(int argc, char** argv) -> int
         }
         #endif
     }
+}
 
-    SDL_CloseAudioDevice(audio_device);
-    SDL_FreeAudioStream(audio_stream);
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+auto main(int argc, char** argv) -> int
+{
+    auto system = std::make_unique<System>();
+
+    if (system->init(argc, argv))
+    {
+        system->run();
+    }
 
     return 0;
 }

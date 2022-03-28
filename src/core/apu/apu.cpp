@@ -16,7 +16,6 @@
 // gcc did not virtualise all the functions, even with final
 // decided on templates instead, this worked nicely
 // but still it is a mix of class / template / legacy c code
-extern auto push_sample(std::int16_t left, std::int16_t right) -> void;
 
 namespace gba::apu
 {
@@ -1129,9 +1128,14 @@ auto Fifo::sample() -> int8_t
 
 auto sample(Gba& gba)
 {
+    if (!gba.audio_callback) [[unlikely]]
+    {
+        return;
+    }
+
     if (!is_apu_enabled(gba)) [[unlikely]]
     {
-        push_sample(0, 0);
+        gba.audio_callback(gba.userdata, 0, 0);
         return;
     }
 
@@ -1166,12 +1170,12 @@ auto sample(Gba& gba)
     const auto final_fifo_left = (fifo_a_left + fifo_b_left) / 2;
     const auto final_gb_left = (((square0_left + square1_left + wave_left + noise_left) * left_vol) >> master_vol) / 4;
     const auto final_fifo_right = (fifo_a_right + fifo_b_right) / 2;
-    const auto final_gb_right = (((square0_right + square1_right + wave_right + noise_right) * right_vol) >> master_vol) / 4;;
+    const auto final_gb_right = (((square0_right + square1_right + wave_right + noise_right) * right_vol) >> master_vol) / 4;
 
     const auto left = final_fifo_left + final_gb_left;
     const auto right = final_fifo_right + final_gb_right;
 
-    push_sample(left<<8, right<<8);
+    gba.audio_callback(gba.userdata, left<<8, right<<8);
 }
 
 auto on_sample_event(Gba& gba) -> void

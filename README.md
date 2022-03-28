@@ -37,6 +37,8 @@ gba emulator witten in c++23.
 - fixed savestates so that the memtables are re-setup and all events in scheduler have their function pointers set
 - use sdl audio stream to allow for wanted changes to format/freq when init audio.
 - fixed renaming of decode_template function in arm.cpp for templated builds, this would cause build errors for templated arm builds.
+- added save support. on startup, the save for a game will be loaded, on exit, the save will be dumped.
+- per game savestates.
 
 ## broken
 -
@@ -70,7 +72,6 @@ gba emulator witten in c++23.
 - flash
 - dma3 special
 - timer cascade
-- dumping saves
 - all non-bitmap modes
 - apu writes ignored on apu disabled
 - unused bits

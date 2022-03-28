@@ -6,6 +6,8 @@
 #include "gba.hpp"
 #include <cstdint>
 #include <utility>
+#include <algorithm>
+#include <ranges>
 
 namespace gba::backup::flash
 {
@@ -16,6 +18,32 @@ auto Flash::init(Gba& gba, Type new_type) -> void
     this->mask = std::to_underlying(new_type) - 1;
     this->bank = 0;
     this->state = State::READY;
+}
+
+auto Flash::load_data(std::span<const std::uint8_t> new_data) -> bool
+{
+    if (new_data.size() == std::to_underlying(Type::Flash64))
+    {
+        std::ranges::copy(new_data, this->data);
+        this->type = Type::Flash64;
+        return true;
+    }
+    else if (new_data.size() == std::to_underlying(Type::Flash128))
+    {
+        std::ranges::copy(new_data, this->data);
+        this->type = Type::Flash128;
+        return true;
+    }
+    else
+    {
+        std::printf("[FLASH] tried loading bad save data: %zu\n", new_data.size());
+        return false;
+    }
+}
+
+auto Flash::get_data() const -> std::span<const std::uint8_t>
+{
+    return this->data;
 }
 
 auto Flash::get_manufacturer_id() const -> uint8_t
@@ -40,7 +68,7 @@ auto Flash::get_device_id() const -> uint8_t
     std::unreachable();
 }
 
-auto Flash::read(Gba& gba, u32 addr) -> u8
+auto Flash::read(Gba& gba, std::uint32_t addr) -> std::uint8_t
 {
     if (addr == 0x0E000000)
     {
@@ -51,12 +79,12 @@ auto Flash::read(Gba& gba, u32 addr) -> u8
         return this->get_device_id();
     }
 
-    return this->data[this->bank][addr & this->mask];
+    return this->data[(this->bank + addr) & this->mask];
 }
 
-auto Flash::write(Gba& gba, u32 addr, u8 value) -> void
+auto Flash::write(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
 {
-    this->data[this->bank][addr & this->mask] = value;
+    this->data[(this->bank + addr) & this->mask] = value;
 }
 
 } // namespace gba::backup::flash

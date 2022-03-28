@@ -4,6 +4,7 @@
 #pragma once
 
 #include "fwd.hpp"
+#include <cstdint>
 #include <span>
 
 namespace gba::backup::sram
@@ -18,10 +19,11 @@ struct Sram
     bool dummy_union_write;
 
     auto init(Gba& gba) -> void;
-    auto load_data(std::span<const std::uint8_t> new_data) -> void;
+    auto load_data(std::span<const std::uint8_t> new_data) -> bool;
+    auto get_data() const -> std::span<const std::uint8_t>;
 
-    auto read(Gba& gba, u32 addr) -> u8;
-    auto write(Gba& gba, u32 addr, u8 value) -> void;
+    auto read(Gba& gba, std::uint32_t addr) -> std::uint8_t;
+    auto write(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void;
 };
 
 } // namespace gba::backup::sram

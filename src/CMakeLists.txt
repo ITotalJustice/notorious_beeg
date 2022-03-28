@@ -58,7 +58,7 @@ list(APPEND clang_flags
     -Wformat=2
     -Wundef
     -Wmissing-include-dirs
-    -Wstrict-aliasing=3
+    -Wstrict-aliasing
     -Wstrict-overflow=5
     -Walloca
     -Wwrite-strings
@@ -71,18 +71,22 @@ list(APPEND clang_flags
     -Wunused-macros
     -Wreserved-id-macro
     -Wbad-function-cast
-    -Wbitwise-op-parentheses
     -Wbitfield-enum-conversion
     -Wno-missing-braces # false positive
 
     -Wno-unused-parameter
     -Wno-unused-variable
     # -Wno-gnu-case-range
-    -Wno-c99-designator
+    -Wextra-semi-stmt
+    -Wold-style-cast
+    -Wcovered-switch-default
 
     # can try enabling this just to see what breaks (still compiles as of clang 11)
     # be sure to enable (well, disable) the below flags else a *lot* of "errors"
     # -Weverything
+    # -Wno-c++98-compat
+    # -Wno-c++98-compat-pedantic
+    # -Wno-c++20-compat
     # -Wno-conversion
     # -Wno-sign-conversion
     # -Wno-missing-prototypes

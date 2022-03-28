@@ -27,21 +27,24 @@ auto Eeprom::init(Gba& gba) -> void
     this->bit_read_counter = READ_COUNTER_RESET;
 }
 
-auto Eeprom::load_data(std::span<const std::uint8_t> new_data) -> void
+auto Eeprom::load_data(std::span<const std::uint8_t> new_data) -> bool
 {
     if (new_data.size() == 512)
     {
         std::ranges::copy(new_data, this->data);
         this->set_width(Width::small);
+        return true;
     }
     else if (new_data.size() == 8 * 1024)
     {
         std::ranges::copy(new_data, this->data);
         this->set_width(Width::beeg);
+        return true;
     }
     else
     {
         std::printf("[EEPROM] tried loading bad save data: %zu\n", new_data.size());
+        return false;
     }
 }
 
@@ -52,8 +55,9 @@ auto Eeprom::get_data() const -> std::span<const std::uint8_t>
         case Width::unknown: return {};
         case Width::small: return {this->data, 512};
         case Width::beeg: return this->data;
-        default: std::unreachable();
     }
+
+    std::unreachable();
 }
 
 auto Eeprom::on_state_change(State new_state) -> void
@@ -80,7 +84,7 @@ auto Eeprom::set_width(Width new_width) -> void
     }
 }
 
-auto Eeprom::read(Gba& gba, u32 addr) -> u8
+auto Eeprom::read(Gba& gba, std::uint32_t addr) -> std::uint8_t
 {
     // usually a game will do this to check if its in ready state
     if (this->request != Request::read)
@@ -114,7 +118,7 @@ auto Eeprom::read(Gba& gba, u32 addr) -> u8
     return value;
 }
 
-auto Eeprom::write(Gba& gba, u32 addr, u8 value) -> void
+auto Eeprom::write(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
 {
     this->bits <<= 1;
     this->bits |= value & 1; // shift in only 1 bit at a time

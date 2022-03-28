@@ -1,7 +1,7 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include "eeprom.hpp"
+#include "backup/sram.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
 #include <algorithm>
@@ -19,28 +19,35 @@ auto Sram::init(Gba& gba) -> void
     this->dummy_union_write = true;
 }
 
-auto Sram::load_data(std::span<const std::uint8_t> new_data) -> void
+auto Sram::load_data(std::span<const std::uint8_t> new_data) -> bool
 {
     if (new_data.size() <= std::size(this->data))
     {
         std::ranges::copy(new_data, this->data);
+        return true;
     }
     else
     {
         std::printf("[SRAM] tried loading bad save data: %zu\n", new_data.size());
+        return false;
     }
+}
+
+auto Sram::get_data() const -> std::span<const std::uint8_t>
+{
+    return this->data;
 }
 
 constexpr auto SRAM_MASK = sizeof(Sram::data)-1;
 
-auto Sram::read(Gba& gba, u32 addr) -> u8
+auto Sram::read(Gba& gba, std::uint32_t addr) -> std::uint8_t
 {
-    return mem::read_array<u8>(this->data, SRAM_MASK, addr);
+    return mem::read_array<std::uint8_t>(this->data, SRAM_MASK, addr);
 }
 
-auto Sram::write(Gba& gba, u32 addr, u8 value) -> void
+auto Sram::write(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
 {
-    mem::write_array<u8>(this->data, SRAM_MASK, addr, value);
+    mem::write_array<std::uint8_t>(this->data, SRAM_MASK, addr, value);
 }
 
 } // namespace gba::backup::eeprom

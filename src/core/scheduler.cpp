@@ -32,9 +32,9 @@ auto fire_all_expired_events(Gba& gba)
 
         if (entry.enabled && entry.cycles <= gba.scheduler.cycles)
         {
-            assert((Event)i != Event::HALT);
+            assert(static_cast<Event>(i) != Event::HALT);
             entry.enabled = false;
-            if ((Event)i != Event::HALT && (Event)i != Event::DMA)
+            if (static_cast<Event>(i) != Event::HALT && static_cast<Event>(i) != Event::DMA)
             {
                 entry.delta = entry.cycles - gba.scheduler.cycles;
                 assert(entry.delta <= 0);

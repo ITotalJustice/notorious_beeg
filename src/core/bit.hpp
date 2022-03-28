@@ -110,13 +110,13 @@ consteval auto sign_extend() -> s32 {
 
 static_assert(
     // simple 24-bit asr
-    bit::sign_extend<24>(0b1100'1111'1111'1111'1111'1111) == (s32)0b1111'1111'1100'1111'1111'1111'1111'1111 &&
+    bit::sign_extend<24>(0b1100'1111'1111'1111'1111'1111) == static_cast<std::int32_t>(0b1111'1111'1100'1111'1111'1111'1111'1111) &&
     // set the sign-bit to bit 1, then asr 31-bits
-    bit::sign_extend<1>(0b0001) == (s32)0b1111'1111'1111'1111'1111'1111'1111'1111 &&
+    bit::sign_extend<1>(0b0001) == static_cast<std::int32_t>(0b1111'1111'1111'1111'1111'1111'1111'1111) &&
     // this is used in thumb ldr halword sign
-    bit::sign_extend<16>(0b0000'0000'1110'0000'1111'1111'1111'1111) == (s32)0b1111'1111'1111'1111'1111'1111'1111'1111 &&
+    bit::sign_extend<16>(0b0000'0000'1110'0000'1111'1111'1111'1111) == static_cast<std::int32_t>(0b1111'1111'1111'1111'1111'1111'1111'1111) &&
     // same as above but no sign
-    bit::sign_extend<16>(0b0000'0000'1110'0000'0111'1111'1111'1111) == (s32)0b0000'0000'0000'0000'0111'1111'1111'1111,
+    bit::sign_extend<16>(0b0000'0000'1110'0000'0111'1111'1111'1111) == static_cast<std::int32_t>(0b0000'0000'0000'0000'0111'1111'1111'1111),
     "sign_extend is broken!"
 );
 

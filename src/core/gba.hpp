@@ -37,6 +37,9 @@ enum Button : std::uint16_t
     RESET = A | B | START | SELECT,
 };
 
+struct State;
+using AudioCallback = void(*)(void* user, std::int16_t left, std::int16_t right);
+
 struct Gba
 {
     bool halted;
@@ -62,13 +65,22 @@ struct Gba
     auto loadbios(std::span<const std::uint8_t> new_bios) -> bool;
     auto run(std::size_t cycles = 280896) -> void;
 
-    // auto loadstate(std::span<const std::uint8_t> state) -> bool;
-    auto loadstate(std::string_view path) -> bool;
-    // auto savestate(std::span<std::uint8_t> state) -> bool;
-    auto savestate(std::string_view path) -> bool;
+    auto loadstate(const State& state) -> bool;
+    auto savestate(State& state) const -> bool;
+
+    // load a save from data, must be used after a game has loaded
+    auto loadsave(std::span<const std::uint8_t> new_save) -> bool;
+    // returns empty spam if the game doesn't have a save
+    auto getsave() const -> std::span<const std::uint8_t>;
 
     // OR keys together
     auto setkeys(std::uint16_t buttons, bool down) -> void;
+
+    auto set_userdata(void* user) { this->userdata = user; }
+    auto set_audio_callback(AudioCallback cb) { this->audio_callback = cb; }
+
+    void* userdata{};
+    AudioCallback audio_callback{};
 };
 
 struct State

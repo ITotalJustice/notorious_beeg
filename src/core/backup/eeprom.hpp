@@ -5,7 +5,6 @@
 
 #include "fwd.hpp"
 #include <cstdint>
-#include <array>
 #include <span>
 
 namespace gba::backup::eeprom
@@ -36,7 +35,6 @@ enum class Width : std::uint8_t
 struct Eeprom
 {
 public:
-    // std::array<std::uint8_t, 8 * 1024> data;
     std::uint8_t data[8 * 1024];
     std::uint16_t read_address; // address of read | write mode
     std::uint16_t write_address; // address of read | write mode
@@ -52,11 +50,11 @@ public:
     auto init(Gba& gba) -> void;
     auto set_width(Width new_width) -> void;
 
-    auto load_data(std::span<const std::uint8_t> new_data) -> void;
+    auto load_data(std::span<const std::uint8_t> new_data) -> bool;
     auto get_data() const -> std::span<const std::uint8_t>;
 
-    auto read(Gba& gba, u32 addr) -> u8;
-    auto write(Gba& gba, u32 addr, u8 value) -> void;
+    auto read(Gba& gba, std::uint32_t addr) -> std::uint8_t;
+    auto write(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void;
 
 private:
     auto on_state_change(State new_state) -> void;

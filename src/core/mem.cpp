@@ -418,7 +418,7 @@ constexpr auto write_io8(Gba& gba, std::uint32_t addr, std::uint8_t value) -> vo
     }
     else
     {
-        actual_value |= (u16)MEM.io[addr & 0x3FF] << 8;
+        actual_value |= static_cast<std::uint16_t>(MEM.io[addr & 0x3FF]) << 8;
     }
 
     write_io16(gba, addr & ~0x1, actual_value);

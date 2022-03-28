@@ -19,11 +19,7 @@ namespace gba::arm7tdmi {
 
 auto reset(Gba& gba) -> void
 {
-    // skip libc array init crt0 armwrestler.
-    // jumps to <https://github.com/destoer/armwrestler-gba-fixed/blob/master/source/armwrestler.s#L23>
-    // enum { ROM_START_ADDR = 0x080009E0 };
     enum { ROM_START_ADDR = 0x08000000 };
-    // enum { ROM_START_ADDR = 0x080002D8 };
     // enum { ROM_START_ADDR = 0 }; // bios
 
     // CPU.cpsr.M = MODE_USER;
@@ -386,49 +382,6 @@ auto software_interrupt(Gba& gba, std::uint8_t comment_field) -> void
     }
 }
 
-auto skip_ctr0_loop = false;
-
-auto wallmart_debugger(Gba& gba) -> void
-{
-    if (CPU.breakpoint)
-    {
-        for (;;)
-        {
-            const auto c = std::getchar();
-
-            switch (c)
-            {
-                case ' ': case '\n':
-                    return;
-
-                // jump to the end of crt0
-                case 'j':
-                    // set_pc(gba, 0x080009E0);
-                    set_pc(gba, 0x0800017C);
-                    return;
-
-                case 'e':
-                    CPU.breakpoint = false;
-                    return;
-
-                // skip ctr0 loop
-                case 'c':
-                    CPU.breakpoint = false;
-                    skip_ctr0_loop = true;
-                    return;
-
-                case 'd':
-                    std::exit(0);
-                    break;
-
-                default:
-                    std::printf("in debug mode, press valid key: %d\n", c);
-                    break;
-            }
-        }
-    }
-}
-
 auto fire_interrupt(Gba& gba, Interrupt i) -> void
 {
     REG_IF |= static_cast<std::uint16_t>(i);
@@ -543,10 +496,6 @@ auto on_halt_trigger(Gba& gba, HaltType type) -> void
 
 auto run(Gba& gba) -> void
 {
-    //CPU.breakpoint=false;
-
-    // wallmart_debugger(gba);
-
     #if ENABLE_SCHEDULER == 0
     poll_interrupts(gba);
 

@@ -6,6 +6,7 @@
 #include "fwd.hpp"
 #include <array>
 #include <cstdint>
+#include <span>
 
 // https://dillonbeliveau.com/2020/06/05/GBA-FLASH.html
 namespace gba::backup::flash
@@ -41,17 +42,20 @@ struct Flash
 {
 public:
     // 2 banks of 64K
-    u8 data[2][1024 * 64];
+    std::uint8_t data[1024 * 64 * 2];
     std::uint32_t mask;
-    bool bank;
+    std::uint32_t bank; // 0 or 1024*64
 
     Command command;
     State state;
     Type type;
 
     auto init(Gba& gba, Type new_type) -> void;
-    auto read(Gba& gba, u32 addr) -> u8;
-    auto write(Gba& gba, u32 addr, u8 value) -> void;
+    auto load_data(std::span<const std::uint8_t> new_data) -> bool;
+    auto get_data() const -> std::span<const std::uint8_t>;
+
+    auto read(Gba& gba, std::uint32_t addr) -> std::uint8_t;
+    auto write(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void;
 
 private:
     auto get_manufacturer_id() const -> uint8_t;

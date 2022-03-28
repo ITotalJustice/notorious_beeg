@@ -135,79 +135,112 @@ auto Gba::setkeys(std::uint16_t buttons, bool down) -> void
     #undef KEY
 }
 
-static State state = {};
-
 constexpr auto STATE_MAGIC = 0xFACADE;
 constexpr auto STATE_VERSION = 0x1;
-constexpr auto STATE_SIZE = sizeof(state);
+constexpr auto STATE_SIZE = sizeof(State);
 
-auto Gba::loadstate(std::string_view path) -> bool
+auto Gba::loadstate(const State& state) -> bool
 {
-    std::ifstream fs{path.data(), std::ios_base::binary};
-
-    if (fs.good()) {
-        fs.read(reinterpret_cast<char*>(&state), sizeof(state));
-
-        if (state.magic != STATE_MAGIC)
-        {
-            return false;
-        }
-        if (state.version != STATE_VERSION)
-        {
-            return false;
-        }
-        if (state.size != STATE_SIZE)
-        {
-            return false;
-        }
-        if (state.crc != 0)
-        {
-            return false;
-        }
-
-        std::memcpy(&this->cycles2, &state.cycles2, sizeof(state.cycles2));
-        std::memcpy(&this->cycles, &state.cycles, sizeof(state.cycles));
-        std::memcpy(&this->scheduler, &state.scheduler, sizeof(state.scheduler));
-        std::memcpy(&this->cpu, &state.cpu, sizeof(state.cpu));
-        std::memcpy(&this->apu, &state.apu, sizeof(state.apu));
-        std::memcpy(&this->ppu, &state.ppu, sizeof(state.ppu));
-        std::memcpy(&this->mem, &state.mem, sizeof(state.mem));
-        std::memcpy(&this->dma, &state.dma, sizeof(state.dma));
-        std::memcpy(&this->timer, &state.timer, sizeof(state.timer));
-        std::memcpy(&this->backup, &state.backup, sizeof(state.backup));
-        mem::setup_tables(*this);
-        scheduler::on_loadstate(*this);
+    if (state.magic != STATE_MAGIC)
+    {
+        return false;
+    }
+    if (state.version != STATE_VERSION)
+    {
+        return false;
+    }
+    if (state.size != STATE_SIZE)
+    {
+        return false;
+    }
+    if (state.crc != 0)
+    {
+        return false;
     }
 
-    return false;
+    this->cycles2 = state.cycles2;
+    this->cycles = state.cycles;
+    this->scheduler = state.scheduler;
+    this->cpu = state.cpu;
+    this->apu = state.apu;
+    this->ppu = state.ppu;
+    this->mem = state.mem;
+    this->dma[0] = state.dma[0];
+    this->dma[1] = state.dma[1];
+    this->dma[2] = state.dma[2];
+    this->dma[3] = state.dma[3];
+    this->timer[0] = state.timer[0];
+    this->timer[1] = state.timer[1];
+    this->timer[2] = state.timer[2];
+    this->timer[3] = state.timer[3];
+    this->backup = state.backup;
+    mem::setup_tables(*this);
+    scheduler::on_loadstate(*this);
+
+    return true;
 }
 
-auto Gba::savestate(std::string_view path) -> bool
+auto Gba::savestate(State& state) const -> bool
 {
-    std::ofstream fs{path.data(), std::ios_base::binary};
+    state.magic = STATE_MAGIC;
+    state.version = STATE_VERSION;
+    state.size = STATE_SIZE;
+    state.crc = 0;
 
-    if (fs.good()) {
-        state.magic = STATE_MAGIC;
-        state.version = STATE_VERSION;
-        state.size = STATE_SIZE;
-        state.crc = 0;
+    state.cycles2 = this->cycles2;
+    state.cycles = this->cycles;
+    state.scheduler = this->scheduler;
+    state.cpu = this->cpu;
+    state.apu = this->apu;
+    state.ppu = this->ppu;
+    state.mem = this->mem;
+    state.dma[0] = this->dma[0];
+    state.dma[1] = this->dma[1];
+    state.dma[2] = this->dma[2];
+    state.dma[3] = this->dma[3];
+    state.timer[0] = this->timer[0];
+    state.timer[1] = this->timer[1];
+    state.timer[2] = this->timer[2];
+    state.timer[3] = this->timer[3];
+    state.backup = this->backup;
 
-        std::memcpy(&state.cycles2, &this->cycles2, sizeof(this->cycles2));
-        std::memcpy(&state.cycles, &this->cycles, sizeof(this->cycles));
-        std::memcpy(&state.scheduler, &this->scheduler, sizeof(this->scheduler));
-        std::memcpy(&state.cpu, &this->cpu, sizeof(this->cpu));
-        std::memcpy(&state.apu, &this->apu, sizeof(this->ppu));
-        std::memcpy(&state.ppu, &this->ppu, sizeof(this->ppu));
-        std::memcpy(&state.mem, &this->mem, sizeof(this->mem));
-        std::memcpy(&state.dma, &this->dma, sizeof(this->dma));
-        std::memcpy(&state.timer, &this->timer, sizeof(this->timer));
-        std::memcpy(&state.backup, &this->backup, sizeof(this->backup));
+    return true;
+}
 
-        fs.write(reinterpret_cast<const char*>(&state), sizeof(state));
-        return true;
+// load a save from data, must be used after a game has loaded
+auto Gba::loadsave(std::span<const std::uint8_t> new_save) -> bool
+{
+    using enum backup::Type;
+    switch (this->backup.type)
+    {
+        case NONE: return false;
+        case EEPROM: return this->backup.eeprom.load_data(new_save);
+        case SRAM: return this->backup.sram.load_data(new_save);
+
+        case FLASH: [[fallthrough]];
+        case FLASH512: [[fallthrough]];
+        case FLASH1M: return this->backup.flash.load_data(new_save);
     }
 
-    return false;
+    std::unreachable();
+}
+
+// returns empty spam if the game doesn't have a save
+auto Gba::getsave() const -> std::span<const std::uint8_t>
+{
+    using enum backup::Type;
+    switch (this->backup.type)
+    {
+        case NONE: return {};
+        case EEPROM: return this->backup.eeprom.get_data();
+        case SRAM: return this->backup.sram.get_data();
+
+        case FLASH: [[fallthrough]];
+        case FLASH512: [[fallthrough]];
+        case FLASH1M: return this->backup.flash.get_data();
+    }
+
+    std::unreachable();
 }
 
 #if ENABLE_SCHEDULER
