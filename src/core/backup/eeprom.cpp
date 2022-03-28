@@ -74,7 +74,7 @@ auto Eeprom::set_width(Width new_width) -> void
     {
         if (this->width != new_width)
         {
-            std::printf("[EEPROM] width size changed. ignoring for now... old: %u new: %u\n", std::to_underlying(this->width), std::to_underlying(new_width));
+            // std::printf("[EEPROM] width size changed. ignoring for now... old: %u new: %u\n", std::to_underlying(this->width), std::to_underlying(new_width));
             // assert(this->width == new_width && "[EEPROM] width changed somehow");
         }
     }

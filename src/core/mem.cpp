@@ -10,20 +10,19 @@
 #include "ppu.hpp"
 #include "scheduler.hpp"
 #include "timer.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <iterator>
 #include <span>
+#include <ranges>
 
 namespace gba::mem {
 
-#define MEM gba.mem
-
 // General Internal Memory
-constexpr auto BIOS_MASK        = 0x00003FFF; // not checked if this is correct!!!
+constexpr auto BIOS_MASK        = 0x00003FFF;
 constexpr auto EWRAM_MASK       = 0x0003FFFF;
 constexpr auto IWRAM_MASK       = 0x00007FFF;
 constexpr auto IO_MASK          = 0x3FF;
@@ -33,22 +32,34 @@ constexpr auto VRAM_MASK        = 0x0001FFFF;
 constexpr auto OAM_MASK         = 0x000003FF;
 // External Memory (Game Pak)
 constexpr auto ROM_MASK         = 0x01FFFFFF;
-constexpr auto SRAM_MASK        = (1024*32)-1;
+
+// General Internal Memory
+constexpr auto BIOS_SIZE        = BIOS_MASK + 1;
+constexpr auto EWRAM_SIZE       = EWRAM_MASK + 1;
+constexpr auto IWRAM_SIZE       = IWRAM_MASK + 1;
+constexpr auto IO_SIZE          = IO_MASK + 1;
+// Internal Display Memory
+constexpr auto PALETTE_RAM_SIZE = PALETTE_RAM_MASK + 1;
+constexpr auto VRAM_SIZE        = 0x00017FFF + 1;
+constexpr auto OAM_SIZE         = OAM_MASK + 1;
+// External Memory (Game Pak)
+constexpr auto ROM_SIZE         = ROM_MASK + 1;
+
+#define MEM gba.mem
 
 auto setup_tables(Gba& gba) -> void
 {
-    MEM.rmap_8.fill({});
-    MEM.rmap_16.fill({});
-    MEM.rmap_32.fill({});
-    MEM.wmap_8.fill({});
-    MEM.wmap_16.fill({});
-    MEM.wmap_32.fill({});
+    std::ranges::fill(MEM.rmap_8, ReadArray{});
+    std::ranges::fill(MEM.rmap_16, ReadArray{});
+    std::ranges::fill(MEM.rmap_32, ReadArray{});
+    std::ranges::fill(MEM.wmap_8, WriteArray{});
+    std::ranges::fill(MEM.wmap_16, WriteArray{});
+    std::ranges::fill(MEM.wmap_32, WriteArray{});
 
     MEM.rmap_16[0x0] = {gba.mem.bios, BIOS_MASK};
     MEM.rmap_16[0x2] = {gba.mem.ewram, EWRAM_MASK};
     MEM.rmap_16[0x3] = {gba.mem.iwram, IWRAM_MASK};
     MEM.rmap_16[0x5] = {gba.mem.palette_ram, PALETTE_RAM_MASK};
-    // MEM.rmap_16[0x6] = {gba.mem.vram, VRAM_MASK};
     MEM.rmap_16[0x7] = {gba.mem.oam, OAM_MASK};
     MEM.rmap_16[0x8] = {gba.rom, ROM_MASK};
     MEM.rmap_16[0x9] = {gba.rom, ROM_MASK};
@@ -56,47 +67,25 @@ auto setup_tables(Gba& gba) -> void
     MEM.rmap_16[0xB] = {gba.rom, ROM_MASK};
     MEM.rmap_16[0xC] = {gba.rom, ROM_MASK};
     MEM.rmap_16[0xD] = {gba.rom, ROM_MASK};
-    MEM.rmap_16[0xE] = {gba.rom, ROM_MASK};
 
     MEM.wmap_16[0x2] = {gba.mem.ewram, EWRAM_MASK};
     MEM.wmap_16[0x3] = {gba.mem.iwram, IWRAM_MASK};
     MEM.wmap_16[0x5] = {gba.mem.palette_ram, PALETTE_RAM_MASK};
-    // MEM.wmap_16[0x6] = {gba.mem.vram, VRAM_MASK};
     MEM.wmap_16[0x7] = {gba.mem.oam, OAM_MASK};
 
     // this will be handled by the function handlers
-    switch (gba.backup.type)
+    if (gba.backup.type == backup::Type::EEPROM)
     {
-        case backup::Type::NONE:
-            break;
-
-        case backup::Type::EEPROM:
-            MEM.rmap_16[0xD] = {};
-            MEM.wmap_16[0xD] = {};
-            break;
-
-        case backup::Type::SRAM:
-            MEM.rmap_16[0xE] = {gba.backup.sram.data, SRAM_MASK};
-            MEM.wmap_16[0xE] = {gba.backup.sram.data, SRAM_MASK};
-            break;
-
-        case backup::Type::FLASH:
-        case backup::Type::FLASH512:
-        case backup::Type::FLASH1M:
-            MEM.rmap_16[0xE] = {};
-            MEM.wmap_16[0xE] = {};
-            break;
+        MEM.rmap_16[0xD] = {};
+        MEM.wmap_16[0xD] = {};
     }
 
-    // can't use ranges::copy on std::array...
-    std::copy(MEM.rmap_16.begin(), MEM.rmap_16.end(), MEM.rmap_8.begin());
-    std::copy(MEM.wmap_16.begin(), MEM.wmap_16.end(), MEM.wmap_8.begin());
-    std::copy(MEM.rmap_16.begin(), MEM.rmap_16.end(), MEM.rmap_32.begin());
-    std::copy(MEM.wmap_16.begin(), MEM.wmap_16.end(), MEM.wmap_32.begin());
+    std::ranges::copy(MEM.rmap_16, MEM.rmap_8);
+    std::ranges::copy(MEM.wmap_16, MEM.wmap_8);
+    std::ranges::copy(MEM.rmap_16, MEM.rmap_32);
+    std::ranges::copy(MEM.wmap_16, MEM.wmap_32);
 
-    MEM.rmap_8[0x5] = {}; // ignore palette ram byte reads
-    MEM.rmap_8[0x6] = {}; // ignore vram byte reads
-    MEM.rmap_8[0x7] = {}; // ignore oam byte reads
+    // tonc says byte reads are okay
     MEM.wmap_8[0x5] = {}; // ignore palette ram byte stores
     MEM.wmap_8[0x6] = {}; // ignore vram byte stores
     MEM.wmap_8[0x7] = {}; // ignore oam byte stores
@@ -104,81 +93,77 @@ auto setup_tables(Gba& gba) -> void
 
 auto reset(Gba& gba) -> void
 {
-    std::memset(MEM.ewram, 0, std::size(MEM.ewram));
-    std::memset(MEM.iwram, 0, std::size(MEM.iwram));
-    std::memset(MEM.palette_ram, 0, std::size(MEM.palette_ram));
-    std::memset(MEM.vram, 0, std::size(MEM.vram));
-    std::memset(MEM.oam, 0, std::size(MEM.oam));
+    std::ranges::fill(MEM.ewram, 0);
+    std::ranges::fill(MEM.iwram, 0);
+    std::ranges::fill(MEM.palette_ram, 0);
+    std::ranges::fill(MEM.vram, 0);
+    std::ranges::fill(MEM.oam, 0);
     REG_KEY = 0xFFFF;
 
     setup_tables(gba);
 }
 
-// helpers for read / write arrays.
-template <typename T, bool Vram = false> [[nodiscard]]
-constexpr auto read_array(std::span<const uint8_t> array, auto mask, uint32_t addr) -> T {
-    if constexpr(Vram)
-    {
-        if ((addr & VRAM_MASK) > 0x17FFF) [[unlikely]]
-        {
-            addr -= 0x8000;
-        }
-    }
-    constexpr auto shift = sizeof(T) >> 1;
-    return reinterpret_cast<const T*>(array.data())[(addr>>shift) & (mask>>shift)];
-}
-
-template <typename T, bool Vram = false>
-constexpr auto write_array(std::span<uint8_t> array, auto mask, uint32_t addr, T v) -> void {
-    if constexpr(Vram)
-    {
-        if ((addr & VRAM_MASK) > 0x17FFF) [[unlikely]]
-        {
-            addr -= 0x8000;
-        }
-    }
-    constexpr auto shift = sizeof(T) >> 1;
-    reinterpret_cast<T*>(array.data())[(addr>>shift) & (mask>>shift)] = v;
-}
-
-// byte access, just makes it easier
 [[nodiscard]]
-auto read_io(Gba& gba, std::uint32_t addr) -> std::uint8_t
+constexpr auto read_io16(Gba& gba, std::uint32_t addr) -> std::uint16_t
 {
     switch (addr)
     {
         // todo: fix this for scheduler timers
         #if ENABLE_SCHEDULER
-        case IO_TM0D + 0: return timer::read_timer(gba, 0) & 0xFF;
-        case IO_TM0D + 1: return timer::read_timer(gba, 0) >> 8;
-        case IO_TM1D + 0: return timer::read_timer(gba, 1) & 0xFF;
-        case IO_TM1D + 1: return timer::read_timer(gba, 1) >> 8;
-        case IO_TM2D + 0: return timer::read_timer(gba, 2) & 0xFF;
-        case IO_TM2D + 1: return timer::read_timer(gba, 2) >> 8;
-        case IO_TM3D + 0: return timer::read_timer(gba, 3) & 0xFF;
-        case IO_TM3D + 1: return timer::read_timer(gba, 3) >> 8;
+        case IO_TM0D: return timer::read_timer(gba, 0);
+        case IO_TM1D: return timer::read_timer(gba, 1);
+        case IO_TM2D: return timer::read_timer(gba, 2);
+        case IO_TM3D: return timer::read_timer(gba, 3);
         #else
-        case IO_TM0D + 0: return REG_TM0D & 0xFF;
-        case IO_TM0D + 1: return REG_TM0D >> 8;
-        case IO_TM1D + 0: return REG_TM1D & 0xFF;
-        case IO_TM1D + 1: return REG_TM1D >> 8;
-        case IO_TM2D + 0: return REG_TM2D & 0xFF;
-        case IO_TM2D + 1: return REG_TM2D >> 8;
-        case IO_TM3D + 0: return REG_TM3D & 0xFF;
-        case IO_TM3D + 1: return REG_TM3D >> 8;
+        case IO_TM0D: return REG_TM0D;
+        case IO_TM1D: return REG_TM1D;
+        case IO_TM2D: return REG_TM2D;
+        case IO_TM3D: return REG_TM3D;
         #endif
+
+        // write only regs
+        // todo: use a lut
+        case IO_BG0HOFS:
+        case IO_BG0VOFS:
+        case IO_BG1HOFS:
+        case IO_BG1VOFS:
+        case IO_BG2HOFS:
+        case IO_BG2VOFS:
+        case IO_BG3HOFS:
+        case IO_BG3VOFS:
+            return 0;
 
         default:
             //printf("unhandled io read addr: 0x%08X\n", addr);
-            // assert(!"todo");
-            // CPU.breakpoint = true;
-            break;
+            return read_array<u16>(MEM.io, IO_MASK, addr);
     }
-
-    return MEM.io[addr & 0x3FF];
 }
 
-auto write_io16(Gba& gba, std::uint32_t addr, std::uint16_t value) -> void
+[[nodiscard]]
+constexpr auto read_io8(Gba& gba, std::uint32_t addr) -> std::uint8_t
+{
+    const auto value = read_io16(gba, addr & ~0x1);
+
+    if (addr & 1) // do we want to lo or hi byte?
+    {
+        return value >> 8; // the hi byte
+    }
+    else
+    {
+        return value & 0xFF; // the lo byte
+    }
+}
+
+[[nodiscard]]
+constexpr auto read_io32(Gba& gba, std::uint32_t addr) -> std::uint32_t
+{
+    // todo: optimise for 32bit regs that games commonly read from
+    const std::uint32_t lo = read_io16(gba, addr+0) << 0;
+    const std::uint32_t hi = read_io16(gba, addr+2) << 16;
+    return hi | lo;
+}
+
+constexpr auto write_io16(Gba& gba, std::uint32_t addr, std::uint16_t value) -> void
 {
     switch (addr)
     {
@@ -233,27 +218,23 @@ auto write_io16(Gba& gba, std::uint32_t addr, std::uint16_t value) -> void
         case IO_TM2CNT: timer::on_cnt2_write(gba, REG_TM2CNT); break;
         case IO_TM3CNT: timer::on_cnt3_write(gba, REG_TM3CNT); break;
 
-        case IO_DMA0CNT: gba_log("REG_DMA0CNT: 0x%08X\n", REG_DMA0CNT); break;
+        case IO_DMA0CNT: break;
         case IO_DMA0CNT + 2:
-            gba_log("REG_DMA0CNT: 0x%08X\n", REG_DMA0CNT);
             dma::on_cnt_write(gba, 0);
             break;
 
-        case IO_DMA1CNT: gba_log("REG_DMA1CNT: 0x%08X\n", REG_DMA1CNT); break;
+        case IO_DMA1CNT: break;
         case IO_DMA1CNT + 2:
-            gba_log("REG_DMA1CNT: 0x%08X\n", REG_DMA1CNT);
             dma::on_cnt_write(gba, 1);
             break;
 
-        case IO_DMA2CNT: gba_log("REG_DMA2CNT: 0x%08X\n", REG_DMA2CNT); break;
+        case IO_DMA2CNT: break;
         case IO_DMA2CNT + 2:
-            gba_log("REG_DMA2CNT: 0x%08X\n", REG_DMA2CNT);
             dma::on_cnt_write(gba, 2);
             break;
 
-        case IO_DMA3CNT: gba_log("REG_DMA3CNT: 0x%08X\n", REG_DMA3CNT); break;
+        case IO_DMA3CNT: break;
         case IO_DMA3CNT + 2:
-            gba_log("REG_DMA3CNT + 3: 0x%08X\n", REG_DMA3CNT);
             dma::on_cnt_write(gba, 3);
             break;
 
@@ -291,7 +272,7 @@ auto write_io16(Gba& gba, std::uint32_t addr, std::uint16_t value) -> void
     }
 }
 
-auto write_io32(Gba& gba, std::uint32_t addr, std::uint32_t value) -> void
+constexpr auto write_io32(Gba& gba, std::uint32_t addr, std::uint32_t value) -> void
 {
     // games typically do 32-bit writes to 32-bit registers
 
@@ -353,7 +334,7 @@ auto write_io32(Gba& gba, std::uint32_t addr, std::uint32_t value) -> void
     write_io16(gba, addr + 2, value >> 0x10);
 }
 
-auto write_io8(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
+constexpr auto write_io8(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
 {
     // printf("bit io write to 0x%08X\n", addr);
     switch (addr)
@@ -443,47 +424,25 @@ auto write_io8(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
     write_io16(gba, addr & ~0x1, actual_value);
 }
 
-enum class FunctionType
-{
-    bios,
-    ewram,
-    iwram,
-    io,
-    pram,
-    vram,
-    oam,
-    rom,
-    eeprom,
-    sram,
-};
-
 template<typename T> [[nodiscard]]
-constexpr T read_io2(Gba& gba, u32 addr)
+constexpr T read_io_region(Gba& gba, u32 addr)
 {
     if constexpr(sizeof(T) == 4)
     {
-        const auto hi_word_hi = read_io(gba, addr + 0);
-        const auto hi_word_lo = read_io(gba, addr + 1);
-        const auto lo_word_hi = read_io(gba, addr + 2);
-        const auto lo_word_lo = read_io(gba, addr + 3);
-
-        return (lo_word_lo << 24) | (lo_word_hi << 16) | (hi_word_lo << 8) | hi_word_hi;
+        return read_io32(gba, addr);
     }
     else if constexpr(sizeof(T) == 2)
     {
-        const auto hi = read_io(gba, addr + 0);
-        const auto lo = read_io(gba, addr + 1);
-
-        return (lo << 8) | hi;
+        return read_io16(gba, addr);
     }
     else if constexpr(sizeof(T) == 1)
     {
-        return read_io(gba, addr);
+        return read_io8(gba, addr);
     }
 }
 
 template<typename T>
-constexpr void write_io2(Gba& gba, u32 addr, T value)
+constexpr void write_io_region(Gba& gba, u32 addr, T value)
 {
     if constexpr(sizeof(T) == 4)
     {
@@ -499,165 +458,184 @@ constexpr void write_io2(Gba& gba, u32 addr, T value)
     }
 }
 
-template<typename T, FunctionType type> [[nodiscard]]
-constexpr auto read_function(Gba& gba, u32 addr) -> T
+// https://github.com/mgba-emu/mgba/issues/743 (thanks endrift)
+constexpr auto is_vram_dma_overflow_bug(Gba& gba, u32 addr)
 {
-    if constexpr(type == FunctionType::io)
-    {
-        return read_io2<T>(gba, addr);
-    }
-    if constexpr(type == FunctionType::vram)
-    {
-        if ((addr & VRAM_MASK) > 0x17FFF) [[unlikely]]
-        {
-            addr -= 0x8000;
-        }
-        return read_array<T, true>(MEM.vram, VRAM_MASK, addr);
-    }
-    if constexpr(type == FunctionType::rom)
-    {
-        return read_array<T>(gba.rom, ROM_MASK, addr);
-    }
-    if constexpr(type == FunctionType::eeprom)
-    {
-        if (gba.backup.type == backup::Type::EEPROM)
-        {
-            T value = 0;
-            // todo: check rom size for region access
-            if constexpr(sizeof(T) == 1)
-            {
-                value |= gba.backup.eeprom.read(gba, addr);
-            }
-            if constexpr(sizeof(T) == 2)
-            {
-                value |= gba.backup.eeprom.read(gba, addr);
-            }
-            if constexpr(sizeof(T) == 4)
-            {
-                assert(!"32bit read from eeprom");
-                value |= gba.backup.eeprom.read(gba, addr+0) << 0;
-                value |= gba.backup.eeprom.read(gba, addr+1) << 16;
-            }
-            return value;
-        }
-        else
-        {
-            return read_array<T>(gba.rom, ROM_MASK, addr);
-        }
-    }
-    if constexpr(type == FunctionType::sram)
-    {
-        const auto backup_type = gba.backup.type;
+    return addr > VRAM_MASK && (addr & (VRAM_SIZE | 0x14000)) == VRAM_SIZE && ppu::is_bitmap_mode(gba);
+}
 
-        if (backup_type == backup::Type::SRAM)
+template<typename T> [[nodiscard]]
+constexpr auto read_vram_region(Gba& gba, u32 addr) -> T
+{
+    if ((addr & VRAM_MASK) > 0x17FFF)
+    {
+        if (is_vram_dma_overflow_bug(gba, addr)) [[unlikely]]
         {
-            return read_array<T>(gba.backup.sram.data, SRAM_MASK, addr);
+            return 0;
         }
-        else if (backup_type == backup::Type::FLASH || backup_type == backup::Type::FLASH1M || backup_type == backup::Type::FLASH512)
+        addr -= 0x8000;
+    }
+    return read_array<T>(MEM.vram, VRAM_MASK, addr);
+}
+
+template<typename T>
+constexpr auto write_vram_region(Gba& gba, u32 addr, T value) -> void
+{
+    if ((addr & VRAM_MASK) > 0x17FFF)
+    {
+        if (is_vram_dma_overflow_bug(gba, addr)) [[unlikely]]
         {
-            return gba.backup.flash.read(gba, addr);
+            return;
         }
-        else
+        addr -= 0x8000;
+    }
+
+    if constexpr(sizeof(T) == 1)
+    {
+        const bool bitmap = ppu::is_bitmap_mode(gba);
+        const u32 end_region = bitmap ? 0x6013FFF : 0x600FFFF;
+
+        // if we are in this region, then we do a 16bit write
+        // where the 8bit value is written as the upper / lower half
+        if (addr <= end_region)
         {
-            return read_array<T>(gba.rom, ROM_MASK, addr);
+            // align to 16bits
+            addr &= ~0x1;
+            const u16 new_value = (value << 8) | value;
+            write_array<u16>(MEM.vram, VRAM_MASK, addr, new_value);
+        }
+    }
+    else
+    {
+        write_array<T>(MEM.vram, VRAM_MASK, addr, value);
+    }
+}
+
+template<typename T>
+constexpr auto write_pram_region(Gba& gba, u32 addr, T value) -> void
+{
+    if constexpr(sizeof(T) == 1)
+    {
+        const u32 end_region = 0x50003FF;
+
+        // if we are in this region, then we do a 16bit write
+        // where the 8bit value is written as the upper / lower half
+        if (addr <= end_region)
+        {
+            // align to 16bits
+            addr &= ~0x1;
+            const u16 new_value = (value << 8) | value;
+
+            write_array<u16>(MEM.palette_ram, PALETTE_RAM_MASK, addr, new_value);
         }
     }
 }
 
-template<typename T, FunctionType type>
-constexpr void write_function(Gba& gba, u32 addr, T value)
+template<typename T> [[nodiscard]]
+constexpr auto read_eeprom_region(Gba& gba, u32 addr) -> T
 {
-    if constexpr(type == FunctionType::pram)
+    if (gba.backup.type == backup::Type::EEPROM)
     {
+        T value{};
+        // todo: check rom size for region access
         if constexpr(sizeof(T) == 1)
         {
-            const u32 end_region = 0x50003FF;
-
-            // if we are in this region, then we do a 16bit write
-            // where the 8bit value is written as the upper / lower half
-            if (addr <= end_region)
-            {
-                // align to 16bits
-                addr &= ~0x1;
-                const u16 new_value = (value << 8) | value;
-
-                write_array<u16, true>(MEM.palette_ram, PALETTE_RAM_MASK, addr, new_value);
-            }
+            value |= gba.backup.eeprom.read(gba, addr);
         }
+        if constexpr(sizeof(T) == 2)
+        {
+            value |= gba.backup.eeprom.read(gba, addr);
+        }
+        if constexpr(sizeof(T) == 4)
+        {
+            assert(!"32bit read from eeprom");
+            value |= gba.backup.eeprom.read(gba, addr+0) << 0;
+            value |= gba.backup.eeprom.read(gba, addr+1) << 16;
+        }
+        return value;
     }
-    if constexpr(type == FunctionType::vram)
+    else
     {
+        return read_array<T>(gba.rom, ROM_MASK, addr);
+    }
+}
+
+template<typename T>
+constexpr auto write_eeprom_region(Gba& gba, u32 addr, T value) -> void
+{
+    if (gba.backup.type == backup::Type::EEPROM)
+    {
+        // todo: check rom size for region access
         if constexpr(sizeof(T) == 1)
         {
-            const bool bitmap = ppu::is_bitmap_mode(gba);
-            const u32 end_region = bitmap ? 0x6013FFF : 0x600FFFF;
-
-            // if we are in this region, then we do a 16bit write
-            // where the 8bit value is written as the upper / lower half
-            if (addr <= end_region)
-            {
-                // align to 16bits
-                addr &= ~0x1;
-                const u16 new_value = (value << 8) | value;
-
-                if ((addr & VRAM_MASK) > 0x17FFF) [[unlikely]]
-                {
-                    addr -= 0x8000;
-                }
-                write_array<u16, true>(MEM.vram, VRAM_MASK, addr, new_value);
-            }
+            gba.backup.eeprom.write(gba, addr, value);
         }
-        else
+        if constexpr(sizeof(T) == 2)
         {
-            if ((addr & VRAM_MASK) > 0x17FFF) [[unlikely]]
-            {
-                addr -= 0x8000;
-            }
-            write_array<T, true>(MEM.vram, VRAM_MASK, addr, value);
+            gba.backup.eeprom.write(gba, addr, value);
+        }
+        if constexpr(sizeof(T) == 4)
+        {
+            assert(!"32bit write to eeprom");
+            std::printf("32bit write to eeprom\n");
+            gba.backup.eeprom.write(gba, addr+0, value>>0);
+            gba.backup.eeprom.write(gba, addr+1, value>>16);
         }
     }
-    if constexpr(type == FunctionType::eeprom)
-    {
-        if (gba.backup.type == backup::Type::EEPROM)
-        {
-            // todo: check rom size for region access
-            if constexpr(sizeof(T) == 1)
-            {
-                gba.backup.eeprom.write(gba, addr, value);
-            }
-            if constexpr(sizeof(T) == 2)
-            {
-                gba.backup.eeprom.write(gba, addr, value);
-            }
-            if constexpr(sizeof(T) == 4)
-            {
-                assert(!"32bit write to eeprom");
-                printf("32bit write\n");
-                arm7tdmi::print_bits<32>(value);
-                gba.backup.eeprom.write(gba, addr+0, value>>0);
-                gba.backup.eeprom.write(gba, addr+1, value>>16);
-            }
-        }
-    }
-    if constexpr(type == FunctionType::sram)
-    {
-        const auto backup_type = gba.backup.type;
+}
 
-        if (backup_type == backup::Type::SRAM)
-        {
-            write_array<T>(gba.backup.sram.data, SRAM_MASK, addr, value);
-        }
-        else if (backup_type == backup::Type::FLASH || backup_type == backup::Type::FLASH1M || backup_type == backup::Type::FLASH512)
-        {
-            gba.backup.flash.write(gba, addr, value);
-        }
+template<typename T> [[nodiscard]]
+constexpr auto read_sram_region(Gba& gba, u32 addr) -> T
+{
+    T value{};
+    const auto backup_type = gba.backup.type;
+
+    if (backup_type == backup::Type::SRAM)
+    {
+        value = gba.backup.sram.read(gba, addr);
+    }
+    else if (backup_type == backup::Type::FLASH || backup_type == backup::Type::FLASH1M || backup_type == backup::Type::FLASH512)
+    {
+        value = gba.backup.flash.read(gba, addr);
+    }
+    else // no backup. todo: open bus
+    {
+        return 0;
+    }
+
+    // 16/32bit reads from sram area mirror the byte
+    if constexpr(sizeof(T) == 2)
+    {
+        value |= value << 8;
+    }
+    else if constexpr(sizeof(T) == 4)
+    {
+        value |= value << 8;
+        value |= value << 16;
+    }
+
+    return value;
+}
+
+template<typename T>
+constexpr auto write_sram_region(Gba& gba, u32 addr, T value) -> void
+{
+    const auto backup_type = gba.backup.type;
+
+    if (backup_type == backup::Type::SRAM)
+    {
+        gba.backup.sram.write(gba, addr, value);
+    }
+    else if (backup_type == backup::Type::FLASH || backup_type == backup::Type::FLASH1M || backup_type == backup::Type::FLASH512)
+    {
+        gba.backup.flash.write(gba, addr, value);
     }
 }
 
 template<typename T>
 constexpr T empty_read(Gba& gba, u32 addr)
 {
-    return 0xFF;
+    return 0;
 }
 
 template<typename T>
@@ -673,21 +651,21 @@ using WriteFunction = void(*)(Gba& gba, u32 addr, T value);
 template<typename T>
 constexpr ReadFunction<T> READ_FUNCTION[0x10] =
 {
-    /*[0x0] =*/ empty_read, // handled
+    /*[0x0] =*/ empty_read,
     /*[0x1] =*/ empty_read,
-    /*[0x2] =*/ empty_read, // handled
-    /*[0x3] =*/ empty_read, // handled
-    /*[0x4] =*/ read_function<T, FunctionType::io>,
-    /*[0x5] =*/ empty_read, // handled
-    /*[0x6] =*/ read_function<T, FunctionType::vram>,
-    /*[0x7] =*/ empty_read, // handled
-    /*[0x8] =*/ read_function<T, FunctionType::rom>,
-    /*[0x9] =*/ read_function<T, FunctionType::rom>,
-    /*[0xA] =*/ read_function<T, FunctionType::rom>,
-    /*[0xB] =*/ read_function<T, FunctionType::rom>,
-    /*[0xC] =*/ read_function<T, FunctionType::rom>,
-    /*[0xD] =*/ read_function<T, FunctionType::eeprom>,
-    /*[0xE] =*/ read_function<T, FunctionType::sram>, // todo: backup ram support
+    /*[0x2] =*/ empty_read,
+    /*[0x3] =*/ empty_read,
+    /*[0x4] =*/ read_io_region<T>,
+    /*[0x5] =*/ empty_read,
+    /*[0x6] =*/ read_vram_region<T>,
+    /*[0x7] =*/ empty_read,
+    /*[0x8] =*/ empty_read,
+    /*[0x9] =*/ empty_read,
+    /*[0xA] =*/ empty_read,
+    /*[0xB] =*/ empty_read,
+    /*[0xC] =*/ empty_read,
+    /*[0xD] =*/ read_eeprom_region<T>,
+    /*[0xE] =*/ read_sram_region<T>,
     /*[0xF] =*/ empty_read,
 };
 
@@ -696,19 +674,19 @@ constexpr WriteFunction<T> WRITE_FUNCTION[0x10] =
 {
     /*[0x0] =*/ empty_write,
     /*[0x1] =*/ empty_write,
-    /*[0x2] =*/ empty_write, // handled
-    /*[0x3] =*/ empty_write, // handled
-    /*[0x4] =*/ write_io2<T>,
-    /*[0x5] =*/ write_function<T, FunctionType::pram>,
-    /*[0x6] =*/ write_function<T, FunctionType::vram>,
-    /*[0x7] =*/ empty_write, // handled
+    /*[0x2] =*/ empty_write,
+    /*[0x3] =*/ empty_write,
+    /*[0x4] =*/ write_io_region<T>,
+    /*[0x5] =*/ write_pram_region<T>,
+    /*[0x6] =*/ write_vram_region<T>,
+    /*[0x7] =*/ empty_write,
     /*[0x8] =*/ empty_write,
     /*[0x9] =*/ empty_write,
     /*[0xA] =*/ empty_write,
     /*[0xB] =*/ empty_write,
     /*[0xC] =*/ empty_write,
-    /*[0xD] =*/ write_function<T, FunctionType::eeprom>,
-    /*[0xE] =*/ write_function<T, FunctionType::sram>,
+    /*[0xD] =*/ write_eeprom_region<T>,
+    /*[0xE] =*/ write_sram_region<T>,
     /*[0xF] =*/ empty_write,
 };
 
@@ -716,8 +694,8 @@ constexpr WriteFunction<T> WRITE_FUNCTION[0x10] =
 auto read8(Gba& gba, std::uint32_t addr) -> std::uint8_t
 {
     gba.cycles++;
-
     auto& entry = MEM.rmap_8[(addr >> 24) & 0xF];
+
     if (entry.array.size()) [[likely]]
     {
         return read_array<u8>(entry.array, entry.mask, addr);
@@ -732,8 +710,8 @@ auto read16(Gba& gba, std::uint32_t addr) -> std::uint16_t
 {
     addr &= ~0x1;
     gba.cycles++;
-
     auto& entry = MEM.rmap_16[(addr >> 24) & 0xF];
+
     if (entry.array.size()) [[likely]]
     {
         return read_array<u16>(entry.array, entry.mask, addr);
@@ -748,8 +726,8 @@ auto read32(Gba& gba, std::uint32_t addr) -> std::uint32_t
 {
     addr &= ~0x3;
     gba.cycles++;
-
     auto& entry = MEM.rmap_32[(addr >> 24) & 0xF];
+
     if (entry.array.size()) [[likely]]
     {
         return read_array<u32>(entry.array, entry.mask, addr);
@@ -764,7 +742,8 @@ auto write8(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
 {
     gba.cycles++;
     auto& entry = MEM.wmap_8[(addr >> 24) & 0xF];
-    if (entry.array.size()) [[likely]]
+
+    if (entry.array.size()) // don't mark likely as vram,pram,io writes are common
     {
         write_array<u8>(entry.array, entry.mask, addr, value);
     }
@@ -778,9 +757,9 @@ auto write16(Gba& gba, std::uint32_t addr, std::uint16_t value) -> void
 {
     addr &= ~0x1;
     gba.cycles++;
-
     auto& entry = MEM.wmap_16[(addr >> 24) & 0xF];
-    if (entry.array.size()) [[likely]]
+
+    if (entry.array.size()) // don't mark likely as vram,pram,io writes are common
     {
         write_array<u16>(entry.array, entry.mask, addr, value);
     }
@@ -794,9 +773,9 @@ auto write32(Gba& gba, std::uint32_t addr, std::uint32_t value) -> void
 {
     addr &= ~0x3;
     gba.cycles++;
-
     auto& entry = MEM.wmap_32[(addr >> 24) & 0xF];
-    if (entry.array.size()) [[likely]]
+
+    if (entry.array.size()) // don't mark likely as vram,pram,io writes are common
     {
         write_array<u32>(entry.array, entry.mask, addr, value);
     }

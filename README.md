@@ -16,6 +16,16 @@ gba emulator witten in c++23.
 - fixed arm templatated builds by removing printf from constexpr function.
 - heavily reduced number of templated functions generated for thumb [#11](https://github.com/ITotalJustice/notorious_beeg/issues/11). removed non-templated thumb option as compile times are still instant.
 - heavily reduced number of templated functions generated for arm [#11](https://github.com/ITotalJustice/notorious_beeg/issues/11). removed non-templated arm option as compile times are still instant.
+- fixed vram dma overflow bug, thanks to [mgba](https://github.com/mgba-emu/mgba/issues/743).
+- hle CpuSet bios (untested, should work though).
+- fixed 16/32bit sram region reads by mirroring the single. (ie, 16bit read of 0xFF will return 0xFFFF).
+- fix `is_bitmap_mode()` to also include mode5
+- refactor io_reads to operate on 16bit reads by default.
+- minor refactor of mem.cpp, it's more readable now. io r/w is still a mess atm.
+- remove `assert(gba.cpu.halted);` from scheduler. this was left over from debugging scheduler issues in the past.
+- blank ppu rendering (memset the screen).
+- add std::execution to mode3/mode4 rendering. seems to slightly improve fps (~10fps) but that's within margin of error, so unsure if it has any benefit. though it doesn't harm performance so i've kept it. (this forced my to remove -fno-exceptions as well).
+
 
 0.0.1
 - added readme
@@ -83,15 +93,18 @@ gba emulator witten in c++23.
 - better optimise vram r/w (somehow adjust the masking so it always works).
 - refcator code. make functions into methods where possible (and if it makes sense).
 
-## optimisations
+## optimisations (todo)
 - further reduce template bloat for arm/thumb instructions. this will help for platforms that have a small-ish icache.
+- faster path for apu sampling, ie, if channel is disabled, don't sample it. if all dmg channels will output zero, stop sampling further.
 - measure dmg apu channels on scheduler VS ticking them on sample(), likely it's faster to tick on sample().
 - batch samples. basically, on sample callback, save everything needed (about 8 bytes) to an array. after X amount of entries added, process all samples at once. this can be processed on the audio thread (frontend) or still in emu core.
-- tick arm/thumb in a loop. break out of this loop only on new_frame_event or state changed. this avoids the switch(state) on each ittr.
-- once the above tick arm/thumb is impl, start impl computed goto. along side this (or first), impl switch() version as well. measure all 3 versions!
+- impl computed goto. along side this (or first), impl switch() version as well. measure all 3 versions!
 - prioritise ewram access first as thats the most common path.
 - check for fast paths in dma's. check if they can be memcpy (doesnt cross boundries) / memset (if the src addr doesnt change). cache this check if R (repeat) is set, so on next dma fire, we know its fast path already.
 - measure different impl of mem r/w. current impl uses fastmem, with a fallback to a function table. should be very fast, but maybe the indirection of all r/w access is too slow.
+
+## optimisations that didn't work
+- tick arm/thumb in a loop. break out of this loop only on new_frame_event or state changed. this avoids the switch(state) on each ittr.
 
 ## thanks
 - cowbite spec <https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm>
@@ -103,3 +116,4 @@ gba emulator witten in c++23.
 - emudev discord
 - jsmolka for their very helpful tests <https://github.com/jsmolka/gba-tests>
 - normmatt (and vba) for the builtin bios <https://github.com/Nebuleon/ReGBA/tree/master/bios>
+- endrift for mgba <https://github.com/mgba-emu/mgba>

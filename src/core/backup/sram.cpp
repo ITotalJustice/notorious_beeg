@@ -3,6 +3,7 @@
 
 #include "eeprom.hpp"
 #include "gba.hpp"
+#include "mem.hpp"
 #include <algorithm>
 #include <ranges>
 #include <cstdint>
@@ -30,12 +31,16 @@ auto Sram::load_data(std::span<const std::uint8_t> new_data) -> void
     }
 }
 
-// auto Sram::read(Gba& gba, u32 addr) -> u8
-// {
-// }
+constexpr auto SRAM_MASK = sizeof(Sram::data)-1;
 
-// auto Sram::write(Gba& gba, u32 addr, u8 value) -> void
-// {
-// }
+auto Sram::read(Gba& gba, u32 addr) -> u8
+{
+    return mem::read_array<u8>(this->data, SRAM_MASK, addr);
+}
+
+auto Sram::write(Gba& gba, u32 addr, u8 value) -> void
+{
+    mem::write_array<u8>(this->data, SRAM_MASK, addr, value);
+}
 
 } // namespace gba::backup::eeprom

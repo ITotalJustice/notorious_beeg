@@ -19,6 +19,9 @@ struct Sram
 
     auto init(Gba& gba) -> void;
     auto load_data(std::span<const std::uint8_t> new_data) -> void;
+
+    auto read(Gba& gba, u32 addr) -> u8;
+    auto write(Gba& gba, u32 addr, u8 value) -> void;
 };
 
 } // namespace gba::backup::sram

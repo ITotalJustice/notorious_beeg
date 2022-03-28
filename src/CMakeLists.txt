@@ -44,7 +44,7 @@ list(APPEND gcc_flags
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND gcc_flags -Og) # always enable otherwise debug builds would be too slow
 else()
-    list(APPEND gcc_flags -fno-rtti -fno-exceptions -Ofast)
+    list(APPEND gcc_flags -fno-rtti -Ofast)
 endif()
 
 list(APPEND clang_flags
@@ -92,7 +92,7 @@ list(APPEND clang_flags
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND clang_flags -Og) # always enable otherwise debug builds would be too slow
 else()
-    list(APPEND gcc_flags -fno-rtti -fno-exceptions -Ofast)
+    list(APPEND clang_flags -fno-rtti -Ofast)
 endif()
 
 list(APPEND tcc_flags

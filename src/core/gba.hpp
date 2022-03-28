@@ -33,6 +33,8 @@ enum Button : std::uint16_t
     R       = 1 << 9,
 
     DIRECTIONAL = UP | DOWN | LEFT | RIGHT,
+    // causes a reset if these buttons are pressed all at once
+    RESET = A | B | START | SELECT,
 };
 
 struct Gba

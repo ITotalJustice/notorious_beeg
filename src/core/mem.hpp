@@ -27,12 +27,12 @@ struct WriteArray
 // this is especially important for io memory
 struct Mem
 {
-    std::array<ReadArray, 16> rmap_8;
-    std::array<ReadArray, 16> rmap_16;
-    std::array<ReadArray, 16> rmap_32;
-    std::array<WriteArray, 16> wmap_8;
-    std::array<WriteArray, 16> wmap_16;
-    std::array<WriteArray, 16> wmap_32;
+    ReadArray rmap_8[16];
+    ReadArray rmap_16[16];
+    ReadArray rmap_32[16];
+    WriteArray wmap_8[16];
+    WriteArray wmap_16[16];
+    WriteArray wmap_32[16];
 
     // 16kb, 32-bus
     alignas(uint32_t) uint8_t bios[1024 * 16];
@@ -252,8 +252,24 @@ STATIC_INLINE auto read8(Gba& gba, std::uint32_t addr) -> std::uint8_t;
 STATIC_INLINE auto read16(Gba& gba, std::uint32_t addr) -> std::uint16_t;
 [[nodiscard]]
 STATIC_INLINE auto read32(Gba& gba, std::uint32_t addr) -> std::uint32_t;
+
 STATIC_INLINE auto write8(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void;
 STATIC_INLINE auto write16(Gba& gba, std::uint32_t addr, std::uint16_t value) -> void;
 STATIC_INLINE auto write32(Gba& gba, std::uint32_t addr, std::uint32_t value) -> void;
+
+// helpers for read / write arrays.
+template <typename T> [[nodiscard]]
+constexpr auto read_array(std::span<const uint8_t> array, auto mask, uint32_t addr) -> T
+{
+    constexpr auto shift = sizeof(T) >> 1;
+    return reinterpret_cast<const T*>(array.data())[(addr>>shift) & (mask>>shift)];
+}
+
+template <typename T>
+constexpr auto write_array(std::span<uint8_t> array, auto mask, uint32_t addr, T v) -> void
+{
+    constexpr auto shift = sizeof(T) >> 1;
+    reinterpret_cast<T*>(array.data())[(addr>>shift) & (mask>>shift)] = v;
+}
 
 } // namespace gba::mem

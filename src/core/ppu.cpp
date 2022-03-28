@@ -8,7 +8,9 @@
 #include "scheduler.hpp"
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
+#include <algorithm>
+#include <ranges>
+#include <execution>
 
 namespace gba::ppu {
 
@@ -38,7 +40,7 @@ auto get_mode(Gba& gba) -> std::uint8_t
 auto is_bitmap_mode(Gba & gba) -> bool
 {
     const auto mode = get_mode(gba);
-    return mode == 3 || mode == 4;
+    return mode == 3 || mode == 4 || mode == 5;
 }
 
 auto reset(Gba& gba) -> void
@@ -53,32 +55,32 @@ auto render_mode0_bg(Gba& gba) -> void
 
 }
 
-auto render_mode3_bg(Gba& gba) -> void
+auto render_mode3_bg(Gba& gba) noexcept -> void
 {
-    std::memcpy(gba.ppu.pixels[REG_VCOUNT], gba.mem.vram + (240 * REG_VCOUNT * 2), 240 * 2);
+    auto& pixels = gba.ppu.pixels[REG_VCOUNT];
+    std::copy(std::execution::par_unseq, std::begin(pixels), std::end(pixels), VRAM_16 + 240 * REG_VCOUNT);
 }
 
-// this magically breaks in -O1 and -O2, but not -O3
-// it seems that it gets optimised away, because if put
-// this function directly inside the switch, it works
-// if i change any of the auto values (theyre int's) to u32, it works
-// if i add an assert inside the function, it works
-// theres zero UB happening in this function as well, it makes no sense
-// only breaks on gcc, havent tested earlier versions yet (g++ (GCC) 11.2.1 20220127 (Red Hat 11.2.1-9))
-auto render_mode4_bg(Gba& gba) -> void
+auto render_mode4_bg(Gba& gba) noexcept -> void
 {
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
-    const auto addr = page + (240 * REG_VCOUNT);
+    auto addr = page + (240 * REG_VCOUNT);
+    auto& pixels = gba.ppu.pixels[REG_VCOUNT];
 
-    for (auto x = 0; x < 240; x++)
-    {
-        const auto index = gba.mem.vram[addr+x];
-        gba.ppu.pixels[REG_VCOUNT][x] = PALETTE_16[index];
-    }
+    std::for_each(std::execution::par, std::begin(pixels), std::end(pixels), [&gba, &addr](auto& pixel){
+        pixel = PALETTE_16[gba.mem.vram[addr++]];
+    });
 }
 
 auto render(Gba& gba)
 {
+    // if forced blanking is enabled, the screen is black
+    if (bit::is_set<7>(REG_DISPCNT)) [[unlikely]]
+    {
+        std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], 0);
+        return;
+    }
+
     const auto mode = get_mode(gba);
 
     switch (mode)

@@ -173,7 +173,6 @@ auto fire(Gba& gba) -> void
         // so we need to change events and fire any expired events
         find_next_event(gba, true);
         assert(gba.scheduler.next_event != Event::HALT);
-        assert(gba.cpu.halted);
     }
 
     entry.cb(gba);
