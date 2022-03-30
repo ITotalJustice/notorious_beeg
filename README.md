@@ -25,7 +25,15 @@ gba emulator witten in c++23.
 - remove `assert(gba.cpu.halted);` from scheduler. this was left over from debugging scheduler issues in the past.
 - blank ppu rendering (memset the screen).
 - add std::execution to mode3/mode4 rendering. seems to slightly improve fps (~10fps) but that's within margin of error, so unsure if it has any benefit. though it doesn't harm performance so i've kept it. (this forced my to remove -fno-exceptions as well).
-
+- added save support. on startup, the save for a game will be loaded, on exit, the save will be dumped.
+- per game savestates.
+- fix sbc when `b` was u32max and flag was not set, causing an overflow to 0, so carry flag wouldnt be set [#13](https://github.com/ITotalJustice/notorious_beeg/issues/13).
+- fix r/w handlers to mask the address down from full 32bit to 28bit.
+- hacky mirroring for roms that are <= 16MiB, see [#12](https://github.com/ITotalJustice/notorious_beeg/issues/12).
+- disable broken cpuset hle (breaks emerald intro).
+- fix cpu being reset before mem. this meant that when the cpu flushed the pipeline in reset, it would try to read from memtable that hasnt been setup yet, so the opcode would be 0.
+- ignored more reads to write-only IOregs.
+- basic impl of mode0-mode1 tile based rendering.
 
 0.0.1
 - added readme
@@ -37,8 +45,6 @@ gba emulator witten in c++23.
 - fixed savestates so that the memtables are re-setup and all events in scheduler have their function pointers set
 - use sdl audio stream to allow for wanted changes to format/freq when init audio.
 - fixed renaming of decode_template function in arm.cpp for templated builds, this would cause build errors for templated arm builds.
-- added save support. on startup, the save for a game will be loaded, on exit, the save will be dumped.
-- per game savestates.
 
 ## broken
 -
@@ -83,12 +89,12 @@ gba emulator witten in c++23.
 - proper fifo <https://github.com/mgba-emu/mgba/issues/1847>
 
 ## misc
-- doom runs at 17k fps (title) 750-800 fps (in game)
-- emerald runs at 700-800 fps (intro)
-- minish runs at 3k fps (title) 800 fps (in game)
-- openlara runs at 800-900 fps (title)
-- metroid fusion 2k fps (title)
-- metroid zero 3k fps (title) 2-3k fps (in game)
+- doom runs at 13k fps (title) 750-800 fps (in-game)
+- emerald runs at 500 fps (intro) 500 fps (in-game)
+- minish runs at 1.7k fps (title) 1.1k fps (in-game)
+- openlara runs at 800-900 fps (title) 700 fps (in-game)
+- metroid fusion 1.5k fps (title) 700-800 fps (in-game)
+- metroid zero 1.5k fps (title) 700-800 fps (in-game)
 
 ## todo
 - better optimise vram r/w (somehow adjust the masking so it always works).

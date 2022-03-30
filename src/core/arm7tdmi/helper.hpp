@@ -17,7 +17,24 @@ inline auto calc_vflag(uint32_t a, uint32_t b, uint32_t r) -> bool
 }
 
 template<bool S>
-inline auto internal_add(Gba& gba, uint32_t a, uint32_t b, bool carry = false) -> uint32_t
+inline auto internal_add(Gba& gba, uint32_t a, uint32_t b) -> uint32_t
+{
+    const uint32_t result = a + b;
+
+    if constexpr(S)
+    {
+        CPU.cpsr.Z = result == 0;
+        CPU.cpsr.C = static_cast<uint64_t>(a) + static_cast<uint64_t>(b) > UINT32_MAX;
+        CPU.cpsr.N = bit::is_set<31>(result);
+        CPU.cpsr.V = calc_vflag(a, b, result);
+    }
+
+    return result;
+}
+
+
+template<bool S>
+inline auto internal_adc(Gba& gba, uint32_t a, uint32_t b, bool carry) -> uint32_t
 {
     const uint32_t result = a + b + carry;
 
@@ -33,14 +50,30 @@ inline auto internal_add(Gba& gba, uint32_t a, uint32_t b, bool carry = false) -
 }
 
 template<bool S>
-inline auto internal_sub(Gba& gba, uint32_t a, uint32_t b, bool carry = false) -> uint32_t
+inline auto internal_sub(Gba& gba, uint32_t a, uint32_t b) -> uint32_t
 {
-    const uint32_t result = a - (b + carry);
+    const uint32_t result = a - b;
 
     if constexpr(S)
     {
         CPU.cpsr.Z = result == 0;
-        CPU.cpsr.C = !(a < (b + carry));
+        CPU.cpsr.C = a >= b;
+        CPU.cpsr.N = bit::is_set<31>(result);
+        CPU.cpsr.V = calc_vflag(a, ~b, result);
+    }
+
+    return result;
+}
+
+template<bool S>
+inline auto internal_sbc(Gba& gba, uint32_t a, uint32_t b, bool carry) -> uint32_t
+{
+    const uint32_t result = a - b - carry;
+
+    if constexpr(S)
+    {
+        CPU.cpsr.Z = result == 0;
+        CPU.cpsr.C = static_cast<std::uint64_t>(a) >= static_cast<std::uint64_t>(b) + carry;
         CPU.cpsr.N = bit::is_set<31>(result);
         CPU.cpsr.V = calc_vflag(a, ~b, result);
     }

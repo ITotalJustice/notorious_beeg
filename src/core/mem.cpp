@@ -103,6 +103,18 @@ auto reset(Gba& gba) -> void
     setup_tables(gba);
 }
 
+template<typename T>
+constexpr auto empty_read(Gba& gba, u32 addr) -> T
+{
+    std::printf("empty read: 0x%08X\n", addr);
+    return 0x0;
+}
+
+template<typename T>
+constexpr auto empty_write(Gba& gba, u32 addr, T value) -> void
+{
+}
+
 [[nodiscard]]
 constexpr auto read_io16(Gba& gba, std::uint32_t addr) -> std::uint16_t
 {
@@ -123,6 +135,22 @@ constexpr auto read_io16(Gba& gba, std::uint32_t addr) -> std::uint16_t
 
         // write only regs
         // todo: use a lut
+        case IO_FIFO_A_L:
+        case IO_FIFO_A_H:
+        case IO_FIFO_B_L:
+        case IO_FIFO_B_H:
+        case IO_DMA0SAD:
+        case IO_DMA1SAD:
+        case IO_DMA2SAD:
+        case IO_DMA3SAD:
+        case IO_DMA0DAD:
+        case IO_DMA1DAD:
+        case IO_DMA2DAD:
+        case IO_DMA3DAD:
+        case IO_DMA0CNT_L:
+        case IO_DMA1CNT_L:
+        case IO_DMA2CNT_L:
+        case IO_DMA3CNT_L:
         case IO_BG0HOFS:
         case IO_BG0VOFS:
         case IO_BG1HOFS:
@@ -131,7 +159,10 @@ constexpr auto read_io16(Gba& gba, std::uint32_t addr) -> std::uint16_t
         case IO_BG2VOFS:
         case IO_BG3HOFS:
         case IO_BG3VOFS:
-            return 0;
+        case IO_MOSAIC:
+        case IO_COLEV:
+        case IO_COLEY:
+            return empty_read<u16>(gba, addr);
 
         default:
             //printf("unhandled io read addr: 0x%08X\n", addr);
@@ -600,7 +631,7 @@ constexpr auto read_sram_region(Gba& gba, u32 addr) -> T
     }
     else // no backup. todo: open bus
     {
-        return 0;
+        return empty_read<T>(gba, addr);
     }
 
     // 16/32bit reads from sram area mirror the byte
@@ -630,17 +661,6 @@ constexpr auto write_sram_region(Gba& gba, u32 addr, T value) -> void
     {
         gba.backup.flash.write(gba, addr, value);
     }
-}
-
-template<typename T>
-constexpr T empty_read(Gba& gba, u32 addr)
-{
-    return 0;
-}
-
-template<typename T>
-constexpr void empty_write(Gba& gba, u32 addr, T value)
-{
 }
 
 template<typename T>
@@ -694,7 +714,8 @@ constexpr WriteFunction<T> WRITE_FUNCTION[0x10] =
 auto read8(Gba& gba, std::uint32_t addr) -> std::uint8_t
 {
     gba.cycles++;
-    auto& entry = MEM.rmap_8[(addr >> 24) & 0xF];
+    addr &= 0x0FFFFFFF;
+    auto& entry = MEM.rmap_8[addr >> 24];
 
     if (entry.array.size()) [[likely]]
     {
@@ -702,15 +723,15 @@ auto read8(Gba& gba, std::uint32_t addr) -> std::uint8_t
     }
     else
     {
-        return READ_FUNCTION<u8>[(addr >> 24) & 0xF](gba, addr);
+        return READ_FUNCTION<u8>[addr >> 24](gba, addr);
     }
 }
 
 auto read16(Gba& gba, std::uint32_t addr) -> std::uint16_t
 {
-    addr &= ~0x1;
     gba.cycles++;
-    auto& entry = MEM.rmap_16[(addr >> 24) & 0xF];
+    addr &= 0x0FFFFFFE;
+    auto& entry = MEM.rmap_16[addr >> 24];
 
     if (entry.array.size()) [[likely]]
     {
@@ -718,15 +739,15 @@ auto read16(Gba& gba, std::uint32_t addr) -> std::uint16_t
     }
     else
     {
-        return READ_FUNCTION<u16>[(addr >> 24) & 0xF](gba, addr);
+        return READ_FUNCTION<u16>[addr >> 24](gba, addr);
     }
 }
 
 auto read32(Gba& gba, std::uint32_t addr) -> std::uint32_t
 {
-    addr &= ~0x3;
     gba.cycles++;
-    auto& entry = MEM.rmap_32[(addr >> 24) & 0xF];
+    addr &= 0x0FFFFFFC;
+    auto& entry = MEM.rmap_32[addr >> 24];
 
     if (entry.array.size()) [[likely]]
     {
@@ -734,14 +755,15 @@ auto read32(Gba& gba, std::uint32_t addr) -> std::uint32_t
     }
     else
     {
-        return READ_FUNCTION<u32>[(addr >> 24) & 0xF](gba, addr);
+        return READ_FUNCTION<u32>[addr >> 24](gba, addr);
     }
 }
 
 auto write8(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
 {
     gba.cycles++;
-    auto& entry = MEM.wmap_8[(addr >> 24) & 0xF];
+    addr &= 0x0FFFFFFF;
+    auto& entry = MEM.wmap_8[addr >> 24];
 
     if (entry.array.size()) // don't mark likely as vram,pram,io writes are common
     {
@@ -749,15 +771,15 @@ auto write8(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
     }
     else
     {
-        WRITE_FUNCTION<u8>[(addr >> 24) & 0xF](gba, addr, value);
+        WRITE_FUNCTION<u8>[addr >> 24](gba, addr, value);
     }
 }
 
 auto write16(Gba& gba, std::uint32_t addr, std::uint16_t value) -> void
 {
-    addr &= ~0x1;
     gba.cycles++;
-    auto& entry = MEM.wmap_16[(addr >> 24) & 0xF];
+    addr &= 0x0FFFFFFE;
+    auto& entry = MEM.wmap_16[addr >> 24];
 
     if (entry.array.size()) // don't mark likely as vram,pram,io writes are common
     {
@@ -765,15 +787,15 @@ auto write16(Gba& gba, std::uint32_t addr, std::uint16_t value) -> void
     }
     else
     {
-        WRITE_FUNCTION<u16>[(addr >> 24) & 0xF](gba, addr, value);
+        WRITE_FUNCTION<u16>[addr >> 24](gba, addr, value);
     }
 }
 
 auto write32(Gba& gba, std::uint32_t addr, std::uint32_t value) -> void
 {
-    addr &= ~0x3;
     gba.cycles++;
-    auto& entry = MEM.wmap_32[(addr >> 24) & 0xF];
+    addr &= 0x0FFFFFFC;
+    auto& entry = MEM.wmap_32[addr >> 24];
 
     if (entry.array.size()) // don't mark likely as vram,pram,io writes are common
     {
@@ -781,7 +803,7 @@ auto write32(Gba& gba, std::uint32_t addr, std::uint32_t value) -> void
     }
     else
     {
-        WRITE_FUNCTION<u32>[(addr >> 24) & 0xF](gba, addr, value);
+        WRITE_FUNCTION<u32>[addr >> 24](gba, addr, value);
     }
 }
 

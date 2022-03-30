@@ -72,17 +72,17 @@ auto data_processing(Gba& gba, uint32_t opcode, uint32_t oprand1, uint32_t opran
     }
     else if constexpr(Op == ADC)
     {
-        const auto result = internal_add<S>(gba, oprand1, oprand2, CPU.cpsr.C);
+        const auto result = internal_adc<S>(gba, oprand1, oprand2, CPU.cpsr.C);
         set_reg_data_processing(gba, Rd, result);
     }
     else if constexpr(Op == SBC)
     {
-        const auto result = internal_sub<S>(gba, oprand1, oprand2, !CPU.cpsr.C);
+        const auto result = internal_sbc<S>(gba, oprand1, oprand2, !CPU.cpsr.C);
         set_reg_data_processing(gba, Rd, result);
     }
     else if constexpr(Op == RSC)
     {
-        const auto result = internal_sub<S>(gba, oprand2, oprand1, !CPU.cpsr.C);
+        const auto result = internal_sbc<S>(gba, oprand2, oprand1, !CPU.cpsr.C);
         set_reg_data_processing(gba, Rd, result);
     }
     else if constexpr(Op == TST)

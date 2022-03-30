@@ -78,12 +78,12 @@ auto alu_operations(Gba& gba, uint16_t opcode) -> void
     }
     else if constexpr (Op == ADC)
     {
-        const auto result = internal_add<true>(gba, oprand1, oprand2, CPU.cpsr.C);
+        const auto result = internal_adc<true>(gba, oprand1, oprand2, CPU.cpsr.C);
         set_reg_thumb(gba, Rd, result);
     }
     else if constexpr (Op == SBC)
     {
-        const auto result = internal_sub<true>(gba, oprand1, oprand2, !CPU.cpsr.C);
+        const auto result = internal_sbc<true>(gba, oprand1, oprand2, !CPU.cpsr.C);
         set_reg_thumb(gba, Rd, result);
     }
     else if constexpr (Op == ROR)

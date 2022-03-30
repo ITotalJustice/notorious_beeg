@@ -221,7 +221,6 @@ auto tick(Gba& gba, u16& data, std::uint8_t cycles, bool cascade_overflow) -> bo
 
     if (timer.cascade)
     {
-        printf("timer num cascade: %u\n", Number);
         assert(0);
         func();
         return overflowed;

@@ -73,14 +73,19 @@ constexpr auto IO_BG1CNT = 0x0400000A;
 constexpr auto IO_BG2CNT = 0x0400000C;
 constexpr auto IO_BG3CNT = 0x0400000E;
 
-constexpr auto IO_BG0HOFS = 0x04000010;
-constexpr auto IO_BG0VOFS = 0x04000012;
-constexpr auto IO_BG1HOFS = 0x04000014;
-constexpr auto IO_BG1VOFS = 0x04000016;
-constexpr auto IO_BG2HOFS = 0x04000018;
-constexpr auto IO_BG2VOFS = 0x0400001A;
-constexpr auto IO_BG3HOFS = 0x0400001C;
-constexpr auto IO_BG3VOFS = 0x0400001E;
+constexpr auto IO_BG0HOFS = 0x04000010; // (w)
+constexpr auto IO_BG0VOFS = 0x04000012; // (w)
+constexpr auto IO_BG1HOFS = 0x04000014; // (w)
+constexpr auto IO_BG1VOFS = 0x04000016; // (w)
+constexpr auto IO_BG2HOFS = 0x04000018; // (w)
+constexpr auto IO_BG2VOFS = 0x0400001A; // (w)
+constexpr auto IO_BG3HOFS = 0x0400001C; // (w)
+constexpr auto IO_BG3VOFS = 0x0400001E; // (w)
+
+constexpr auto IO_MOSAIC = 0x400004C; // (w)
+constexpr auto IO_BLDMOD = 0x4000050; // r+w
+constexpr auto IO_COLEV = 0x4000052; // (w)
+constexpr auto IO_COLEY = 0x4000054; // (w)
 
 constexpr auto IO_SOUND1CNT_L = 0x04000060;
 constexpr auto IO_SOUND1CNT_H = 0x04000062;
@@ -104,21 +109,21 @@ constexpr auto IO_WAVE_RAM2_L = 0x04000098;
 constexpr auto IO_WAVE_RAM2_H = 0x0400009A;
 constexpr auto IO_WAVE_RAM3_L = 0x0400009C;
 constexpr auto IO_WAVE_RAM3_H = 0x0400009E;
-constexpr auto IO_FIFO_A_L = 0x040000A0;
-constexpr auto IO_FIFO_A_H = 0x040000A2;
-constexpr auto IO_FIFO_B_L = 0x040000A4;
-constexpr auto IO_FIFO_B_H = 0x040000A6;
+constexpr auto IO_FIFO_A_L = 0x040000A0; // (w)
+constexpr auto IO_FIFO_A_H = 0x040000A2; // (w)
+constexpr auto IO_FIFO_B_L = 0x040000A4; // (w)
+constexpr auto IO_FIFO_B_H = 0x040000A6; // (w)
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#DMA%20Source%20Registers
-constexpr auto IO_DMA0SAD = 0x40000B0; // 27bit
-constexpr auto IO_DMA1SAD = 0x40000BC; // 28bit
-constexpr auto IO_DMA2SAD = 0x40000C8; // 28bit
-constexpr auto IO_DMA3SAD = 0x40000D4; // 28bit
+constexpr auto IO_DMA0SAD = 0x40000B0; // 27bit (w)
+constexpr auto IO_DMA1SAD = 0x40000BC; // 28bit (w)
+constexpr auto IO_DMA2SAD = 0x40000C8; // 28bit (w)
+constexpr auto IO_DMA3SAD = 0x40000D4; // 28bit (w)
 
-constexpr auto IO_DMA0DAD = 0x40000B4; // 27bit
-constexpr auto IO_DMA1DAD = 0x40000C0; // 27bit
-constexpr auto IO_DMA2DAD = 0x40000CC; // 27bit
-constexpr auto IO_DMA3DAD = 0x40000D8; // 28bit
+constexpr auto IO_DMA0DAD = 0x40000B4; // 27bit (w)
+constexpr auto IO_DMA1DAD = 0x40000C0; // 27bit (w)
+constexpr auto IO_DMA2DAD = 0x40000CC; // 27bit (w)
+constexpr auto IO_DMA3DAD = 0x40000D8; // 28bit (w)
 
 constexpr auto IO_DMA0CNT = 0x40000B8; // (DMA0 Count Register)
 constexpr auto IO_DMA1CNT = 0x40000C4; // (DMA1 Count Register)
@@ -126,10 +131,10 @@ constexpr auto IO_DMA2CNT = 0x40000D0; // (DMA2 Count Register)
 constexpr auto IO_DMA3CNT = 0x40000DC; // (DMA3 Count Register)
 
 // same as above, but 16-bit (cowbite docs refer to them as such)
-constexpr auto IO_DMA0CNT_L = 0x40000B8; // (DMA0 Count Register)
-constexpr auto IO_DMA1CNT_L = 0x40000C4; // (DMA1 Count Register)
-constexpr auto IO_DMA2CNT_L = 0x40000D0; // (DMA2 Count Register)
-constexpr auto IO_DMA3CNT_L = 0x40000DC; // (DMA3 Count Register)
+constexpr auto IO_DMA0CNT_L = 0x40000B8; // (DMA0 Count Register) (w)
+constexpr auto IO_DMA1CNT_L = 0x40000C4; // (DMA1 Count Register) (w)
+constexpr auto IO_DMA2CNT_L = 0x40000D0; // (DMA2 Count Register) (w)
+constexpr auto IO_DMA3CNT_L = 0x40000DC; // (DMA3 Count Register) (w)
 
 constexpr auto IO_DMA0CNT_H = 0x40000BA; // (DMA0 Control Register)
 constexpr auto IO_DMA1CNT_H = 0x40000C6; // (DMA1 Control Register)

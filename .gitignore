@@ -12,3 +12,4 @@ src/core/old/
 *.zip
 misc/
 .clangd
+rewind*

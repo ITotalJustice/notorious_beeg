@@ -32,15 +32,15 @@ auto Gba::reset() -> void
     this->scheduler.cycles = 0;
     this->cycles2 = 0;
     scheduler::reset(*this);
+    mem::reset(*this); // this needed to be before arm::reset because memtables
     arm7tdmi::reset(*this);
-    mem::reset(*this);
     ppu::reset(*this);
     apu::reset(*this);
 }
 
-auto Gba::loadrom(std::span<const  std::uint8_t> new_rom) -> bool
+auto Gba::loadrom(std::span<const std::uint8_t> new_rom) -> bool
 {
-    if (new_rom.size() > std::size(this->rom))
+    if (new_rom.size() > sizeof(this->rom))
     {
         assert(!"rom is way too beeg");
         return false;
@@ -76,6 +76,14 @@ auto Gba::loadrom(std::span<const  std::uint8_t> new_rom) -> bool
     }
 
     std::ranges::copy(new_rom, this->rom);
+
+    constexpr auto SIZE_16MiB = 1024*1024*16;
+    if (new_rom.size() <= SIZE_16MiB)
+    {
+        // hack for mirroring, mirror to bank[0x9]
+        // needed for minish cap
+        std::ranges::copy(new_rom, this->rom + SIZE_16MiB);
+    }
 
     this->reset();
 
