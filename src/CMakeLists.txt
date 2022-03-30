@@ -7,7 +7,7 @@ list(APPEND gcc_flags
     -Wextra
     # -Werror
     -Wfatal-errors
-    -Wpedantic
+    -Wno-pedantic
     -Wshadow
     -Wdouble-promotion
     -Wformat=2
@@ -52,7 +52,7 @@ list(APPEND clang_flags
     -Wextra
     # -Werror
     -Wfatal-errors
-    -Wpedantic
+    -Wno-pedantic
     -Wshadow
     -Wdouble-promotion
     -Wformat=2

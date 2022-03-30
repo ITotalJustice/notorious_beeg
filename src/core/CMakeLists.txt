@@ -14,9 +14,15 @@ cmake_minimum_required(VERSION 3.20.0)
 # huge speedup, disable if encounter bug
 set(ENABLE_SCHEDULER ON)
 # compiler basically inlines everything
-set(SINGLE_FILE OFF)
+set(SINGLE_FILE ON)
 # enable sanitizers
 set(GBA_DEV OFF)
+
+set(EXECUTER_TABLE 0)
+set(EXECUTER_SWITCH 1)
+set(EXECUTER_GOTO 2)
+
+set(EXECUTER ${EXECUTER_TABLE})
 
 
 if (SINGLE_FILE)
@@ -39,9 +45,18 @@ else ()
         backup/sram.cpp
 
         arm7tdmi/arm7tdmi.cpp
-        arm7tdmi/arm/arm.cpp
-        arm7tdmi/thumb/thumb.cpp
     )
+
+    if (${EXECUTER} EQUAL ${EXECUTER_TABLE})
+        target_sources(GBA PRIVATE arm7tdmi/arm/arm_table.cpp)
+        target_sources(GBA PRIVATE arm7tdmi/thumb/thumb_table.cpp)
+    elseif(${EXECUTER} EQUAL ${EXECUTER_SWITCH})
+        target_sources(GBA PRIVATE arm7tdmi/arm/arm_switch.cpp)
+        target_sources(GBA PRIVATE arm7tdmi/thumb/thumb_switch.cpp)
+    elseif(${EXECUTER} EQUAL ${EXECUTER_GOTO})
+        target_sources(GBA PRIVATE arm7tdmi/arm/arm_goto.cpp)
+        target_sources(GBA PRIVATE arm7tdmi/thumb/thumb_goto.cpp)
+    endif()
 endif()
 
 target_include_directories(GBA PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -80,6 +95,10 @@ target_compile_definitions(GBA PRIVATE
     GBA_DEBUG=$<BOOL:${GBA_DEBUG}>
     SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
     ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
+    EXECUTER=${EXECUTER}
+    EXECUTER_TABLE=${EXECUTER_TABLE}
+    EXECUTER_SWITCH=${EXECUTER_SWITCH}
+    EXECUTER_GOTO=${EXECUTER_GOTO}
 )
 
 # enable LTO (only in release builds)

@@ -106,7 +106,7 @@ auto reset(Gba& gba) -> void
 template<typename T>
 constexpr auto empty_read(Gba& gba, u32 addr) -> T
 {
-    std::printf("empty read: 0x%08X\n", addr);
+    // std::printf("empty read: 0x%08X\n", addr);
     return 0x0;
 }
 

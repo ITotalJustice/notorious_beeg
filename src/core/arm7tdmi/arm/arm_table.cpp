@@ -371,7 +371,7 @@ consteval auto generate_function_table()
 
 constexpr auto func_table = generate_function_table();
 
-auto fetch(Gba& gba)
+auto fetch(Gba& gba) -> std::uint32_t
 {
     const auto opcode = CPU.pipeline[0];
     CPU.pipeline[0] = CPU.pipeline[1];

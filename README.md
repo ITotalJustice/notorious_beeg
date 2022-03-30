@@ -3,6 +3,31 @@ v0.0.1-dev
 
 gba emulator witten in c++23.
 
+this branch was a test to see which of the 3 (table, switch, computed goto) was faster.
+
+my results was: (using OpenLara, gcc11)
+```
+(release mode)
+1: table (860fps)
+2: computed goto (805fps)
+3: switch (780fps)
+
+(release mode + lto)
+1: switch (855fps)
+2: computed goto (830fps)
+3: table (825fps)
+```
+
+to test this yourself, you can change the type of executer in src/core/CMakeLists.txt.
+change `EXECUTER_TABLE` to one of the following
+```cmake
+EXECUTER_TABLE
+EXECUTER_SWITCH
+EXECUTER_GOTO
+```
+
+to run uncapped and log framerate, set `SPEED_TEST=1` in src/CMakeLists.txt
+
 ---
 
 ## changelog

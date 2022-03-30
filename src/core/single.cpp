@@ -23,6 +23,14 @@
     #include "backup/sram.cpp"
 
     #include "arm7tdmi/arm7tdmi.cpp"
-    #include "arm7tdmi/arm/arm.cpp"
-    #include "arm7tdmi/thumb/thumb.cpp"
+    #if EXECUTER == EXECUTER_TABLE
+        #include "arm7tdmi/arm/arm_table.cpp"
+        #include "arm7tdmi/thumb/thumb_table.cpp"
+    #elif EXECUTER == EXECUTER_SWITCH
+        #include "arm7tdmi/arm/arm_switch.cpp"
+        #include "arm7tdmi/thumb/thumb_switch.cpp"
+    #elif EXECUTER == EXECUTER_GOTO
+        #include "arm7tdmi/arm/arm_goto.cpp"
+        #include "arm7tdmi/thumb/thumb_goto.cpp"
+    #endif
 #endif
