@@ -18,19 +18,19 @@ enum class Period
 
 struct Ppu
 {
-    std::uint32_t period_cycles;
-    std::uint32_t cycles;
+    u32 period_cycles;
+    u32 cycles;
     Period period;
 
     // bgr555
     std::uint16_t pixels[160][240];
 };
 
-auto get_mode(Gba& gba) -> std::uint8_t;
+auto get_mode(Gba& gba) -> u8;
 auto is_bitmap_mode(Gba & gba) -> bool;
 
 auto on_event(Gba& gba) -> void;
 auto reset(Gba& gba) -> void;
-auto run(Gba& gba, uint8_t cycles) -> void;
+auto run(Gba& gba, u8 cycles) -> void;
 
 } // namespace gba::ppu

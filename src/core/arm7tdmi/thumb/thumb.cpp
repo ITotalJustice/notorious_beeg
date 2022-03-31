@@ -395,7 +395,6 @@ auto fetch(Gba& gba)
     CPU.pipeline[0] = CPU.pipeline[1];
     gba.cpu.registers[PC_INDEX] += 2;
     CPU.pipeline[1] = mem::read16(gba, get_pc(gba));
-    CPU.opcode = opcode;
 
     return opcode;
 }

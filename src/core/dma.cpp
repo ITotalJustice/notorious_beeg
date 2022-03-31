@@ -26,13 +26,13 @@ constexpr arm7tdmi::Interrupt INTERRUPTS[4] =
 
 struct [[nodiscard]] Registers
 {
-    std::uint32_t dmasad;
-    std::uint32_t dmadad;
-    std::uint16_t dmacnt_h;
-    std::uint16_t dmacnt_l;
+    u32 dmasad;
+    u32 dmadad;
+    u16 dmacnt_h;
+    u16 dmacnt_l;
 };
 
-auto get_channel_registers(Gba& gba, std::uint8_t channel_num) -> Registers
+auto get_channel_registers(Gba& gba, u8 channel_num) -> Registers
 {
     switch (channel_num)
     {
@@ -46,7 +46,7 @@ auto get_channel_registers(Gba& gba, std::uint8_t channel_num) -> Registers
 }
 
 template<bool Special = false>
-auto start_dma(Gba& gba, Channel& dma, std::uint8_t channel_num) -> void
+auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
 {
     const auto len = dma.len;
     // const auto src = dma.src_addr;
@@ -57,7 +57,7 @@ auto start_dma(Gba& gba, Channel& dma, std::uint8_t channel_num) -> void
         for (int i = 0; i < 4; i++)
         {
             const auto value = mem::read32(gba, dma.src_addr);
-            // mem::write32(gba, dma.dst_addr, value);
+            gba.scheduler.tick(1); // for fifo write
             apu::on_fifo_write32(gba, value, channel_num-1);
             dma.src_addr += dma.src_increment;
         }
@@ -88,7 +88,7 @@ auto start_dma(Gba& gba, Channel& dma, std::uint8_t channel_num) -> void
 
         switch (dma.size_type)
         {
-            case Channel::SizeType::half:
+            case SizeType::half:
                 while (dma.len--)
                 {
                     const auto value = mem::read16(gba, dma.src_addr);
@@ -98,7 +98,7 @@ auto start_dma(Gba& gba, Channel& dma, std::uint8_t channel_num) -> void
                 }
                 break;
 
-            case Channel::SizeType::word:
+            case SizeType::word:
                 while (dma.len--)
                 {
                     const auto value = mem::read32(gba, dma.src_addr);
@@ -115,18 +115,21 @@ auto start_dma(Gba& gba, Channel& dma, std::uint8_t channel_num) -> void
         arm7tdmi::fire_interrupt(gba, INTERRUPTS[channel_num]);
     }
 
-    if (dma.repeat && dma.mode != Channel::Mode::immediate)
+    if (dma.repeat && dma.mode != Mode::immediate)
     {
+        #ifndef NDEBUG
         const auto [sad, dad, cnt_h, cnt_l] = get_channel_registers(gba, channel_num);
+        #endif
+
         // reload len if repeat is set
-        if (dma.mode != Channel::Mode::special)
+        if (dma.mode != Mode::special)
         {
             assert(len == cnt_l);
         }
         dma.len = len;
         // dma.len = cnt_l;
         // optionally reload dst if increment type 3 is used
-        if (dma.dst_increment_type == Channel::IncrementType::special)
+        if (dma.dst_increment_type == IncrementType::special)
         {
             assert(dst == dad);
             dma.dst_addr = dst;
@@ -150,7 +153,7 @@ auto on_hblank(Gba& gba) -> void
 {
     for (auto i = 0; i < 4; i++)
     {
-        if (gba.dma[i].enabled && gba.dma[i].mode == Channel::Mode::hblank)
+        if (gba.dma[i].enabled && gba.dma[i].mode == Mode::hblank)
         {
             // std::printf("firing hdma: %u len: %08X dst: %08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
             start_dma(gba, gba.dma[i], i); // i think we only handle 1 dma at a time?
@@ -162,7 +165,7 @@ auto on_vblank(Gba& gba) -> void
 {
     for (auto i = 0; i < 4; i++)
     {
-        if (gba.dma[i].enabled && gba.dma[i].mode == Channel::Mode::vblank)
+        if (gba.dma[i].enabled && gba.dma[i].mode == Mode::vblank)
         {
             // std::printf("firing vdma: %u len: %08X dst: %08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
             start_dma(gba, gba.dma[i], i); // i think we only handle 1 dma at a time?
@@ -170,24 +173,24 @@ auto on_vblank(Gba& gba) -> void
     }
 }
 
-auto on_fifo_empty(Gba& gba, std::uint8_t num) -> void
+auto on_fifo_empty(Gba& gba, u8 num) -> void
 {
     auto i = num+1;
 
-    if (i == 1 && gba.dma[i].dst_addr != mem::IO_FIFO_A_L && gba.dma[i].mode == Channel::Mode::special)
+    if (i == 1 && gba.dma[i].dst_addr != mem::IO_FIFO_A_L && gba.dma[i].mode == Mode::special)
     {
         gba_log("addr: 0x%08X\n", gba.dma[i].dst_addr);
         assert(0);
         return;
     }
-    if (i == 2 && gba.dma[i].dst_addr != mem::IO_FIFO_B_L && gba.dma[i].mode == Channel::Mode::special)
+    if (i == 2 && gba.dma[i].dst_addr != mem::IO_FIFO_B_L && gba.dma[i].mode == Mode::special)
     {
         gba_log("addr: 0x%08X\n", gba.dma[i].dst_addr);
         assert(0);
         return;
     }
 
-    if (gba.dma[i].enabled && gba.dma[i].mode == Channel::Mode::special)
+    if (gba.dma[i].enabled && gba.dma[i].mode == Mode::special)
     {
         // std::printf("firing dma in fifo: %u\n", i-1);
         start_dma<true>(gba, gba.dma[i], i); // i think we only handle 1 dma at a time?
@@ -198,24 +201,24 @@ auto on_event(Gba& gba) -> void
 {
     for (auto i = 0; i < 4; i++)
     {
-        if (gba.dma[i].enabled && gba.dma[i].mode == Channel::Mode::immediate)
+        if (gba.dma[i].enabled && gba.dma[i].mode == Mode::immediate)
         {
             start_dma(gba, gba.dma[i], i);
         }
     }
 }
 
-auto on_cnt_write(Gba& gba, std::uint8_t channel_num) -> void
+auto on_cnt_write(Gba& gba, u8 channel_num) -> void
 {
     assert(channel_num <= 3);
     const auto [sad, dad, cnt_h, cnt_l] = get_channel_registers(gba, channel_num);
 
-    const auto B = static_cast<Channel::IncrementType>(bit::get_range<5, 6>(cnt_h)); // dst
-    const auto A = static_cast<Channel::IncrementType>(bit::get_range<7, 8>(cnt_h)); // src
+    const auto B = static_cast<IncrementType>(bit::get_range<5, 6>(cnt_h)); // dst
+    const auto A = static_cast<IncrementType>(bit::get_range<7, 8>(cnt_h)); // src
     const auto R = bit::is_set<9>(cnt_h); // repeat
-    const auto S = static_cast<Channel::SizeType>(bit::is_set<10>(cnt_h));
+    const auto S = static_cast<SizeType>(bit::is_set<10>(cnt_h));
     // const auto U = bit::is_set<11>(cnt_h); // unk
-    const auto M = static_cast<Channel::Mode>(bit::get_range<12, 13>(cnt_h));
+    const auto M = static_cast<Mode>(bit::get_range<12, 13>(cnt_h));
     const auto I = bit::is_set<14>(cnt_h); // irq
     const auto N = bit::is_set<15>(cnt_h); // enable flag
 
@@ -223,7 +226,7 @@ auto on_cnt_write(Gba& gba, std::uint8_t channel_num) -> void
     const auto dst = bit::get_range<0, 27>(dad); // can be 28 bit, handled below
     const auto len = cnt_l;
 
-    // std::printf("[dma%u] src: 0x%08X dst: 0x%08X len: 0x%04X B: %u A: %u R: %u S: %u M: %u I: %u N: %u\n", channel_num, src, dst, len, (uint8_t)B, (uint8_t)A, R, (uint8_t)S, (uint8_t)M, I, N);
+    // std::printf("[dma%u] src: 0x%08X dst: 0x%08X len: 0x%04X B: %u A: %u R: %u S: %u M: %u I: %u N: %u\n", channel_num, src, dst, len, (u8)B, (u8)A, R, (u8)S, (u8)M, I, N);
 
     // load data into registers
     auto& dma = gba.dma[channel_num];
@@ -260,7 +263,7 @@ auto on_cnt_write(Gba& gba, std::uint8_t channel_num) -> void
 
             case 3:
                 dma.dst_addr = bit::get_range<0, 28>(dad);
-                assert(dma.mode != Channel::Mode::special && "dma3 special mode");
+                assert(dma.mode != Mode::special && "dma3 special mode");
                 break;
         }
 
@@ -288,38 +291,38 @@ auto on_cnt_write(Gba& gba, std::uint8_t channel_num) -> void
 
     assert(dma.enabled && "shouldnt get here if dma is disabled");
 
-    if (dma.mode == Channel::Mode::special)
+    if (dma.mode == Mode::special)
     {
         dma.len = 4;
         // forced to word, openlara needs this
-        dma.size_type = Channel::SizeType::word;
-        dma.dst_increment_type = Channel::IncrementType::special;
+        dma.size_type = SizeType::word;
+        dma.dst_increment_type = IncrementType::special;
         dma.dst_increment = 0;
     }
 
     // sort increments
     switch (dma.size_type)
     {
-        case Channel::SizeType::half:
+        case SizeType::half:
             dma.src_increment = 2;
             dma.dst_increment = 2;
             break;
 
-        case Channel::SizeType::word:
+        case SizeType::word:
             dma.src_increment = 4;
             dma.dst_increment = 4;
             break;
     }
 
     // update increment based on type
-    const auto func = [](Channel::IncrementType type, auto& inc, bool is_dst)
+    const auto func = [](IncrementType type, auto& inc, bool is_dst)
     {
         switch (type)
         {
-            case Channel::IncrementType::inc: break;
-            case Channel::IncrementType::dec: inc *= -1; break;
-            case Channel::IncrementType::unchanged: inc = 0; break;
-            case Channel::IncrementType::special:
+            case IncrementType::inc: break;
+            case IncrementType::dec: inc *= -1; break;
+            case IncrementType::unchanged: inc = 0; break;
+            case IncrementType::special:
                 if (!is_dst)
                 {
                     assert(!"special dma set for src!");
@@ -333,7 +336,7 @@ auto on_cnt_write(Gba& gba, std::uint8_t channel_num) -> void
     func(dma.dst_increment_type, dma.dst_increment, true);
 
     // check if we should start transfer now
-    if (dma.mode == Channel::Mode::immediate)
+    if (dma.mode == Mode::immediate)
     {
         // dmas are delayed
         #if ENABLE_SCHEDULER

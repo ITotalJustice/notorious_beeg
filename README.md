@@ -34,6 +34,9 @@ gba emulator witten in c++23.
 - fix cpu being reset before mem. this meant that when the cpu flushed the pipeline in reset, it would try to read from memtable that hasnt been setup yet, so the opcode would be 0.
 - ignored more reads to write-only IOregs.
 - basic impl of mode0-mode1 tile based rendering.
+- add memory access time struct for slightly more accurate timings. this means in most cases, games now run slower (in game), meaning the performance of the emulator itself greatly increased.
+- fix edge case in scheduler where halt would be next event when firing all events, causing halt loop to run recursively until crash.
+- add `frame` event which fires at the end of a frame. this way, only 1 timer needs to be ticked and only 1 variable needs to be tracked if the frame has ended.
 
 0.0.1
 - added readme
@@ -62,6 +65,7 @@ gba emulator witten in c++23.
 - metroid fusion
 - metroid zero mission
 - doom
+- openlara
 
 ## done
 - arm
@@ -89,16 +93,16 @@ gba emulator witten in c++23.
 - proper fifo <https://github.com/mgba-emu/mgba/issues/1847>
 
 ## misc
-- doom runs at 13k fps (title) 750-800 fps (in-game)
-- emerald runs at 500 fps (intro) 500 fps (in-game)
+- doom runs at 13k fps (title) 800 fps (in-game)
+- emerald runs at 600 fps (intro) 600-700 fps (in-game)
 - minish runs at 1.7k fps (title) 1.1k fps (in-game)
-- openlara runs at 800-900 fps (title) 700 fps (in-game)
+- openlara runs at 1.3k fps (title) 800 fps (in-game)
 - metroid fusion 1.5k fps (title) 700-800 fps (in-game)
 - metroid zero 1.5k fps (title) 700-800 fps (in-game)
 
 ## todo
 - better optimise vram r/w (somehow adjust the masking so it always works).
-- refcator code. make functions into methods where possible (and if it makes sense).
+- refactor code. make functions into methods where possible (and if it makes sense).
 
 ## optimisations (todo)
 - further reduce template bloat for arm/thumb instructions. this will help for platforms that have a small-ish icache.
@@ -110,8 +114,17 @@ gba emulator witten in c++23.
 - check for fast paths in dma's. check if they can be memcpy (doesnt cross boundries) / memset (if the src addr doesnt change). cache this check if R (repeat) is set, so on next dma fire, we know its fast path already.
 - measure different impl of mem r/w. current impl uses fastmem, with a fallback to a function table. should be very fast, but maybe the indirection of all r/w access is too slow.
 
+## optimisations that worked
+- fastmem for reads. ie, array of pointers to arrays.
+- adding [[likely]] to fastmen reads, this gave ~200fps in openlara.
+- scheduler. HUGE fps increase.
+- halt skipping. when in halt, fast forward to the next event in a loop.
+
 ## optimisations that didn't work
 - tick arm/thumb in a loop. break out of this loop only on new_frame_event or state changed. this avoids the switch(state) on each ittr.
+- switch instead of table, switch was slower (see table_switch_goto branch).
+- computed goto instead of table, computed goto was slower (see table_switch_goto branch).
+- array of functions pointers for reads. this was much slower than having 2 arrays, 1 of pointers, one of functions.
 
 ## thanks
 - cowbite spec <https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm>

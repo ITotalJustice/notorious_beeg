@@ -7,7 +7,6 @@
 #include "timer.hpp"
 #include "bit.hpp"
 #include "arm7tdmi/arm7tdmi.hpp"
-#include <cstdint>
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#Timer%20registers
 namespace gba::timer
@@ -167,7 +166,7 @@ auto update_timer(Gba& gba, Timer& timer) -> void
     timer.event_time += delta * timer.freq;//gba.scheduler.cycles;
 }
 
-auto read_timer(Gba& gba, std::uint8_t num) -> std::uint16_t
+auto read_timer(Gba& gba, u8 num) -> u16
 {
     #if 0
     auto& timer = gba.timer[num];
@@ -188,7 +187,7 @@ auto read_timer(Gba& gba, std::uint8_t num) -> std::uint16_t
 #if ENABLE_SCHEDULER == 0
 // returns true if overflowed
 template<u8 Number>
-auto tick(Gba& gba, u16& data, std::uint8_t cycles, bool cascade_overflow) -> bool
+auto tick(Gba& gba, u16& data, u8 cycles, bool cascade_overflow) -> bool
 {
     auto& timer = gba.timer[Number];
 
@@ -241,7 +240,7 @@ auto tick(Gba& gba, u16& data, std::uint8_t cycles, bool cascade_overflow) -> bo
     return true;
 }
 
-auto run(Gba& gba, std::uint8_t cycles) -> void
+auto run(Gba& gba, u8 cycles) -> void
 {
     // return;
     bool overflowed = false;

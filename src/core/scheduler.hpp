@@ -14,6 +14,7 @@ namespace gba::scheduler
 enum class Event : std:: uint8_t
 {
     PPU,
+    // todo: profile removing the apu channel events
     APU_SQUARE0,
     APU_SQUARE1,
     APU_WAVE,
@@ -28,6 +29,10 @@ enum class Event : std:: uint8_t
     INTERRUPT,
     HALT,
 
+    // special event to indicate the end of a frame.
+    // the cycles is set by the user in run();
+    FRAME,
+
     // special event which adjusts all cycles
     // to prevent the counter from overflowing
     RESET,
@@ -41,8 +46,8 @@ using callback = void(*)(Gba& gba);
 struct Entry
 {
     callback cb;
-    std::uint32_t cycles;
-    std::int16_t delta; // todo: make this unsigned instead
+    u32 cycles;
+    s32 delta; // todo: make this unsigned instead
     bool enabled;
 };
 
@@ -50,15 +55,22 @@ struct Scheduler
 {
     std::array<Entry, std::to_underlying(Event::END)> entries;
 
-    std::uint32_t cycles;
-    std::uint32_t next_event_cycles;
+    u32 cycles;
+    u32 next_event_cycles;
+    u32 elapsed;
     Event next_event;
+    bool frame_end; // have this here because there 2+bytes of padding in this struct
+
+    // todo: fix this bug by ticking scheduler directly
+    // try openlara menu and listen to the audio pop
+    // auto tick(u32 cycle_amount) { this->cycles += cycle_amount; }
+    auto tick(u32 cycle_amount) { this->elapsed += cycle_amount; }
 };
 
 auto on_loadstate(Gba& gba) -> void;
 auto reset(Gba& gba) -> void;
 auto fire(Gba& gba) -> void;
-auto add(Gba& gba, Event e, callback cb, std::uint32_t cycles) -> void;
+auto add(Gba& gba, Event e, callback cb, u32 cycles) -> void;
 auto remove(Gba& gba, Event e) -> void;
 
 } // namespace gba::scheduler

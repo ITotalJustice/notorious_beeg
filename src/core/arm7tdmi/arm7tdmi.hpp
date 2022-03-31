@@ -4,19 +4,8 @@
 #pragma once
 
 #include "fwd.hpp"
-#include <cstddef>
-#include <cstdint>
-// todo: remove, this is a helper function for debugging
-// #include <bitset>
-// #include <iostream>
 
 namespace gba::arm7tdmi {
-
-template<uint8_t bits>
-auto print_bits(auto value) -> void
-{
-    // std::cout << std::bitset<bits>(value) << '\n';
-}
 
 constexpr auto SP_INDEX = 13; // stack pointer
 constexpr auto LR_INDEX = 14; // gets set to r15 during branch and links
@@ -53,7 +42,7 @@ enum class State : bool
 };
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#REG_IE
-enum class Interrupt : std::uint16_t
+enum class Interrupt : u16
 {
     VBlank   = 1 << 0x0, // (V) = VBlank Interrupt
     HBlank   = 1 << 0x1, // (H) = HBlank Interrupt
@@ -83,24 +72,23 @@ struct Psr
     bool I:1;     // IRQ disable (1=off,0=on)
     bool F:1;     // FIQ disable (1=off,0=on)
     bool T:1;     // state bit (1=thumb,0=arm)
-    uint8_t M:5;  // mode
+    u8 M:5;  // mode
 };
 
 struct Arm7tdmi
 {
-    uint32_t opcode;
-    uint32_t pipeline[2];
+    u32 pipeline[2];
 
-    uint32_t registers[16];
+    u32 registers[16];
     Psr cpsr;
     Psr spsr;
 
-    uint32_t banked_reg_usr[7]; // not real
-    uint32_t banked_reg_irq[2]; // r13_irq, r14_irq
-    uint32_t banked_reg_fiq[7]; // r8_fiq, r9_fiq, r10_fiq, r11_fiq, r12_fiq, r13_fiq, r14_fiq, and SPSR_fiq
-    uint32_t banked_reg_svc[2]; // r13_svc, r14_svc, SPSR_svc.
-    uint32_t banked_reg_abt[2]; // r13_abt, r14_abt, SPSR_abt.
-    uint32_t banked_reg_und[2]; // r13_und, r14_und, SPSR_und.
+    u32 banked_reg_usr[7]; // not real
+    u32 banked_reg_irq[2]; // r13_irq, r14_irq
+    u32 banked_reg_fiq[7]; // r8_fiq, r9_fiq, r10_fiq, r11_fiq, r12_fiq, r13_fiq, r14_fiq, and SPSR_fiq
+    u32 banked_reg_svc[2]; // r13_svc, r14_svc, SPSR_svc.
+    u32 banked_reg_abt[2]; // r13_abt, r14_abt, SPSR_abt.
+    u32 banked_reg_und[2]; // r13_und, r14_und, SPSR_und.
 
     Psr banked_spsr_irq;
     Psr banked_spsr_fiq;
@@ -109,58 +97,54 @@ struct Arm7tdmi
     Psr banked_spsr_und;
 
     bool halted;
-    bool breakpoint;
-    size_t cycles;
 };
 
 #define CPU gba.cpu
-
-STATIC auto toggle_breakpoint(Gba& gba, bool enable) -> void;
 
 STATIC auto reset(Gba& gba) -> void;
 
 STATIC auto refill_pipeline(Gba& gba) -> void;
 
-STATIC auto software_interrupt(Gba& gba, std::uint8_t comment_field) -> void;
+STATIC auto software_interrupt(Gba& gba, u8 comment_field) -> void;
 
 STATIC auto schedule_interrupt(Gba& gba) -> void;
 STATIC auto fire_interrupt(Gba& gba, Interrupt i) -> void;
 STATIC auto disable_interrupts(Gba& gba) -> void;
 
-STATIC auto change_mode(Gba& gba, uint8_t old_mode, uint8_t new_mode) -> void;
+STATIC auto change_mode(Gba& gba, u8 old_mode, u8 new_mode) -> void;
 STATIC auto load_spsr_mode_into_cpsr(Gba& gba) -> void;
 STATIC auto load_spsr_into_cpsr(Gba& gba) -> void;
 [[nodiscard]]
-STATIC auto get_u32_from_cpsr(Gba& gba) -> std::uint32_t;
+STATIC auto get_u32_from_cpsr(Gba& gba) -> u32;
 [[nodiscard]]
-STATIC auto get_u32_from_spsr(Gba& gba) -> std::uint32_t;
-STATIC auto set_cpsr_from_u32(Gba& gba, uint32_t value, bool flag_write, bool control_write) -> void;
-STATIC auto set_spsr_from_u32(Gba& gba, uint32_t value, bool flag_write, bool control_write) -> void;
+STATIC auto get_u32_from_spsr(Gba& gba) -> u32;
+STATIC auto set_cpsr_from_u32(Gba& gba, u32 value, bool flag_write, bool control_write) -> void;
+STATIC auto set_spsr_from_u32(Gba& gba, u32 value, bool flag_write, bool control_write) -> void;
 
 [[nodiscard]]
-STATIC_INLINE auto get_mode(const Gba& gba) -> std::uint8_t;
+STATIC_INLINE auto get_mode(const Gba& gba) -> u8;
 
 [[nodiscard]]
 STATIC_INLINE auto get_state(const Gba& gba) -> State;
 [[nodiscard]]
-STATIC_INLINE auto check_cond(const Gba& gba, uint8_t cond) -> bool;
+STATIC_INLINE auto check_cond(const Gba& gba, u8 cond) -> bool;
 
 [[nodiscard]]
-STATIC_INLINE auto get_lr(const Gba& gba) -> uint32_t;
+STATIC_INLINE auto get_lr(const Gba& gba) -> u32;
 [[nodiscard]]
-STATIC_INLINE auto get_sp(const Gba& gba) -> uint32_t;
+STATIC_INLINE auto get_sp(const Gba& gba) -> u32;
 [[nodiscard]]
-STATIC_INLINE auto get_pc(const Gba& gba) -> uint32_t;
+STATIC_INLINE auto get_pc(const Gba& gba) -> u32;
 
-STATIC_INLINE auto set_lr(Gba& gba, uint32_t value) -> void;
-STATIC_INLINE auto set_sp(Gba& gba, uint32_t value) -> void;
-STATIC_INLINE auto set_pc(Gba& gba, uint32_t value) -> void;
+STATIC_INLINE auto set_lr(Gba& gba, u32 value) -> void;
+STATIC_INLINE auto set_sp(Gba& gba, u32 value) -> void;
+STATIC_INLINE auto set_pc(Gba& gba, u32 value) -> void;
 
 [[nodiscard]]
-STATIC_INLINE auto get_reg(const Gba& gba, uint8_t reg) -> uint32_t;
-STATIC_INLINE auto set_reg(Gba& gba, uint8_t reg, uint32_t value) -> void;
-STATIC_INLINE auto set_reg_data_processing(Gba& gba, uint8_t reg, uint32_t value) -> void;
-STATIC_INLINE auto set_reg_thumb(Gba& gba, uint8_t reg, uint32_t value) -> void;
+STATIC_INLINE auto get_reg(const Gba& gba, u8 reg) -> u32;
+STATIC_INLINE auto set_reg(Gba& gba, u8 reg, u32 value) -> void;
+STATIC_INLINE auto set_reg_data_processing(Gba& gba, u8 reg, u32 value) -> void;
+STATIC_INLINE auto set_reg_thumb(Gba& gba, u8 reg, u32 value) -> void;
 
 STATIC_INLINE auto run(Gba& gba) -> void;
 

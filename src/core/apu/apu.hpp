@@ -26,13 +26,13 @@ struct FrameSequencer
 
 struct Len
 {
-    u16 counter;
+    std::uint16_t counter;
     bool enable;
 };
 
 struct Sweep
 {
-    u16 freq_shadow_register;
+    std::uint16_t freq_shadow_register;
     u8 period;
     u8 shift;
     s8 timer;
@@ -129,7 +129,7 @@ struct Noise : Base<3>
 {
     Envelope env;
 
-    u16 lfsr;
+    std::uint16_t lfsr;
     u8 clock_shift;
     u8 divisor_code;
 
@@ -182,13 +182,13 @@ struct Apu
 };
 
 auto on_fifo_write8(Gba& gba, u8 value, u8 num) -> void;
-auto on_fifo_write16(Gba& gba, u16 value, u8 num) -> void;
+auto on_fifo_write16(Gba& gba, std::uint16_t value, u8 num) -> void;
 auto on_fifo_write32(Gba& gba, u32 value, u8 num) -> void;
 auto on_timer_overflow(Gba& gba, u8 timer_num) -> void;
 auto on_soundcnt_write(Gba& gba) -> void;
 
 auto write_legacy8(Gba& gba, u32 addr, u8 value) -> void;
-auto write_legacy(Gba& gba, u32 addr, u16 value) -> void;
+auto write_legacy(Gba& gba, u32 addr, std::uint16_t value) -> void;
 
 auto on_square0_event(Gba& gba) -> void;
 auto on_square1_event(Gba& gba) -> void;

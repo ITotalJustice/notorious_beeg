@@ -24,11 +24,9 @@ list(APPEND gcc_flags
     -Wdate-time
     -Wlogical-op
     -Wpacked
-    # -Wredundant-decls
     -Wnested-externs
     -Wcast-qual
     -Wcast-align
-    -Wunused-macros
     -Wbad-function-cast
     # -Wsuggest-attribute=const
     -Wimplicit-fallthrough=5

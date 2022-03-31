@@ -9,11 +9,9 @@
 #include "bios_hle.hpp"
 #include "scheduler.hpp"
 #include <cassert>
-#include <cstddef>
-#include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <span>
+#include <utility>
 
 namespace gba::arm7tdmi {
 
@@ -36,9 +34,9 @@ auto reset(Gba& gba) -> void
     disable_interrupts(gba);
 }
 
-auto check_cond(const Gba& gba, uint8_t cond) -> bool
+auto check_cond(const Gba& gba, u8 cond) -> bool
 {
-    switch (cond)
+    switch (cond & 0xF)
     {
         case COND_EQ: return CPU.cpsr.Z;
         case COND_NE: return !CPU.cpsr.Z;
@@ -56,10 +54,11 @@ auto check_cond(const Gba& gba, uint8_t cond) -> bool
         case COND_GT: return !CPU.cpsr.Z && (CPU.cpsr.N == CPU.cpsr.V);
         case COND_LE: return CPU.cpsr.Z || (CPU.cpsr.N != CPU.cpsr.V);
         case COND_AL: return true;
-    }
 
-    assert(!"unreachable hit");
-    return false;
+        default:
+            assert(!"unreachable hit");
+            return false;
+    }
 }
 
 auto refill_pipeline(Gba& gba) -> void
@@ -80,7 +79,7 @@ auto refill_pipeline(Gba& gba) -> void
     }
 }
 
-auto change_mode_save_regs(Gba& gba, std::span<std::uint32_t> banked_regs, struct Psr* banked_spsr)
+auto change_mode_save_regs(Gba& gba, std::span<u32> banked_regs, struct Psr* banked_spsr)
 {
     const auto offset = 15 - banked_regs.size();
 
@@ -96,7 +95,7 @@ auto change_mode_save_regs(Gba& gba, std::span<std::uint32_t> banked_regs, struc
     }
 }
 
-auto change_mode_restore_regs(Gba& gba, std::span<const std::uint32_t> banked_regs, const Psr* banked_spsr, int max)
+auto change_mode_restore_regs(Gba& gba, std::span<const u32> banked_regs, const Psr* banked_spsr, int max)
 {
     std::size_t i = 0;
     const auto offset = 15 - banked_regs.size();
@@ -118,7 +117,7 @@ auto change_mode_restore_regs(Gba& gba, std::span<const std::uint32_t> banked_re
     }
 }
 
-auto change_mode(Gba& gba, uint8_t old_mode, uint8_t new_mode) -> void
+auto change_mode(Gba& gba, u8 old_mode, u8 new_mode) -> void
 {
     CPU.cpsr.M = new_mode;
 
@@ -182,9 +181,9 @@ auto change_mode(Gba& gba, uint8_t old_mode, uint8_t new_mode) -> void
 }
 
 
-auto get_u32_from_psr(Psr& psr) -> std::uint32_t
+auto get_u32_from_psr(Psr& psr) -> u32
 {
-    std::uint32_t value = 0;
+    u32 value = 0;
     value |= (psr.N << 31);
     value |= (psr.Z << 30);
     value |= (psr.C << 29);
@@ -196,12 +195,12 @@ auto get_u32_from_psr(Psr& psr) -> std::uint32_t
     return value;
 }
 
-auto get_u32_from_cpsr(Gba& gba) -> std::uint32_t
+auto get_u32_from_cpsr(Gba& gba) -> u32
 {
     return get_u32_from_psr(CPU.cpsr);
 }
 
-auto get_u32_from_spsr(Gba& gba) -> std::uint32_t
+auto get_u32_from_spsr(Gba& gba) -> u32
 {
     const auto mode = get_mode(gba);
     // std::printf("mode: %u\n", mode);
@@ -239,7 +238,7 @@ auto load_spsr_into_cpsr(Gba& gba) -> void
     }
 }
 
-auto set_psr_from_u32(Gba& gba, Psr& psr, uint32_t value, bool flag_write, bool control_write) -> void
+auto set_psr_from_u32(Gba& gba, Psr& psr, u32 value, bool flag_write, bool control_write) -> void
 {
     if (flag_write)
     {
@@ -259,7 +258,7 @@ auto set_psr_from_u32(Gba& gba, Psr& psr, uint32_t value, bool flag_write, bool 
     }
 }
 
-auto set_cpsr_from_u32(Gba& gba, uint32_t value, bool flag_write, bool control_write) -> void
+auto set_cpsr_from_u32(Gba& gba, u32 value, bool flag_write, bool control_write) -> void
 {
     const auto old_mode = get_mode(gba);
     set_psr_from_u32(gba, CPU.cpsr, value, flag_write, control_write);
@@ -267,7 +266,7 @@ auto set_cpsr_from_u32(Gba& gba, uint32_t value, bool flag_write, bool control_w
     change_mode(gba, old_mode, new_mode);
 }
 
-auto set_spsr_from_u32(Gba& gba, uint32_t value, bool flag_write, bool control_write) -> void
+auto set_spsr_from_u32(Gba& gba, u32 value, bool flag_write, bool control_write) -> void
 {
     assert(get_mode(gba) != MODE_USER && "user mode doesn't have spsr");
     if (get_mode(gba) != MODE_USER) [[likely]]
@@ -276,7 +275,7 @@ auto set_spsr_from_u32(Gba& gba, uint32_t value, bool flag_write, bool control_w
     }
 }
 
-auto get_mode(const Gba& gba) -> std::uint8_t
+auto get_mode(const Gba& gba) -> u8
 {
     return CPU.cpsr.M;
 }
@@ -286,43 +285,43 @@ auto get_state(const Gba& gba) -> State
     return static_cast<State>(CPU.cpsr.T);
 }
 
-auto get_lr(const Gba& gba) -> uint32_t
+auto get_lr(const Gba& gba) -> u32
 {
     return get_reg(gba, LR_INDEX);
 }
 
-auto get_sp(const Gba& gba) -> uint32_t
+auto get_sp(const Gba& gba) -> u32
 {
     return get_reg(gba, SP_INDEX);
 }
 
-auto get_pc(const Gba& gba) -> uint32_t
+auto get_pc(const Gba& gba) -> u32
 {
     return get_reg(gba, PC_INDEX);
 }
 
-auto get_reg(const Gba& gba, uint8_t reg) -> uint32_t
+auto get_reg(const Gba& gba, u8 reg) -> u32
 {
     assert(reg <= 15);
     return CPU.registers[reg];
 }
 
-auto set_lr(Gba& gba, uint32_t value) -> void
+auto set_lr(Gba& gba, u32 value) -> void
 {
     set_reg(gba, LR_INDEX, value);
 }
 
-auto set_sp(Gba& gba, uint32_t value) -> void
+auto set_sp(Gba& gba, u32 value) -> void
 {
     set_reg(gba, SP_INDEX, value);
 }
 
-auto set_pc(Gba& gba, uint32_t value) -> void
+auto set_pc(Gba& gba, u32 value) -> void
 {
     set_reg(gba, PC_INDEX, value);
 }
 
-auto set_reg(Gba& gba, uint8_t reg, uint32_t value) -> void
+auto set_reg(Gba& gba, u8 reg, u32 value) -> void
 {
     assert(reg <= 15);
     // todo: add asserts here for different modes
@@ -337,7 +336,7 @@ auto set_reg(Gba& gba, uint8_t reg, uint32_t value) -> void
 }
 
 // data processing manually handles refilling
-auto set_reg_data_processing(Gba& gba, uint8_t reg, uint32_t value) -> void
+auto set_reg_data_processing(Gba& gba, u8 reg, u32 value) -> void
 {
     assert(reg <= 15);
     // todo: add asserts here for different modes
@@ -350,21 +349,17 @@ auto set_reg_data_processing(Gba& gba, uint8_t reg, uint32_t value) -> void
     }
 }
 
-auto set_reg_thumb(Gba& gba, uint8_t reg, uint32_t value) -> void
+auto set_reg_thumb(Gba& gba, u8 reg, u32 value) -> void
 {
     assert(reg <= 7);
     CPU.registers[reg] = value;
 }
 
-auto software_interrupt(Gba& gba, std::uint8_t comment_field) -> void
+auto software_interrupt(Gba& gba, u8 comment_field) -> void
 {
-    //toggle_breakpoint(gba, true);
-
     // if not handled, do normal bios handling
     if (!bios::hle(gba, comment_field))
     {
-        // CPU.breakpoint = true;
-
         const auto pc_offset = get_state(gba) == State::THUMB ? 2 : 4;
         const auto lr = get_pc(gba) - pc_offset;
         const auto pc = 0x8; // SVC handler
@@ -384,19 +379,13 @@ auto software_interrupt(Gba& gba, std::uint8_t comment_field) -> void
 
 auto fire_interrupt(Gba& gba, Interrupt i) -> void
 {
-    REG_IF |= static_cast<std::uint16_t>(i);
+    REG_IF |= std::to_underlying(i);
     schedule_interrupt(gba);
 }
 
 auto disable_interrupts(Gba& gba) -> void
 {
     CPU.cpsr.I = true; // 1=off
-}
-
-auto toggle_breakpoint(Gba& gba, bool enable) -> void
-{
-    CPU.breakpoint = enable;
-    gba_log("\nbreakpoint hit PC: 0x%08X LR: 0x%08X SP: 0x%08X CPSR: 0x%08X mode: %u r0: 0x%08X, r1: 0x%08X, r6: 0x%08X\n", get_pc(gba) - (CPU.cpsr.T ? 2*2 : 4*2), get_lr(gba), get_sp(gba), get_u32_from_cpsr(gba), get_mode(gba), get_reg(gba, 0), get_reg(gba, 1), get_reg(gba, 6));
 }
 
 auto on_int(Gba& gba)
@@ -455,15 +444,16 @@ auto poll_interrupts(Gba& gba) -> void
 
 auto on_halt_event(Gba& gba) -> void
 {
-    while (CPU.halted && gba.cycles2 < 280896)
+    assert(gba.scheduler.next_event != scheduler::Event::HALT && "halt bug");
+
+    while (CPU.halted && !gba.scheduler.frame_end)
     {
         assert(gba.scheduler.next_event_cycles >= gba.scheduler.cycles && "unsigned underflow happens!");
-        gba.cycles2 += gba.scheduler.next_event_cycles - gba.scheduler.cycles;
         gba.scheduler.cycles = gba.scheduler.next_event_cycles;
         scheduler::fire(gba);
     }
 
-    // gba.cycles = 0;
+    gba.scheduler.elapsed = 0;
 }
 
 auto on_halt_trigger(Gba& gba, HaltType type) -> void
@@ -501,7 +491,7 @@ auto run(Gba& gba) -> void
 
     if (CPU.halted) [[unlikely]]
     {
-        gba.cycles += 1;
+        gba.scheduler.tick(1);
         return;
     }
     #endif

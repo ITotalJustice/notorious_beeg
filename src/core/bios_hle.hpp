@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "fwd.hpp"
-#include <cstdint>
 
 namespace gba::bios {
 
 // returns true if handled
-auto hle(Gba& gba, std::uint8_t comment_field) -> bool;
+auto hle(Gba& gba, u8 comment_field) -> bool;
 
 } // namespace gba::bios

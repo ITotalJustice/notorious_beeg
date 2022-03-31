@@ -81,19 +81,3 @@ target_compile_definitions(GBA PRIVATE
     SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
     ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
 )
-
-# enable LTO (only in release builds)
-# this greatly reduces template bloat as well
-if (CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
-    include(CheckIPOSupported)
-    check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
-
-    if (ipo_supported)
-        message(STATUS "IPO / LTO enabled")
-        set_property(TARGET GBA PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-    else()
-        message(STATUS "IPO / LTO not supported: <${ipo_error}>")
-    endif()
-else()
-    message(STATUS "IPO / LTO not enabled in debug build")
-endif()

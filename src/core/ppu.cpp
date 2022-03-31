@@ -17,37 +17,37 @@ namespace gba::ppu {
 
 struct BGxCNT
 {
-    constexpr BGxCNT(std::uint16_t cnt) :
-        Pr{static_cast<std::uint16_t>(bit::get_range<0, 1>(cnt))},
-        CBB{static_cast<std::uint16_t>(bit::get_range<2, 3>(cnt))},
-        Mos{static_cast<std::uint16_t>(bit::is_set<6>(cnt))},
-        CM{static_cast<std::uint16_t>(bit::is_set<7>(cnt))},
-        SBB{static_cast<std::uint16_t>(bit::get_range<8, 12>(cnt))},
-        Wr{static_cast<std::uint16_t>(bit::is_set<13>(cnt))},
-        Sz{static_cast<std::uint16_t>(bit::get_range<14, 15>(cnt))} {}
+    constexpr BGxCNT(u16 cnt) :
+        Pr{static_cast<u16>(bit::get_range<0, 1>(cnt))},
+        CBB{static_cast<u16>(bit::get_range<2, 3>(cnt))},
+        Mos{static_cast<u16>(bit::is_set<6>(cnt))},
+        CM{static_cast<u16>(bit::is_set<7>(cnt))},
+        SBB{static_cast<u16>(bit::get_range<8, 12>(cnt))},
+        Wr{static_cast<u16>(bit::is_set<13>(cnt))},
+        Sz{static_cast<u16>(bit::get_range<14, 15>(cnt))} {}
 
-    std::uint16_t Pr : 2;
-    std::uint16_t CBB : 2;
-    std::uint16_t Mos : 1;
-    std::uint16_t CM : 1;
-    std::uint16_t SBB : 5;
-    std::uint16_t Wr : 1;
-    std::uint16_t Sz : 2;
+    u16 Pr : 2;
+    u16 CBB : 2;
+    u16 Mos : 1;
+    u16 CM : 1;
+    u16 SBB : 5;
+    u16 Wr : 1;
+    u16 Sz : 2;
 };
 
 // NOTE: The affine screen entries are only 8 bits wide and just contain an 8bit tile index.
 struct ScreenEntry
 {
-    constexpr ScreenEntry(std::uint16_t screen_entry) :
-        tile_index{static_cast<std::uint16_t>(bit::get_range<0, 9>(screen_entry))},
-        hflip{static_cast<std::uint16_t>(bit::is_set<10>(screen_entry))},
-        vflip{static_cast<std::uint16_t>(bit::is_set<11>(screen_entry))},
-        palette_bank{static_cast<std::uint16_t>(bit::get_range<12, 15>(screen_entry))} {}
+    constexpr ScreenEntry(u16 screen_entry) :
+        tile_index{static_cast<u16>(bit::get_range<0, 9>(screen_entry))},
+        hflip{static_cast<u16>(bit::is_set<10>(screen_entry))},
+        vflip{static_cast<u16>(bit::is_set<11>(screen_entry))},
+        palette_bank{static_cast<u16>(bit::get_range<12, 15>(screen_entry))} {}
 
-    const std::uint16_t tile_index : 10; // max 512
-    const std::uint16_t hflip : 1;
-    const std::uint16_t vflip : 1;
-    const std::uint16_t palette_bank : 4;
+    const u16 tile_index : 10; // max 512
+    const u16 hflip : 1;
+    const u16 vflip : 1;
+    const u16 palette_bank : 4;
 };
 
 auto add_event(Gba& gba)
@@ -68,7 +68,7 @@ auto update_period_cycles(Gba& gba) -> void
     }
 };
 
-auto get_mode(Gba& gba) -> std::uint8_t
+auto get_mode(Gba& gba) -> u8
 {
     return bit::get_range<0, 2>(REG_DISPCNT);
 }
@@ -101,17 +101,17 @@ Table 9.5b: affine bg sizes Sz-flag 	define 	(tiles) 	(pixels)
 */
 
 template<bool Y> // 0=Y, 1=X
-constexpr auto get_bg_offset(BGxCNT cnt, auto x) -> std::uint16_t
+constexpr auto get_bg_offset(BGxCNT cnt, auto x) -> u16
 {
     constexpr auto PIXEL_MAP_SIZE = 255;
 
-    constexpr std::uint16_t mod[2][4] = // [0] = Y, [1] = X
+    constexpr u16 mod[2][4] = // [0] = Y, [1] = X
     {
         { 256, 256, 512, 512 },
         { 256, 512, 256, 512 },
     };
 
-    constexpr std::uint16_t result[2][4] = // [0] = Y, [1] = X
+    constexpr u16 result[2][4] = // [0] = Y, [1] = X
     {
         { 0x800, 0x800, 0x800, 0x800 },
         { 0x800, 0x800, 0x800, 0x800*2 }, // Y=1, Sz=3: this is a 2d array, so if we are on the next slot, then we need to move down 2*SCREENBLOCK_SIZE
@@ -124,11 +124,11 @@ constexpr auto get_bg_offset(BGxCNT cnt, auto x) -> std::uint16_t
 }
 
 template<bool Y> // 0=Y, 1=X
-constexpr auto get_bg_offset_affine(BGxCNT cnt, auto x) -> std::uint16_t
+constexpr auto get_bg_offset_affine(BGxCNT cnt, auto x) -> u16
 {
     constexpr auto PIXEL_MAP_SIZE = 255;
-    constexpr std::uint16_t mod[4] = { 128, 256, 512, 1024 };
-    constexpr std::uint16_t result[2][4] = // [0] = Y, [1] = X
+    constexpr u16 mod[4] = { 128, 256, 512, 1024 };
+    constexpr u16 result[2][4] = // [0] = Y, [1] = X
     {
         { 0x800, 0x800, 0x800, 0x800 },
         { 0x800, 0x800, 0x800, 0x800*2 }, // Y=1, Sz=3: this is a 2d array, so if we are on the next slot, then we need to move down 2*SCREENBLOCK_SIZE
@@ -217,8 +217,8 @@ auto render_line_bg(Gba& gba, BGxCNT cnt, u16 xscroll, u16 yscroll)
 struct Set
 {
     BGxCNT cnt;
-    std::uint16_t xscroll;
-    std::uint16_t yscroll;
+    u16 xscroll;
+    u16 yscroll;
     bool enable;
 };
 
@@ -424,7 +424,7 @@ auto change_period(Gba& gba)
 }
 
 #if ENABLE_SCHEDULER == 0
-auto run(Gba& gba, uint8_t cycles) -> void
+auto run(Gba& gba, u8 cycles) -> void
 {
     PPU.cycles += cycles;
 

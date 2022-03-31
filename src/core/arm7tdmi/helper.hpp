@@ -11,20 +11,20 @@
 // i am yet to decide on a better name for the file.
 namespace gba::arm7tdmi {
 
-inline auto calc_vflag(uint32_t a, uint32_t b, uint32_t r) -> bool
+inline auto calc_vflag(u32 a, u32 b, u32 r) -> bool
 {
     return (bit::is_set<31>(a) == bit::is_set<31>(b)) && (bit::is_set<31>(a) != bit::is_set<31>(r));
 }
 
 template<bool S>
-inline auto internal_add(Gba& gba, uint32_t a, uint32_t b) -> uint32_t
+inline auto internal_add(Gba& gba, u32 a, u32 b) -> u32
 {
-    const uint32_t result = a + b;
+    const u32 result = a + b;
 
     if constexpr(S)
     {
         CPU.cpsr.Z = result == 0;
-        CPU.cpsr.C = static_cast<uint64_t>(a) + static_cast<uint64_t>(b) > UINT32_MAX;
+        CPU.cpsr.C = static_cast<u64>(a) + static_cast<u64>(b) > UINT32_MAX;
         CPU.cpsr.N = bit::is_set<31>(result);
         CPU.cpsr.V = calc_vflag(a, b, result);
     }
@@ -34,14 +34,14 @@ inline auto internal_add(Gba& gba, uint32_t a, uint32_t b) -> uint32_t
 
 
 template<bool S>
-inline auto internal_adc(Gba& gba, uint32_t a, uint32_t b, bool carry) -> uint32_t
+inline auto internal_adc(Gba& gba, u32 a, u32 b, bool carry) -> u32
 {
-    const uint32_t result = a + b + carry;
+    const u32 result = a + b + carry;
 
     if constexpr(S)
     {
         CPU.cpsr.Z = result == 0;
-        CPU.cpsr.C = (static_cast<uint64_t>(a) + static_cast<uint64_t>(b) + carry) > UINT32_MAX;
+        CPU.cpsr.C = (static_cast<u64>(a) + static_cast<u64>(b) + carry) > UINT32_MAX;
         CPU.cpsr.N = bit::is_set<31>(result);
         CPU.cpsr.V = calc_vflag(a, b, result);
     }
@@ -50,9 +50,9 @@ inline auto internal_adc(Gba& gba, uint32_t a, uint32_t b, bool carry) -> uint32
 }
 
 template<bool S>
-inline auto internal_sub(Gba& gba, uint32_t a, uint32_t b) -> uint32_t
+inline auto internal_sub(Gba& gba, u32 a, u32 b) -> u32
 {
-    const uint32_t result = a - b;
+    const u32 result = a - b;
 
     if constexpr(S)
     {
@@ -66,14 +66,14 @@ inline auto internal_sub(Gba& gba, uint32_t a, uint32_t b) -> uint32_t
 }
 
 template<bool S>
-inline auto internal_sbc(Gba& gba, uint32_t a, uint32_t b, bool carry) -> uint32_t
+inline auto internal_sbc(Gba& gba, u32 a, u32 b, bool carry) -> u32
 {
-    const uint32_t result = a - b - carry;
+    const u32 result = a - b - carry;
 
     if constexpr(S)
     {
         CPU.cpsr.Z = result == 0;
-        CPU.cpsr.C = static_cast<std::uint64_t>(a) >= static_cast<std::uint64_t>(b) + carry;
+        CPU.cpsr.C = static_cast<u64>(a) >= static_cast<u64>(b) + carry;
         CPU.cpsr.N = bit::is_set<31>(result);
         CPU.cpsr.V = calc_vflag(a, ~b, result);
     }
@@ -82,7 +82,7 @@ inline auto internal_sbc(Gba& gba, uint32_t a, uint32_t b, bool carry) -> uint32
 }
 
 template<bool S>
-inline auto set_logical_flags(Gba& gba, std::uint32_t result, bool carry) -> void
+inline auto set_logical_flags(Gba& gba, u32 result, bool carry) -> void
 {
     if constexpr(S)
     {
@@ -94,7 +94,7 @@ inline auto set_logical_flags(Gba& gba, std::uint32_t result, bool carry) -> voi
 
 // same as above but doesnt modify carry
 template<bool S>
-inline auto set_logical_flags2(Gba& gba, std::uint32_t result) -> void
+inline auto set_logical_flags2(Gba& gba, u32 result) -> void
 {
     if constexpr(S)
     {
@@ -108,7 +108,7 @@ template<
     u8 shift_type, // see barrel_shifter.hpp
     bool reg_shift // 0=shift reg by imm, 1=shift reg by reg
 >
-inline auto shift_thing2(Gba& gba, const uint32_t opcode, std::uint32_t& oprand1, std::uint8_t Rn)
+inline auto shift_thing2(Gba& gba, const u32 opcode, u32& oprand1, u8 Rn)
 {
     const auto Rm = bit::get_range<0, 3>(opcode);
     const auto old_carry = CPU.cpsr.C;

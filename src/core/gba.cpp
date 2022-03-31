@@ -13,10 +13,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <iterator>
-#include <fstream>
 #include <ranges>
 
 namespace gba {
@@ -29,8 +25,6 @@ auto Gba::reset() -> void
         gba::bios::load_normmatt_bios(*this);
     }
 
-    this->scheduler.cycles = 0;
-    this->cycles2 = 0;
     scheduler::reset(*this);
     mem::reset(*this); // this needed to be before arm::reset because memtables
     arm7tdmi::reset(*this);
@@ -38,7 +32,7 @@ auto Gba::reset() -> void
     apu::reset(*this);
 }
 
-auto Gba::loadrom(std::span<const std::uint8_t> new_rom) -> bool
+auto Gba::loadrom(std::span<const u8> new_rom) -> bool
 {
     if (new_rom.size() > sizeof(this->rom))
     {
@@ -90,7 +84,7 @@ auto Gba::loadrom(std::span<const std::uint8_t> new_rom) -> bool
     return true;
 }
 
-auto Gba::loadbios(std::span<const std::uint8_t> new_bios) -> bool
+auto Gba::loadbios(std::span<const u8> new_bios) -> bool
 {
     if (new_bios.size() > std::size(this->mem.bios))
     {
@@ -104,19 +98,19 @@ auto Gba::loadbios(std::span<const std::uint8_t> new_bios) -> bool
     return true;
 }
 
-auto Gba::setkeys(std::uint16_t buttons, bool down) -> void
+auto Gba::setkeys(u16 buttons, bool down) -> void
 {
-    #define KEY *reinterpret_cast<uint16_t*>(this->mem.io + (mem::IO_KEY & 0x3FF))
+    auto& gba = *this;
 
     // the pins go LOW when pressed!
     if (down)
     {
-        KEY &= ~buttons;
+        REG_KEY &= ~buttons;
 
     }
     else
     {
-        KEY |= buttons;
+        REG_KEY |= buttons;
     }
 
     // this can be better optimised at some point
@@ -124,23 +118,21 @@ auto Gba::setkeys(std::uint16_t buttons, bool down) -> void
     {
         if (buttons & RIGHT)
         {
-            KEY |= LEFT;
+            REG_KEY |= LEFT;
         }
         if (buttons & LEFT)
         {
-            KEY |= RIGHT;
+            REG_KEY |= RIGHT;
         }
         if (buttons & UP)
         {
-            KEY |= DOWN;
+            REG_KEY |= DOWN;
         }
         if (buttons & DOWN)
         {
-            KEY |= UP;
+            REG_KEY |= UP;
         }
     }
-
-    #undef KEY
 }
 
 constexpr auto STATE_MAGIC = 0xFACADE;
@@ -166,8 +158,6 @@ auto Gba::loadstate(const State& state) -> bool
         return false;
     }
 
-    this->cycles2 = state.cycles2;
-    this->cycles = state.cycles;
     this->scheduler = state.scheduler;
     this->cpu = state.cpu;
     this->apu = state.apu;
@@ -195,8 +185,6 @@ auto Gba::savestate(State& state) const -> bool
     state.size = STATE_SIZE;
     state.crc = 0;
 
-    state.cycles2 = this->cycles2;
-    state.cycles = this->cycles;
     state.scheduler = this->scheduler;
     state.cpu = this->cpu;
     state.apu = this->apu;
@@ -216,7 +204,7 @@ auto Gba::savestate(State& state) const -> bool
 }
 
 // load a save from data, must be used after a game has loaded
-auto Gba::loadsave(std::span<const std::uint8_t> new_save) -> bool
+auto Gba::loadsave(std::span<const u8> new_save) -> bool
 {
     using enum backup::Type;
     switch (this->backup.type)
@@ -234,7 +222,7 @@ auto Gba::loadsave(std::span<const std::uint8_t> new_save) -> bool
 }
 
 // returns empty spam if the game doesn't have a save
-auto Gba::getsave() const -> std::span<const std::uint8_t>
+auto Gba::getsave() const -> std::span<const u8>
 {
     using enum backup::Type;
     switch (this->backup.type)
@@ -252,54 +240,55 @@ auto Gba::getsave() const -> std::span<const std::uint8_t>
 }
 
 #if ENABLE_SCHEDULER
-auto Gba::run(std::size_t _cycles) -> void
+auto on_frame_event(Gba& gba)
+{
+    gba.scheduler.frame_end = true;
+}
+
+auto Gba::run(u32 _cycles) -> void
 {
     auto& gba = *this;
-    std::uint8_t cycles_elasped = 0;
+    gba.scheduler.frame_end = false;
+
+    scheduler::add(gba, scheduler::Event::FRAME, on_frame_event, _cycles);
 
     if (gba.cpu.halted) [[unlikely]]
     {
         arm7tdmi::on_halt_event(gba);
     }
 
-    for (; this->cycles2 < _cycles; this->cycles2 += cycles_elasped) [[likely]]
+    while (!gba.scheduler.frame_end) [[likely]]
     {
-        // reset cycles each ittr
-        gba.cycles = 0;
-
+        this->scheduler.elapsed = 0;
         arm7tdmi::run(gba);
-        cycles_elasped = gba.cycles;
 
         // tick scheduler
-        this->scheduler.cycles += cycles_elasped;
+        this->scheduler.cycles += this->scheduler.elapsed;
         if (this->scheduler.next_event_cycles <= this->scheduler.cycles)
         {
             scheduler::fire(gba);
         }
     }
-
-    this->cycles2 -= _cycles;
 }
 #else
-auto Gba::run(std::size_t _cycles) -> void
+auto Gba::run(u32 _cycles) -> void
 {
     auto& gba = *this;
-    std::uint8_t cycles_elasped = 0;
 
-    for (; this->cycles2 < _cycles; this->cycles2 += cycles_elasped) [[likely]]
+    while (this->scheduler.cycles < _cycles) [[likely]]
     {
-        // reset cycles each ittr
-        gba.cycles = 0;
+        this->scheduler.elapsed = 0;
 
         arm7tdmi::run(gba);
-        cycles_elasped = gba.cycles;
-        gba.scheduler.cycles += cycles_elasped;
-        ppu::run(gba, cycles_elasped);
-        apu::run(gba, cycles_elasped);
-        timer::run(gba, cycles_elasped);
+
+        this->scheduler.cycles += this->scheduler.elapsed;
+
+        ppu::run(gba, this->scheduler.elapsed);
+        apu::run(gba, this->scheduler.elapsed);
+        timer::run(gba, this->scheduler.elapsed);
     }
 
-    this->cycles2 -= _cycles;
+    this->scheduler.cycles -= _cycles;
 }
 #endif
 

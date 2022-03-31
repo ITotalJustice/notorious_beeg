@@ -5,28 +5,25 @@
 
 #include "bit.hpp"
 #include "fwd.hpp"
-#include <cassert>
-#include <cstdint>
 
-namespace gba::arm7tdmi::barrel
-{
+namespace gba::arm7tdmi::barrel {
 
 // All shifts are mask 31 (&31) as to not cause UB when shifting by more
 // bits than possible.
 [[using gnu : always_inline]] [[nodiscard]]
-constexpr uint32_t shift_logical_left(uint32_t v, uint8_t shift)
+constexpr u32 shift_logical_left(u32 v, u8 shift)
 {
     return v << shift;
 }
 
 [[using gnu : always_inline]] [[nodiscard]]
-constexpr uint32_t shift_logical_right(uint32_t v, uint8_t shift)
+constexpr u32 shift_logical_right(u32 v, u8 shift)
 {
     return v >> shift;
 }
 
 [[using gnu : always_inline]] [[nodiscard]]
-constexpr uint32_t shift_arithmetic_right(uint32_t v, uint8_t shift)
+constexpr u32 shift_arithmetic_right(u32 v, u8 shift)
 {
     // signed bit should always be preserved, so casting works...
     static_assert(
@@ -34,27 +31,27 @@ constexpr uint32_t shift_arithmetic_right(uint32_t v, uint8_t shift)
         "arithemtic shift is not supported for this platform!"
     );
 
-    return static_cast<uint32_t>(static_cast<int32_t>(v) >> shift);
+    return static_cast<u32>(static_cast<int32_t>(v) >> shift);
 }
 
 [[using gnu : always_inline]] [[nodiscard]]
-constexpr uint32_t shift_rotate_right(uint32_t v, uint8_t shift)
+constexpr u32 shift_rotate_right(u32 v, u8 shift)
 {
     return std::rotr(v, shift);
 }
 
-enum type : std::uint8_t
+enum type : u8
 {
     lsl, lsr, asr, ror
 };
 
 struct [[nodiscard]] shift_result
 {
-    uint32_t result;
+    u32 result;
     bool carry;
 };
 
-constexpr auto shift_rrx(uint32_t v, const bool old_carry) -> shift_result
+constexpr auto shift_rrx(u32 v, const bool old_carry) -> shift_result
 {
     // ror imm #0 is a special RRX shift, which is >> 1 with the carry being shifted in
     return { (v >> 1) | (old_carry << 31), bit::is_set<0>(v) };
@@ -63,7 +60,7 @@ constexpr auto shift_rrx(uint32_t v, const bool old_carry) -> shift_result
 // sepcial case for when shifting by imm and shift_value == 0
 // in this case, it behaves the same as shift_value == 32
 template<auto t>
-constexpr auto shift_imm_lsr_asr_0(uint32_t v, const bool old_carry) -> shift_result
+constexpr auto shift_imm_lsr_asr_0(u32 v, const bool old_carry) -> shift_result
 {
     if constexpr (static_cast<type>(t) == type::lsr)
     {
@@ -76,7 +73,7 @@ constexpr auto shift_imm_lsr_asr_0(uint32_t v, const bool old_carry) -> shift_re
 }
 
 template<auto t>
-constexpr auto shift(uint32_t v, uint8_t shift_v, const bool old_carry) -> shift_result
+constexpr auto shift(u32 v, u8 shift_v, const bool old_carry) -> shift_result
 {
     if (shift_v == 0) [[unlikely]]
     {
@@ -140,7 +137,7 @@ constexpr auto shift(uint32_t v, uint8_t shift_v, const bool old_carry) -> shift
 }
 
 template<auto t>
-constexpr auto shift_imm(uint32_t v, uint8_t shift_v, bool old_carry) -> shift_result
+constexpr auto shift_imm(u32 v, u8 shift_v, bool old_carry) -> shift_result
 {
     // shift by zero check
     if (!shift_v) [[unlikely]]
@@ -160,7 +157,7 @@ constexpr auto shift_imm(uint32_t v, uint8_t shift_v, bool old_carry) -> shift_r
 }
 
 template<auto t>
-constexpr auto shift_reg(uint32_t v, uint8_t shift_v, bool old_carry) -> shift_result
+constexpr auto shift_reg(u32 v, u8 shift_v, bool old_carry) -> shift_result
 {
     return shift<t>(v, shift_v, old_carry);
 }

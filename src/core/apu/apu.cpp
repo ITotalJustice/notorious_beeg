@@ -45,7 +45,7 @@ constexpr scheduler::callback CALLBACKS[4] =
 constexpr auto SAMPLE_RATE = 65536;
 constexpr auto SAMPLE_TICKS = 280896*60/SAMPLE_RATE;
 
-constexpr uint8_t PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
+constexpr u8 PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
 
 constexpr s8 SQUARE_DUTY_CYCLES[4][8] =
 {
@@ -59,8 +59,8 @@ bool is_apu_enabled(Gba& gba);
 auto apu_on_enabled(Gba& gba) -> void;
 auto apu_on_disabled(Gba& gba) -> void;
 
-void on_wave_mem_write(Gba& gba, u32 addr, uint8_t value);
-void on_nr52_write(Gba& gba, uint8_t value);
+void on_wave_mem_write(Gba& gba, u32 addr, u8 value);
+void on_nr52_write(Gba& gba, u8 value);
 bool is_next_frame_sequencer_step_not_len(const Gba& gba);
 bool is_next_frame_sequencer_step_vol(const Gba& gba);
 
@@ -94,7 +94,7 @@ namespace sweep
 {
     auto clock(Gba& gba, auto& channel);
     auto trigger(Gba& gba, auto& channel);
-    auto get_new_freq(auto& channel) -> uint16_t;
+    auto get_new_freq(auto& channel) -> u16;
     auto do_freq_calc(Gba& gba, auto& channel, bool update_value) -> void;
     auto update_enabled_flag(auto& channel) -> void;
 }
@@ -208,7 +208,7 @@ auto sweep::trigger(Gba &gba, auto &channel)
     }
 }
 
-auto sweep::get_new_freq(auto& channel) -> uint16_t
+auto sweep::get_new_freq(auto& channel) -> u16
 {
     auto& sweep = channel.sweep;
     const auto new_freq = sweep.freq_shadow_register >> sweep.shift;
@@ -348,9 +348,9 @@ void env::write(Gba& gba, auto& channel, u8 value)
 {
     auto& env = channel.env;
 
-    const uint8_t starting_vol = bit::get_range<4, 7>(value);
+    const u8 starting_vol = bit::get_range<4, 7>(value);
     const bool mode = bit::is_set<3>(value);
-    const uint8_t period = bit::get_range<0, 2>(value);
+    const u8 period = bit::get_range<0, 2>(value);
 
     if (channel.is_enabled(gba))
     {
@@ -393,7 +393,7 @@ auto Fifo::size() const -> u8
     return count;
 }
 
-auto Fifo::push(std::uint8_t value) -> void
+auto Fifo::push(u8 value) -> void
 {
     if (count < capacity)
     {
@@ -690,7 +690,7 @@ auto Noise::is_dac_enabled() -> bool
 }
 
 template<typename T>
-constexpr auto on_nrx0_write(Gba& gba, T& channel, uint8_t value)
+constexpr auto on_nrx0_write(Gba& gba, T& channel, u8 value)
 {
     if constexpr(std::is_same<T, Square0>())
     {
@@ -722,7 +722,7 @@ constexpr auto on_nrx0_write(Gba& gba, T& channel, uint8_t value)
 }
 
 template<typename T>
-constexpr auto on_nrx1_write(Gba& gba, T& channel, uint8_t value)
+constexpr auto on_nrx1_write(Gba& gba, T& channel, u8 value)
 {
     if constexpr(std::is_same<T, Wave>())
     {
@@ -740,7 +740,7 @@ constexpr auto on_nrx1_write(Gba& gba, T& channel, uint8_t value)
 }
 
 template<typename T>
-constexpr auto on_nrx2_write(Gba& gba, T& channel, uint8_t value)
+constexpr auto on_nrx2_write(Gba& gba, T& channel, u8 value)
 {
     if constexpr(std::is_same<T, Wave>())
     {
@@ -754,7 +754,7 @@ constexpr auto on_nrx2_write(Gba& gba, T& channel, uint8_t value)
 }
 
 template<typename T>
-constexpr auto on_nrx3_write(Gba& gba, T& channel, uint8_t value)
+constexpr auto on_nrx3_write(Gba& gba, T& channel, u8 value)
 {
     if constexpr(std::is_same<T, Noise>())
     {
@@ -769,7 +769,7 @@ constexpr auto on_nrx3_write(Gba& gba, T& channel, uint8_t value)
 }
 
 template<typename T>
-constexpr auto on_nrx4_write(Gba& gba, T& channel, uint8_t value)
+constexpr auto on_nrx4_write(Gba& gba, T& channel, u8 value)
 {
     len::on_nrx4_edge_case_write(gba, channel, value);
 
@@ -922,7 +922,7 @@ auto write_legacy(Gba& gba, u32 addr, u16 value) -> void
     }
 }
 
-void on_nr52_write(Gba& gba, uint8_t value)
+void on_nr52_write(Gba& gba, u8 value)
 {
     const auto master_enable = bit::is_set<7>(value);
 
@@ -947,7 +947,7 @@ void on_nr52_write(Gba& gba, uint8_t value)
     REG_SOUNDCNT_X = bit::set<7>(REG_SOUNDCNT_X, master_enable);
 }
 
-void on_wave_mem_write(Gba& gba, u32 addr, uint8_t value)
+void on_wave_mem_write(Gba& gba, u32 addr, u8 value)
 {
     // treated as 2 banks
     if (APU.wave.bank_mode == 0)
@@ -977,8 +977,8 @@ void on_wave_mem_write(Gba& gba, u32 addr, uint8_t value)
 
 auto reset(Gba& gba) -> void
 {
-    // by default bias is set to 0x100 and resample mode is 0
-    REG_SOUNDBIAS = 0x100 << 1;
+    // by default bias is set to 512 and resample mode is 0
+    REG_SOUNDBIAS = 512 << 1;
     // enable sound on startup
     REG_SOUNDCNT_X = bit::set<7>(REG_SOUNDCNT_X, true);
     APU.enabled = true;
@@ -1120,7 +1120,7 @@ void Wave::advance_position_counter(Gba& gba)
     }
 }
 
-auto Fifo::sample() -> int8_t
+auto Fifo::sample() -> s8
 {
     constexpr u8 VOL_SHIFT[2] = { 1, 0 };
     return this->current_sample >> VOL_SHIFT[this->volume_code];
@@ -1139,8 +1139,10 @@ auto sample(Gba& gba)
         return;
     }
 
+    #ifndef NDEBUG
     const auto resample_mode = bit::get_range<0xE, 0xF>(REG_SOUNDBIAS);
     assert(resample_mode == 0 || resample_mode == 1);
+    #endif
 
     const auto fifo_a = APU.fifo[0].sample();
     const auto fifo_b = APU.fifo[1].sample();
@@ -1191,7 +1193,7 @@ auto on_frame_sequencer_event(Gba& gba) -> void
 }
 
 #if ENABLE_SCHEDULER == 0
-auto run(Gba& gba, uint8_t cycles) -> void
+auto run(Gba& gba, u8 cycles) -> void
 {
     if (is_apu_enabled(gba))
     {
