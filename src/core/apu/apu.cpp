@@ -297,7 +297,7 @@ void len::on_nrx4_edge_case_write(Gba& gba, auto& channel, u8 value)
     }
 }
 
-auto env::clock(Gba& gba, auto& channel)
+auto env::clock([[maybe_unused]] Gba& gba, auto& channel)
 {
     auto& env = channel.env;
 
@@ -460,7 +460,7 @@ auto on_timer_overflow(Gba& gba, u8 timer_num) -> void
 
     for (auto i = 0; i < 2; i++)
     {
-        if (APU.fifo[i].timer_select == timer_num)
+        if (APU.fifo[i].timer_select == static_cast<bool>(timer_num))
         {
             APU.fifo[i].update_current_sample(gba, i);
         }
@@ -511,11 +511,11 @@ auto SquareBase<Number>::is_dac_enabled() -> bool
 template<typename T>
 constexpr auto clock2(Gba& gba, T& channel)
 {
-    if constexpr(std::is_same<T, Wave>())
+    if constexpr (std::is_same<T, Wave>())
     {
         channel.advance_position_counter(gba);
     }
-    else if constexpr(std::is_same<T, Noise>())
+    else if constexpr (std::is_same<T, Noise>())
     {
         if (channel.clock_shift != 14 && channel.clock_shift != 15)
         {
@@ -593,7 +593,7 @@ constexpr auto trigger(Gba& gba, T& channel)
     constexpr u16 len_reload[4] = { 64, 64, 256, 64 };
     len::trigger(gba, channel, len_reload[channel.num]);
 
-    if constexpr(std::is_same_v<T, Wave>)
+    if constexpr (std::is_same_v<T, Wave>)
     {
         // reset position counter
         channel.position_counter = 0;
@@ -603,7 +603,7 @@ constexpr auto trigger(Gba& gba, T& channel)
     {
         env::trigger(gba, channel);
 
-        if constexpr(std::is_same_v<T, Noise>)
+        if constexpr (std::is_same_v<T, Noise>)
         {
             // set all bits of the lfsr to 1
             channel.lfsr = 0x7FFF;
@@ -615,7 +615,7 @@ constexpr auto trigger(Gba& gba, T& channel)
             // SOURCE: https://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware#Obscure_Behavior
             channel.timer = (channel.timer & 0x3) | (channel.get_freq() & ~0x3);
 
-            if constexpr(std::is_same_v<T, Square0>)
+            if constexpr (std::is_same_v<T, Square0>)
             {
                 sweep::trigger(gba, channel);
             }
@@ -627,10 +627,10 @@ constexpr auto trigger(Gba& gba, T& channel)
         channel.disable(gba);
     }
 
-    if (channel.is_enabled(gba) && channel.timer > 0) [[likely]]
-    {
-        scheduler::add(gba, EVENTS[channel.num], CALLBACKS[channel.num], channel.timer);
-    }
+        if (channel.is_enabled(gba) && channel.timer > 0) [[likely]]
+        {
+            scheduler::add(gba, EVENTS[channel.num], CALLBACKS[channel.num], channel.timer);
+        }
 }
 
 auto Wave::sample(Gba& gba) const -> s8
@@ -692,7 +692,7 @@ auto Noise::is_dac_enabled() -> bool
 template<typename T>
 constexpr auto on_nrx0_write(Gba& gba, T& channel, u8 value)
 {
-    if constexpr(std::is_same<T, Square0>())
+    if constexpr (std::is_same<T, Square0>())
     {
         const bool sweep_negate = bit::is_set<3>(value);
 
@@ -708,7 +708,7 @@ constexpr auto on_nrx0_write(Gba& gba, T& channel, u8 value)
         channel.sweep.negate = sweep_negate;
         channel.sweep.shift = bit::get_range<0, 2>(value);
     }
-    else if constexpr(std::is_same<T, Wave>())
+    else if constexpr (std::is_same<T, Wave>())
     {
         channel.bank_mode = bit::is_set<5>(value);
         channel.bank_select = bit::is_set<6>(value);
@@ -722,9 +722,9 @@ constexpr auto on_nrx0_write(Gba& gba, T& channel, u8 value)
 }
 
 template<typename T>
-constexpr auto on_nrx1_write(Gba& gba, T& channel, u8 value)
+constexpr auto on_nrx1_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 {
-    if constexpr(std::is_same<T, Wave>())
+    if constexpr (std::is_same<T, Wave>())
     {
         channel.len.counter = 256 - value;
     }
@@ -732,7 +732,7 @@ constexpr auto on_nrx1_write(Gba& gba, T& channel, u8 value)
     {
         channel.len.counter = 64 - bit::get_range<0, 5>(value);
 
-        if constexpr(std::is_same<T, Square0>() || std::is_same<T, Square1>())
+        if constexpr (std::is_same<T, Square0>() || std::is_same<T, Square1>())
         {
             channel.duty = bit::get_range<6, 7>(value);
         }
@@ -742,7 +742,7 @@ constexpr auto on_nrx1_write(Gba& gba, T& channel, u8 value)
 template<typename T>
 constexpr auto on_nrx2_write(Gba& gba, T& channel, u8 value)
 {
-    if constexpr(std::is_same<T, Wave>())
+    if constexpr (std::is_same<T, Wave>())
     {
         channel.vol_code = bit::get_range<5, 6>(value);
         channel.force_volume = bit::is_set<7>(value);
@@ -754,9 +754,9 @@ constexpr auto on_nrx2_write(Gba& gba, T& channel, u8 value)
 }
 
 template<typename T>
-constexpr auto on_nrx3_write(Gba& gba, T& channel, u8 value)
+constexpr auto on_nrx3_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 {
-    if constexpr(std::is_same<T, Noise>())
+    if constexpr (std::is_same<T, Noise>())
     {
         channel.clock_shift = bit::get_range<4, 7>(value);
         channel.width_mode = bit::is_set<3>(value);
@@ -773,7 +773,7 @@ constexpr auto on_nrx4_write(Gba& gba, T& channel, u8 value)
 {
     len::on_nrx4_edge_case_write(gba, channel, value);
 
-    if constexpr(std::is_same<T, Noise>() == false)
+    if constexpr (std::is_same<T, Noise>() == false)
     {
         channel.freq_msb = bit::get_range<0, 2>(value);
     }
@@ -800,49 +800,49 @@ auto write_legacy8(Gba& gba, u32 addr, u8 value) -> void
 
     switch (addr)
     {
-        case mem::IO_SOUND1CNT_L + 0: on_nrx0_write(gba, APU.square0, value); break;
-        case mem::IO_SOUND1CNT_H + 0: on_nrx1_write(gba, APU.square0, value); break;
-        case mem::IO_SOUND1CNT_H + 1: on_nrx2_write(gba, APU.square0, value); break;
-        case mem::IO_SOUND1CNT_X + 0: on_nrx3_write(gba, APU.square0, value); break;
-        case mem::IO_SOUND1CNT_X + 1: on_nrx4_write(gba, APU.square0, value); break;
+    case mem::IO_SOUND1CNT_L + 0: on_nrx0_write(gba, APU.square0, value); break;
+    case mem::IO_SOUND1CNT_H + 0: on_nrx1_write(gba, APU.square0, value); break;
+    case mem::IO_SOUND1CNT_H + 1: on_nrx2_write(gba, APU.square0, value); break;
+    case mem::IO_SOUND1CNT_X + 0: on_nrx3_write(gba, APU.square0, value); break;
+    case mem::IO_SOUND1CNT_X + 1: on_nrx4_write(gba, APU.square0, value); break;
 
-        case mem::IO_SOUND2CNT_L + 0: on_nrx1_write(gba, APU.square1, value); break;
-        case mem::IO_SOUND2CNT_L + 1: on_nrx2_write(gba, APU.square1, value); break;
-        case mem::IO_SOUND2CNT_H + 0: on_nrx3_write(gba, APU.square1, value); break;
-        case mem::IO_SOUND2CNT_H + 1: on_nrx4_write(gba, APU.square1, value); break;
+    case mem::IO_SOUND2CNT_L + 0: on_nrx1_write(gba, APU.square1, value); break;
+    case mem::IO_SOUND2CNT_L + 1: on_nrx2_write(gba, APU.square1, value); break;
+    case mem::IO_SOUND2CNT_H + 0: on_nrx3_write(gba, APU.square1, value); break;
+    case mem::IO_SOUND2CNT_H + 1: on_nrx4_write(gba, APU.square1, value); break;
 
-        case mem::IO_SOUND3CNT_L + 0: on_nrx0_write(gba, APU.wave, value); break;
-        case mem::IO_SOUND3CNT_H + 0: on_nrx1_write(gba, APU.wave, value); break;
-        case mem::IO_SOUND3CNT_H + 1: on_nrx2_write(gba, APU.wave, value); break;
-        case mem::IO_SOUND3CNT_X + 0: on_nrx3_write(gba, APU.wave, value); break;
-        case mem::IO_SOUND3CNT_X + 1: on_nrx4_write(gba, APU.wave, value); break;
+    case mem::IO_SOUND3CNT_L + 0: on_nrx0_write(gba, APU.wave, value); break;
+    case mem::IO_SOUND3CNT_H + 0: on_nrx1_write(gba, APU.wave, value); break;
+    case mem::IO_SOUND3CNT_H + 1: on_nrx2_write(gba, APU.wave, value); break;
+    case mem::IO_SOUND3CNT_X + 0: on_nrx3_write(gba, APU.wave, value); break;
+    case mem::IO_SOUND3CNT_X + 1: on_nrx4_write(gba, APU.wave, value); break;
 
-        case mem::IO_SOUND4CNT_L + 0: on_nrx1_write(gba, APU.noise, value); break;
-        case mem::IO_SOUND4CNT_L + 1: on_nrx2_write(gba, APU.noise, value); break;
-        case mem::IO_SOUND4CNT_H + 0: on_nrx3_write(gba, APU.noise, value); break;
-        case mem::IO_SOUND4CNT_H + 1: on_nrx4_write(gba, APU.noise, value); break;
+    case mem::IO_SOUND4CNT_L + 0: on_nrx1_write(gba, APU.noise, value); break;
+    case mem::IO_SOUND4CNT_L + 1: on_nrx2_write(gba, APU.noise, value); break;
+    case mem::IO_SOUND4CNT_H + 0: on_nrx3_write(gba, APU.noise, value); break;
+    case mem::IO_SOUND4CNT_H + 1: on_nrx4_write(gba, APU.noise, value); break;
 
         // nr5X are already handled
-        case 0x24: case 0x25: case 0x26: break;
+    case 0x24: case 0x25: case 0x26: break;
 
-        case mem::IO_WAVE_RAM0_L + 0:
-        case mem::IO_WAVE_RAM0_L + 1:
-        case mem::IO_WAVE_RAM0_H + 0:
-        case mem::IO_WAVE_RAM0_H + 1:
-        case mem::IO_WAVE_RAM1_L + 0:
-        case mem::IO_WAVE_RAM1_L + 1:
-        case mem::IO_WAVE_RAM1_H + 0:
-        case mem::IO_WAVE_RAM1_H + 1:
-        case mem::IO_WAVE_RAM2_L + 0:
-        case mem::IO_WAVE_RAM2_L + 1:
-        case mem::IO_WAVE_RAM2_H + 0:
-        case mem::IO_WAVE_RAM2_H + 1:
-        case mem::IO_WAVE_RAM3_L + 0:
-        case mem::IO_WAVE_RAM3_L + 1:
-        case mem::IO_WAVE_RAM3_H + 0:
-        case mem::IO_WAVE_RAM3_H + 1:
-            on_wave_mem_write(gba, addr, value);
-            break;
+    case mem::IO_WAVE_RAM0_L + 0:
+    case mem::IO_WAVE_RAM0_L + 1:
+    case mem::IO_WAVE_RAM0_H + 0:
+    case mem::IO_WAVE_RAM0_H + 1:
+    case mem::IO_WAVE_RAM1_L + 0:
+    case mem::IO_WAVE_RAM1_L + 1:
+    case mem::IO_WAVE_RAM1_H + 0:
+    case mem::IO_WAVE_RAM1_H + 1:
+    case mem::IO_WAVE_RAM2_L + 0:
+    case mem::IO_WAVE_RAM2_L + 1:
+    case mem::IO_WAVE_RAM2_H + 0:
+    case mem::IO_WAVE_RAM2_H + 1:
+    case mem::IO_WAVE_RAM3_L + 0:
+    case mem::IO_WAVE_RAM3_L + 1:
+    case mem::IO_WAVE_RAM3_H + 0:
+    case mem::IO_WAVE_RAM3_H + 1:
+        on_wave_mem_write(gba, addr, value);
+        break;
     }
 }
 
@@ -862,63 +862,63 @@ auto write_legacy(Gba& gba, u32 addr, u16 value) -> void
 
     switch (addr)
     {
-        case mem::IO_SOUND1CNT_L:
-            on_nrx0_write(gba, APU.square0, value);
-            break;
-        case mem::IO_SOUND1CNT_H:
-            on_nrx1_write(gba, APU.square0, value);
-            on_nrx2_write(gba, APU.square0, value>>8);
-            break;
-        case mem::IO_SOUND1CNT_X:
-            on_nrx3_write(gba, APU.square0, value);
-            on_nrx4_write(gba, APU.square0, value>>8);
-            break;
+    case mem::IO_SOUND1CNT_L:
+        on_nrx0_write(gba, APU.square0, value);
+        break;
+    case mem::IO_SOUND1CNT_H:
+        on_nrx1_write(gba, APU.square0, value);
+        on_nrx2_write(gba, APU.square0, value >> 8);
+        break;
+    case mem::IO_SOUND1CNT_X:
+        on_nrx3_write(gba, APU.square0, value);
+        on_nrx4_write(gba, APU.square0, value >> 8);
+        break;
 
-        case mem::IO_SOUND2CNT_L:
-            on_nrx1_write(gba, APU.square1, value);
-            on_nrx2_write(gba, APU.square1, value>>8);
-            break;
-        case mem::IO_SOUND2CNT_H:
-            on_nrx3_write(gba, APU.square1, value);
-            on_nrx4_write(gba, APU.square1, value>>8);
-            break;
+    case mem::IO_SOUND2CNT_L:
+        on_nrx1_write(gba, APU.square1, value);
+        on_nrx2_write(gba, APU.square1, value >> 8);
+        break;
+    case mem::IO_SOUND2CNT_H:
+        on_nrx3_write(gba, APU.square1, value);
+        on_nrx4_write(gba, APU.square1, value >> 8);
+        break;
 
-        case mem::IO_SOUND3CNT_L:
-            on_nrx0_write(gba, APU.wave, value);
-            break;
-        case mem::IO_SOUND3CNT_H:
-            on_nrx1_write(gba, APU.wave, value);
-            on_nrx2_write(gba, APU.wave, value>>8);
-            break;
-        case mem::IO_SOUND3CNT_X:
-            on_nrx3_write(gba, APU.wave, value);
-            on_nrx4_write(gba, APU.wave, value>>8);
-            break;
+    case mem::IO_SOUND3CNT_L:
+        on_nrx0_write(gba, APU.wave, value);
+        break;
+    case mem::IO_SOUND3CNT_H:
+        on_nrx1_write(gba, APU.wave, value);
+        on_nrx2_write(gba, APU.wave, value >> 8);
+        break;
+    case mem::IO_SOUND3CNT_X:
+        on_nrx3_write(gba, APU.wave, value);
+        on_nrx4_write(gba, APU.wave, value >> 8);
+        break;
 
-        case mem::IO_SOUND4CNT_L:
-            on_nrx1_write(gba, APU.noise, value);
-            on_nrx2_write(gba, APU.noise, value>>8);
-            break;
-        case mem::IO_SOUND4CNT_H:
-            on_nrx3_write(gba, APU.noise, value);
-            on_nrx4_write(gba, APU.noise, value>>8);
-            break;
+    case mem::IO_SOUND4CNT_L:
+        on_nrx1_write(gba, APU.noise, value);
+        on_nrx2_write(gba, APU.noise, value >> 8);
+        break;
+    case mem::IO_SOUND4CNT_H:
+        on_nrx3_write(gba, APU.noise, value);
+        on_nrx4_write(gba, APU.noise, value >> 8);
+        break;
 
         // nr5X are already handled
-        case 0x24: case 0x25: case 0x26:
-            break;
+    case 0x24: case 0x25: case 0x26:
+        break;
 
-        case mem::IO_WAVE_RAM0_L:
-        case mem::IO_WAVE_RAM0_H:
-        case mem::IO_WAVE_RAM1_L:
-        case mem::IO_WAVE_RAM1_H:
-        case mem::IO_WAVE_RAM2_L:
-        case mem::IO_WAVE_RAM2_H:
-        case mem::IO_WAVE_RAM3_L:
-        case mem::IO_WAVE_RAM3_H:
-            on_wave_mem_write(gba, addr+0, value>>0);
-            on_wave_mem_write(gba, addr+1, value>>8);
-            break;
+    case mem::IO_WAVE_RAM0_L:
+    case mem::IO_WAVE_RAM0_H:
+    case mem::IO_WAVE_RAM1_L:
+    case mem::IO_WAVE_RAM1_H:
+    case mem::IO_WAVE_RAM2_L:
+    case mem::IO_WAVE_RAM2_H:
+    case mem::IO_WAVE_RAM3_L:
+    case mem::IO_WAVE_RAM3_H:
+        on_wave_mem_write(gba, addr + 0, value >> 0);
+        on_wave_mem_write(gba, addr + 1, value >> 8);
+        break;
     }
 }
 
@@ -955,7 +955,7 @@ void on_wave_mem_write(Gba& gba, u32 addr, u8 value)
         const auto wave_addr = addr &= 0xF;
 
         // writes happen to the opposite bank
-        const auto bank_select = APU.wave.bank_select^1;
+        const auto bank_select = APU.wave.bank_select ^ 1;
         const auto offset = bank_select ? 0 : 16;
         APU.wave.ram[wave_addr + offset] = value;
     }
@@ -1058,33 +1058,33 @@ bool is_next_frame_sequencer_step_vol(const Gba& gba)
 }
 
 // this is clocked by DIV
-auto FrameSequencer::clock(Gba &gba) -> void
+auto FrameSequencer::clock(Gba& gba) -> void
 {
     // return;
     assert(is_apu_enabled(gba) && "clocking fs when apu is disabled");
 
     switch (index)
     {
-        case 0: // len
-        case 4:
-            clock_len(gba);
-            break;
+    case 0: // len
+    case 4:
+        clock_len(gba);
+        break;
 
-        case 2: // len, sweep
-        case 6:
-            clock_len(gba);
-            clock_sweep(gba);
-            break;
+    case 2: // len, sweep
+    case 6:
+        clock_len(gba);
+        clock_sweep(gba);
+        break;
 
-        case 7: // vol
-            clock_env(gba);
-            break;
+    case 7: // vol
+        clock_env(gba);
+        break;
     }
 
     index = (index + 1) % 8;
 }
 
-auto Noise::clock_lfsr(Gba& gba) -> void
+auto Noise::clock_lfsr([[maybe_unused]] Gba& gba) -> void
 {
     const auto bit0 = this->lfsr & 0x1;
     const auto bit1 = (this->lfsr >> 1) & 0x1;
@@ -1105,7 +1105,7 @@ auto Noise::clock_lfsr(Gba& gba) -> void
     }
 }
 
-void Wave::advance_position_counter(Gba& gba)
+void Wave::advance_position_counter([[maybe_unused]] Gba& gba)
 {
     if (this->bank_mode == 0)
     {
@@ -1139,10 +1139,8 @@ auto sample(Gba& gba)
         return;
     }
 
-    #ifndef NDEBUG
-    const auto resample_mode = bit::get_range<0xE, 0xF>(REG_SOUNDBIAS);
+    [[maybe_unused]] const auto resample_mode = bit::get_range<0xE, 0xF>(REG_SOUNDBIAS);
     assert(resample_mode == 0 || resample_mode == 1);
-    #endif
 
     const auto fifo_a = APU.fifo[0].sample();
     const auto fifo_b = APU.fifo[1].sample();

@@ -13,3 +13,5 @@ src/core/old/
 misc/
 .clangd
 rewind*
+.vs/
+out/

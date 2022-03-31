@@ -405,7 +405,7 @@ auto on_int(Gba& gba)
     // disable interrupts in irq mode
     disable_interrupts(gba);
     // we have to be start in arm state
-    CPU.cpsr.T = static_cast<bool>(State::ARM);
+    CPU.cpsr.T = std::to_underlying(State::ARM);
     // set lr_irq to the next instruction
     set_lr(gba, lr);
     // jump to irq handler

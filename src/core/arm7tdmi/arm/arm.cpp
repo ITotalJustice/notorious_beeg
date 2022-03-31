@@ -170,7 +170,7 @@ constexpr auto decode_str(Instruction i) -> const char*
     std::unreachable();
 }
 
-auto undefined(Gba& gba, u32 opcode) -> void
+auto undefined([[maybe_unused]] Gba& gba, u32 opcode) -> void
 {
     std::printf("[arm] undefined %08X\n", opcode);
     assert(!"[arm] undefined");

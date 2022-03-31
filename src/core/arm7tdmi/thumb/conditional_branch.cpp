@@ -6,19 +6,16 @@
 #include "fwd.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
-#include <bit>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
 
 // page 142 (5.16)
 // thumb_instruction_template
-auto conditional_branch(Gba& gba, uint16_t opcode) -> void
+auto conditional_branch(Gba& gba, u16 opcode) -> void
 {
     // CONSTEXPR const auto cond = bit_decoded_get_range(8, 11);
     const auto cond = bit::get_range<8, 11>(opcode);
-    std::int32_t soffest8 = bit::get_range<0, 7>(opcode) << 1;
+    s32 soffest8 = bit::get_range<0, 7>(opcode) << 1;
     soffest8 = bit::sign_extend<9>(soffest8);
 
     if (check_cond(gba, cond))

@@ -39,10 +39,10 @@ auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
 template<
     bool L // 0=store, 1=load
 >
-auto multiple_load_store(Gba& gba, uint16_t opcode) -> void
+auto multiple_load_store(Gba& gba, u16 opcode) -> void
 {
     const auto Rb = bit::get_range<8, 10>(opcode); // base
-    std::uint16_t Rlist = bit::get_range<0, 7>(opcode);
+    u16 Rlist = bit::get_range<0, 7>(opcode);
     auto addr = get_reg(gba, Rb);
 
     if (!Rlist)

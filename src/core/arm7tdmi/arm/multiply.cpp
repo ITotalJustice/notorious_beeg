@@ -5,8 +5,6 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
-#include <bit>
-#include <cstdint>
 
 namespace gba::arm7tdmi::arm {
 
@@ -15,7 +13,7 @@ template<
     bool A, // 0=mul, 1=mul and accumulate
     bool S  // 0=no flags, 1=mod flags
 >
-auto multiply(Gba& gba, uint32_t opcode) -> void
+auto multiply(Gba& gba, u32 opcode) -> void
 {
     const auto Rd = bit::get_range<16, 19>(opcode); // dst
     const auto Rn = bit::get_range<12, 15>(opcode); // oprand
@@ -29,7 +27,7 @@ auto multiply(Gba& gba, uint32_t opcode) -> void
     const auto b = get_reg(gba, Rs);
     const auto c = A ? get_reg(gba, Rn) : 0;
 
-    const std::uint32_t result = a * b + c;
+    const u32 result = a * b + c;
 
     if constexpr (S)
     {

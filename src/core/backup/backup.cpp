@@ -9,7 +9,7 @@
 namespace gba::backup
 {
 
-auto find_type(std::span<const std::uint8_t> rom) -> Type
+auto find_type(std::span<const u8> rom) -> Type
 {
     constexpr struct
     {

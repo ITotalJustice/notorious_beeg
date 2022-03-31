@@ -36,7 +36,7 @@ template<
     bool S, // 0=no flags, 1=set flags
     u8 Op2
 >
-auto data_processing(Gba& gba, uint32_t opcode, uint32_t oprand1, uint32_t oprand2, bool new_carry) -> void
+auto data_processing(Gba& gba, u32 opcode, u32 oprand1, u32 oprand2, bool new_carry) -> void
 {
     constexpr auto Op = static_cast<data_processing_op>(Op2);
     const auto Rd = bit::get_range<12, 15>(opcode);
@@ -150,7 +150,7 @@ template<
     bool S, // 0=no flags, 1=set flags
     u8 Op
 >
-auto data_processing_imm(Gba& gba, uint32_t opcode) -> void
+auto data_processing_imm(Gba& gba, u32 opcode) -> void
 {
     const auto Rn = bit::get_range<16, 19>(opcode);
     const auto oprand1 = get_reg(gba, Rn);
@@ -167,7 +167,7 @@ template<
     u8 shift_type, // see barrel_shifter.hpp
     bool reg_shift // 0=shift reg by imm, 1=shift reg by reg
 >
-auto data_processing_reg(Gba& gba, uint32_t opcode) -> void
+auto data_processing_reg(Gba& gba, u32 opcode) -> void
 {
     const auto Rn = bit::get_range<16, 19>(opcode);
     auto oprand1 = get_reg(gba, Rn);

@@ -48,8 +48,8 @@ constexpr auto ROM_SIZE         = ROM_MASK + 1;
 
 #define MEM gba.mem
 
-[[using gnu : always_inline, hot]] [[nodiscard]]
-static inline auto get_memory_timing(u8 index, u32 addr) -> u8
+[[nodiscard]]
+STATIC_INLINE auto get_memory_timing(u8 index, u32 addr) -> u8
 {
     // https://problemkaputt.de/gbatek.htm#gbamemorymap
     static constexpr u8 timings[3][0x10] = // this has to be static otherwise it's slow
@@ -119,14 +119,14 @@ auto reset(Gba& gba) -> void
 }
 
 template<typename T>
-constexpr auto empty_read(Gba& gba, u32 addr) -> T
+constexpr auto empty_read([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr) -> T
 {
     // std::printf("empty read: 0x%08X\n", addr);
     return 0x0;
 }
 
 template<typename T>
-constexpr auto empty_write(Gba& gba, u32 addr, T value) -> void
+constexpr auto empty_write([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr, [[maybe_unused]] T value) -> void
 {
 }
 

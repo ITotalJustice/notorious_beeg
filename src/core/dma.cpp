@@ -117,9 +117,7 @@ auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
 
     if (dma.repeat && dma.mode != Mode::immediate)
     {
-        #ifndef NDEBUG
-        const auto [sad, dad, cnt_h, cnt_l] = get_channel_registers(gba, channel_num);
-        #endif
+        [[maybe_unused]] const auto [sad, dad, cnt_h, cnt_l] = get_channel_registers(gba, channel_num);
 
         // reload len if repeat is set
         if (dma.mode != Mode::special)

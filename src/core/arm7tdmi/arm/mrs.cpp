@@ -4,19 +4,17 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include <bit>
 #include <cassert>
-#include <cstdint>
 
 namespace gba::arm7tdmi::arm {
 
 // page 61
 template<bool P> // 0=cpsr, 1=spsr
-auto mrs(Gba& gba, uint32_t opcode) -> void
+auto mrs(Gba& gba, u32 opcode) -> void
 {
     const auto Rd = bit::get_range<12, 15>(opcode);
 
-    std::uint32_t value = 0;
+    u32 value = 0;
 
     if constexpr (P)
     {

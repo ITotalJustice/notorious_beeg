@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.20.0)
 
-project(TotalGB
+project(notorious_beeg
+    VERSION 0.0.1
+    DESCRIPTION "GBA emulator written in c++23"
+    HOMEPAGE_URL "https://github.com/ITotalJustice/notorious_beeg"
     LANGUAGES CXX
 )
 
@@ -9,7 +12,7 @@ message("COMPILER: ${CMAKE_CXX_COMPILER_ID}")
 
 # adding the below breaks clangd atm because cmake
 # adds the flag "-std=c++23" which is unsupported yet by clang
-if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++2b")
 else()
     set(CMAKE_CXX_STANDARD 23)

@@ -15,7 +15,7 @@ namespace gba::arm7tdmi::thumb {
 template<
     bool L // 0=STR, 1=LDR
 >
-auto load_store_halfword(Gba& gba, uint16_t opcode) -> void
+auto load_store_halfword(Gba& gba, u16 opcode) -> void
 {
     const auto Rb = bit::get_range<3, 5>(opcode);
     const auto Rd = bit::get_range<0, 2>(opcode);

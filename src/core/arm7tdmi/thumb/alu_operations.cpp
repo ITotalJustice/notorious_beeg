@@ -7,9 +7,6 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
-#include <bit>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
 
@@ -35,7 +32,7 @@ enum class alu_operations_op : u8
 
 // page 146 (5.19)
 template<u8 Op2>
-auto alu_operations(Gba& gba, uint16_t opcode) -> void
+auto alu_operations(Gba& gba, u16 opcode) -> void
 {
     constexpr auto Op = static_cast<alu_operations_op>(Op2);
     const auto Rs = bit::get_range<3, 5>(opcode);

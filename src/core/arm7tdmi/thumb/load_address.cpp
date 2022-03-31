@@ -15,7 +15,7 @@ namespace gba::arm7tdmi::thumb {
 template<
     bool SP // 0=PC, 1=SP
 >
-auto load_address(Gba& gba, uint16_t opcode) -> void
+auto load_address(Gba& gba, u16 opcode) -> void
 {
     constexpr const auto src_reg = SP ? SP_INDEX : PC_INDEX;
     const auto Rd = bit::get_range<8, 10>(opcode);

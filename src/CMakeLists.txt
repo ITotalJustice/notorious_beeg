@@ -5,7 +5,6 @@ cmake_minimum_required(VERSION 3.20.0)
 list(APPEND gcc_flags
     -Wall
     -Wextra
-    # -Werror
     -Wfatal-errors
     -Wpedantic
     -Wshadow
@@ -28,7 +27,6 @@ list(APPEND gcc_flags
     -Wcast-qual
     -Wcast-align
     -Wbad-function-cast
-    # -Wsuggest-attribute=const
     -Wimplicit-fallthrough=5
     -Wsuggest-final-types
     -Wuninitialized
@@ -48,8 +46,8 @@ endif()
 list(APPEND clang_flags
     -Wall
     -Wextra
-    # -Werror
     -Wfatal-errors
+
     -Wpedantic
     -Wshadow
     -Wdouble-promotion
@@ -62,7 +60,6 @@ list(APPEND clang_flags
     -Wwrite-strings
     -Wdate-time
     -Wpacked
-    # -Wredundant-decls
     -Wnested-externs
     -Wcast-qual
     -Wcast-align
@@ -70,25 +67,30 @@ list(APPEND clang_flags
     -Wreserved-id-macro
     -Wbad-function-cast
     -Wbitfield-enum-conversion
-    -Wno-missing-braces # false positive
 
-    -Wno-unused-parameter
-    -Wno-unused-variable
-    # -Wno-gnu-case-range
     -Wextra-semi-stmt
     -Wold-style-cast
     -Wcovered-switch-default
 
+    -Wno-unused-parameter
+    -Wno-unused-variable
+    -Wextra-semi-stmt
+    -Wold-style-cast
+
     # can try enabling this just to see what breaks (still compiles as of clang 11)
     # be sure to enable (well, disable) the below flags else a *lot* of "errors"
     # -Weverything
-    # -Wno-c++98-compat
-    # -Wno-c++98-compat-pedantic
-    # -Wno-c++20-compat
-    # -Wno-conversion
-    # -Wno-sign-conversion
-    # -Wno-missing-prototypes
-    # -Wno-padded
+    -Wno-c++98-compat
+    -Wno-c++98-compat-pedantic
+    -Wno-c++20-compat
+    -Wno-missing-braces # false positive
+    -Wno-unused-parameter
+    -Wno-unused-variable
+    -Wno-conversion
+    -Wno-sign-conversion
+    -Wno-missing-prototypes
+    -Wno-padded
+    -Wno-switch-enum
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -97,20 +99,43 @@ else()
     list(APPEND clang_flags -fno-rtti -Ofast)
 endif()
 
-list(APPEND tcc_flags
-    -Wall
-    # -Werror
-    -Wwrite-strings
-    -Wunsupported
-)
-
 list(APPEND msvc_flags
     /W4
-    # /WX
+    /constexpr:depth4096
+    /constexpr:steps10000000
 )
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    list(APPEND msvc_flags /Zo /O2) # always enable otherwise debug builds would be too slow
+else()
+    list(APPEND msvc_flags
+        /GR- # disable RTTI
+        /Ob /Oi /Ot /Oy /OX /O2
+        /Oi # enable intrinsics
+    )
+endif()
 
 include(CheckCXXCompilerFlag)
 include(CheckLinkerFlag)
+include(CheckIPOSupported)
+
+function(target_apply_lto target)
+    check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
+    if (ipo_supported)
+        message(STATUS "IPO / LTO enabled for target: ${target}")
+        set_property(TARGET GBA PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    else()
+        message(STATUS "IPO / LTO not supported: <${ipo_error}>")
+    endif()
+endfunction()
+
+function(target_apply_lto_in_release target)
+    if (CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+        target_apply_lto(${target})    
+    else()
+        message(STATUS "IPO / LTO not enabled in debug build")
+    endif()
+endfunction()
 
 function(target_add_compiler_flag target flag scope)
     # check_cxx_compiler_flag() adds a macro to the test.c file such that
@@ -123,7 +148,7 @@ function(target_add_compiler_flag target flag scope)
         target_compile_options(${target} ${scope} ${flag})
         message(STATUS "has compiler flag ${flag}")
     else()
-    message(STATUS "does NOT have compiler flag ${flag}")
+        message(STATUS "does NOT have compiler flag ${flag}")
     endif()
 endfunction()
 
@@ -158,8 +183,6 @@ function(target_add_common_cflags target scope)
         target_add_compiler_flags(${target} clang_flags ${scope})
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_add_compiler_flags(${target} gcc_flags ${scope})
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "TinyCC")
-        target_add_compiler_flags(${target} tcc_flags ${scope})
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
         target_add_compiler_flags(${target} msvc_flags ${scope})
     endif()
@@ -191,8 +214,11 @@ target_link_libraries(main GBA)
 target_link_libraries(main SDL2::SDL2)
 target_link_libraries(main SDL2::SDL2main)
 
-set(DUMP_AUDIO OFF)
-set(SPEED_TEST OFF)
+target_add_common_cflags(main PRIVATE)
+target_apply_lto_in_release(main)
+
+option(DUMP_AUDIO "dump audio to a file" OFF)
+option(SPEED_TEST "run uncapped fps, used for perf test" OFF)
 
 target_compile_definitions(main PRIVATE
     SPEED_TEST=$<BOOL:${SPEED_TEST}>

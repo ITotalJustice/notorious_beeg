@@ -60,7 +60,7 @@ constexpr auto shift_rrx(u32 v, const bool old_carry) -> shift_result
 // sepcial case for when shifting by imm and shift_value == 0
 // in this case, it behaves the same as shift_value == 32
 template<auto t>
-constexpr auto shift_imm_lsr_asr_0(u32 v, const bool old_carry) -> shift_result
+constexpr auto shift_imm_lsr_asr_0(u32 v) -> shift_result
 {
     if constexpr (static_cast<type>(t) == type::lsr)
     {
@@ -144,7 +144,7 @@ constexpr auto shift_imm(u32 v, u8 shift_v, bool old_carry) -> shift_result
     {
         if constexpr(t == type::lsr || t == type::asr)
         {
-            return shift_imm_lsr_asr_0<t>(v, old_carry);
+            return shift_imm_lsr_asr_0<t>(v);
         }
         else if constexpr(t == type::ror) // ror
         {

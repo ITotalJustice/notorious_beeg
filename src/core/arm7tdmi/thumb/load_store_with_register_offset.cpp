@@ -16,7 +16,7 @@ template<
     bool L, // 0=STR, 1=LDR
     bool B // 0=word, 1=byte
 >
-auto load_store_with_register_offset(Gba& gba, uint16_t opcode) -> void
+auto load_store_with_register_offset(Gba& gba, u16 opcode) -> void
 {
     const auto Ro = bit::get_range<6, 8>(opcode);
     const auto Rb = bit::get_range<3, 5>(opcode);
@@ -28,7 +28,7 @@ auto load_store_with_register_offset(Gba& gba, uint16_t opcode) -> void
 
     if constexpr (L) // LDR
     {
-        std::uint32_t result = 0;
+        u32 result = 0;
 
         if constexpr (B) // byte
         {

@@ -33,7 +33,11 @@ namespace std
 #endif // gba_DEBUG
 
 #if SINGLE_FILE == 1
-    #define STATIC_INLINE [[using gnu : always_inline, hot]] static inline
+    #if defined(_MSC_VER)
+        #define STATIC_INLINE static inline __forceinline
+    #else
+        #define STATIC_INLINE [[using gnu : always_inline, hot]] static inline
+    #endif
     #define STATIC static
 #else
     #define STATIC_INLINE

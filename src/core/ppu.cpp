@@ -11,7 +11,6 @@
 #include <cstdio>
 #include <algorithm>
 #include <ranges>
-#include <execution>
 
 namespace gba::ppu {
 
@@ -291,7 +290,7 @@ auto render_mode2(Gba& gba) -> void
 auto render_mode3(Gba& gba) noexcept -> void
 {
     auto& pixels = gba.ppu.pixels[REG_VCOUNT];
-    std::copy(std::execution::par_unseq, std::begin(pixels), std::end(pixels), VRAM_16 + 240 * REG_VCOUNT);
+    std::ranges::copy(pixels, VRAM_16 + 240 * REG_VCOUNT);
 }
 
 auto render_mode4(Gba& gba) noexcept -> void
@@ -300,7 +299,7 @@ auto render_mode4(Gba& gba) noexcept -> void
     auto addr = page + (240 * REG_VCOUNT);
     auto& pixels = gba.ppu.pixels[REG_VCOUNT];
 
-    std::for_each(std::execution::par, std::begin(pixels), std::end(pixels), [&gba, &addr](auto& pixel){
+    std::ranges::for_each(pixels, [&gba, &addr](auto& pixel){
         pixel = PALETTE_16[gba.mem.vram[addr++]];
     });
 }

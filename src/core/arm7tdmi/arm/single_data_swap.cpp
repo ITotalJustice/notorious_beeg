@@ -6,7 +6,6 @@
 #include "gba.hpp"
 #include "mem.hpp"
 #include <bit>
-#include <cstdint>
 
 namespace gba::arm7tdmi::arm {
 
@@ -14,7 +13,7 @@ namespace gba::arm7tdmi::arm {
 template<
     bool B // 0=word, 1=byte
 >
-auto single_data_swap(Gba& gba, uint32_t opcode) -> void
+auto single_data_swap(Gba& gba, u32 opcode) -> void
 {
     const auto Rn = bit::get_range<16, 19>(opcode); // base address
     const auto Rd = bit::get_range<12, 15>(opcode); // dst

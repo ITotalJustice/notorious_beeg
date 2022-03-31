@@ -226,7 +226,7 @@ constexpr auto decode_str(Instruction i) -> const char*
     std::unreachable();
 }
 
-auto undefined(gba::Gba &gba, uint16_t opcode) -> void
+auto undefined([[maybe_unused]] gba::Gba &gba, uint16_t opcode) -> void
 {
     std::printf("[THUMB] undefined %04X\n", opcode);
     assert(!"[THUMB] undefined instruction hit");

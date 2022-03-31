@@ -9,9 +9,9 @@ namespace gba::arm7tdmi::arm {
 
 // [4.4]
 template<bool L> // 0=branch, 1=branch with link
-auto branch(Gba& gba, uint32_t opcode) -> void
+auto branch(Gba& gba, u32 opcode) -> void
 {
-    int32_t offset = bit::get_range<0, 23>(opcode) << 2;
+    s32 offset = bit::get_range<0, 23>(opcode) << 2;
     offset = bit::sign_extend<26>(offset);
     const auto pc = get_pc(gba);
 

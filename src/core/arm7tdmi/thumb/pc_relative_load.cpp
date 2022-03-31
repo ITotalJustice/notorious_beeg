@@ -12,7 +12,7 @@
 namespace gba::arm7tdmi::thumb {
 
 // page 122 (5.6)
-auto pc_relative_load(Gba& gba, uint16_t opcode) -> void
+auto pc_relative_load(Gba& gba, u16 opcode) -> void
 {
     const auto Rd = bit::get_range<8, 10>(opcode);
     // shifted to 10-bit value (unsigned)

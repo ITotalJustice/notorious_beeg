@@ -6,7 +6,6 @@
 #include <cassert>
 #include <algorithm>
 #include <ranges>
-#include <cstdint>
 #include <utility>
 
 namespace gba::backup::eeprom
@@ -15,7 +14,7 @@ namespace gba::backup::eeprom
 constexpr auto READY_BIT = 0x1;
 constexpr auto READ_COUNTER_RESET = 68;
 
-auto Eeprom::init(Gba& gba) -> void
+auto Eeprom::init([[maybe_unused]] Gba& gba) -> void
 {
     this->state = State::Command;
     this->request = Request::invalid0;
@@ -27,7 +26,7 @@ auto Eeprom::init(Gba& gba) -> void
     this->bit_read_counter = READ_COUNTER_RESET;
 }
 
-auto Eeprom::load_data(std::span<const std::uint8_t> new_data) -> bool
+auto Eeprom::load_data(std::span<const u8> new_data) -> bool
 {
     if (new_data.size() == 512)
     {
@@ -48,13 +47,13 @@ auto Eeprom::load_data(std::span<const std::uint8_t> new_data) -> bool
     }
 }
 
-auto Eeprom::get_data() const -> std::span<const std::uint8_t>
+auto Eeprom::get_data() const -> std::span<const u8>
 {
     switch (this->width)
     {
-        case Width::unknown: return {};
-        case Width::small: return {this->data, 512};
-        case Width::beeg: return this->data;
+    case Width::unknown: return {};
+    case Width::small: return { this->data, 512 };
+    case Width::beeg: return this->data;
     }
 
     std::unreachable();
@@ -84,7 +83,7 @@ auto Eeprom::set_width(Width new_width) -> void
     }
 }
 
-auto Eeprom::read(Gba& gba, std::uint32_t addr) -> std::uint8_t
+auto Eeprom::read([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr) -> u8
 {
     // usually a game will do this to check if its in ready state
     if (this->request != Request::read)
@@ -118,7 +117,7 @@ auto Eeprom::read(Gba& gba, std::uint32_t addr) -> std::uint8_t
     return value;
 }
 
-auto Eeprom::write(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
+auto Eeprom::write([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr, u8 value) -> void
 {
     this->bits <<= 1;
     this->bits |= value & 1; // shift in only 1 bit at a time

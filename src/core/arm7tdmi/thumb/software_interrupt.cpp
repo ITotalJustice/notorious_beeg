@@ -5,11 +5,10 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
-#include <cstdint>
 
 namespace gba::arm7tdmi::thumb {
 
-auto software_interrupt(Gba& gba, uint16_t opcode) -> void
+auto software_interrupt(Gba& gba, u16 opcode) -> void
 {
     const auto comment_field = bit::get_range<0, 7>(opcode);
     arm7tdmi::software_interrupt(gba, comment_field);

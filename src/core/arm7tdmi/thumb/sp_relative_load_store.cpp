@@ -6,8 +6,6 @@
 #include "gba.hpp"
 #include "mem.hpp"
 #include <bit>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
 
@@ -15,7 +13,7 @@ namespace gba::arm7tdmi::thumb {
 template<
     bool L // 0=STR, 1=LDR
 >
-auto sp_relative_load_store(Gba& gba, uint16_t opcode) -> void
+auto sp_relative_load_store(Gba& gba, u16 opcode) -> void
 {
     const auto Rd = bit::get_range<8, 10>(opcode);
     // shifted to 10-bit value (unsigned)

@@ -22,7 +22,7 @@ enum class move_compare_add_subtract_immediate_op
 
 // page 115 (5.3)
 template<u8 Op2>
-auto move_compare_add_subtract_immediate(Gba& gba, uint16_t opcode) -> void
+auto move_compare_add_subtract_immediate(Gba& gba, u16 opcode) -> void
 {
     constexpr auto Op = static_cast<move_compare_add_subtract_immediate_op>(Op2);
     const auto Rd = bit::get_range<8, 10>(opcode);

@@ -6,9 +6,6 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
-#include <bit>
-#include <cstdint>
-#include <cstdio>
 #include <utility>
 
 namespace gba::arm7tdmi::thumb {
@@ -28,7 +25,7 @@ enum class hi_register_operations_op : u8
 
 // page 119 (5.5)
 template<u8 Op2, u8 H1, u8 H2>
-auto hi_register_operations(Gba& gba, uint16_t opcode) -> void
+auto hi_register_operations(Gba& gba, u16 opcode) -> void
 {
     static_assert(H1 == 0 || H1 == 8, "bad");
     static_assert(H2 == 0 || H2 == 8, "bad");
@@ -62,13 +59,13 @@ auto hi_register_operations(Gba& gba, uint16_t opcode) -> void
         if (oprand2 & 1)
         {
             gba_log("[THUMB-BX] switching to THUMB\n");
-            CPU.cpsr.T = static_cast<bool>(arm7tdmi::State::THUMB);
+            CPU.cpsr.T = std::to_underlying(arm7tdmi::State::THUMB);
             set_pc(gba, oprand2 & ~0x1);
         }
         else
         {
             gba_log("[THUMB-BX] switching to ARM\n");
-            CPU.cpsr.T = static_cast<bool>(arm7tdmi::State::ARM);
+            CPU.cpsr.T = std::to_underlying(arm7tdmi::State::ARM);
             set_pc(gba, oprand2 & ~0x3);
         }
     }

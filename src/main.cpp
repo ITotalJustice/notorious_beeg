@@ -314,18 +314,15 @@ auto System::init(int argc, char** argv) -> bool
     SDL_RenderSetVSync(renderer, 1);
     #endif
 
-    aspec_wnt = SDL_AudioSpec
-    {
-        .freq = 65536,
-        .format = AUDIO_S16,
-        .channels = 2,
-        .silence = 0,
-        .samples = 2048,
-        .padding = 0,
-        .size = 0,
-        .callback = audio_callback,
-        .userdata = this,
-    };
+    aspec_wnt.freq = 65536;
+    aspec_wnt.format = AUDIO_S16;
+    aspec_wnt.channels = 2;
+    aspec_wnt.silence = 0;
+    aspec_wnt.samples = 2048;
+    aspec_wnt.padding = 0;
+    aspec_wnt.size = 0;
+    aspec_wnt.callback = audio_callback;
+    aspec_wnt.userdata = this;
 
     // allow all apsec to be changed if needed.
     // will be coverted and resampled by audiostream.
@@ -372,12 +369,14 @@ auto System::run() -> void
                 case SDL_KEYUP:
                     on_key_event(e.key);
                     break;
+
+                default: break; // silence enum warning
             }
         }
 
         gameboy_advance.run();
 
-        void* pixels = NULL; int pitch = 0;
+        void* pixels = nullptr; int pitch = 0;
 
         #if SPEED_TEST == 1
         const auto current_time = std::chrono::high_resolution_clock::now();
@@ -385,14 +384,14 @@ auto System::run() -> void
         #else
         #endif
         {
-            SDL_LockTexture(texture, NULL, &pixels, &pitch);
+            SDL_LockTexture(texture, nullptr, &pixels, &pitch);
                 SDL_ConvertPixels(
                     width, height, // w,h
                     SDL_PIXELFORMAT_BGR555, gameboy_advance.ppu.pixels, width * 2, // src
                     SDL_PIXELFORMAT_BGR555, pixels, pitch // dst
                 );
             SDL_UnlockTexture(texture);
-            SDL_RenderCopy(renderer, texture, NULL, NULL);
+            SDL_RenderCopy(renderer, texture, nullptr, nullptr);
             SDL_RenderPresent(renderer);
             #if SPEED_TEST == 1
             start_frame_time = current_time;//std::chrono::high_resolution_clock::now();

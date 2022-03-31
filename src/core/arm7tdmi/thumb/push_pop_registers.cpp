@@ -7,8 +7,6 @@
 #include "mem.hpp"
 #include <bit>
 #include <cassert>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
 
@@ -17,9 +15,9 @@ template<
     bool L, // 0=push, 1=pop
     bool R  // 0=non, 1=store lr/load pc
 >
-auto push_pop_registers(Gba& gba, uint16_t opcode) -> void
+auto push_pop_registers(Gba& gba, u16 opcode) -> void
 {
-    std::uint16_t Rlist = bit::get_range<0, 7>(opcode);
+    u16 Rlist = bit::get_range<0, 7>(opcode);
     auto addr = get_sp(gba);
 
     // assert(Rlist && "empty rlist edge case");

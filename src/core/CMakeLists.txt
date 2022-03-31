@@ -1,23 +1,12 @@
 cmake_minimum_required(VERSION 3.20.0)
 
-# # huge speedup, disable if encounter bug
-# option(ENABLE_SCHEDULER "huge speedup, but can cause timing bugs" ON)
-# # compiler basically inlines everything
-# option(SINGLE_FILE "compile everything as a single file" OFF)
-# # actually slower for doom (~30fps slower), MUCH faster for everything else
-# option(RELEASE_BUILD_THUMB "template thumb" OFF)
-# # very big speedup
-# option(RELEASE_BUILD_ARM "template arm" ON)
-# # enable sanitizers
-# option(GBA_DEV "enable sanitizers" OFF)
 
 # huge speedup, disable if encounter bug
-set(ENABLE_SCHEDULER ON)
+option(ENABLE_SCHEDULER "huge speedup, but can cause timing bugs" ON)
 # compiler basically inlines everything
-set(SINGLE_FILE OFF)
+option(SINGLE_FILE "compile everything as a single file" OFF)
 # enable sanitizers
-set(GBA_DEV OFF)
-
+option(GBA_DEV "enable sanitizers" OFF)
 
 if (SINGLE_FILE)
     add_library(GBA single.cpp)
@@ -81,3 +70,7 @@ target_compile_definitions(GBA PRIVATE
     SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
     ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
 )
+
+# enable LTO (only in release builds)
+# this greatly reduces template bloat as well
+target_apply_lto_in_release(GBA)

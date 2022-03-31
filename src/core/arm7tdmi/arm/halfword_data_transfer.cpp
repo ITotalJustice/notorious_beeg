@@ -4,7 +4,6 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include <cstdint>
 #include <cassert>
 
 namespace gba::arm7tdmi::arm {
@@ -17,7 +16,7 @@ template<
     bool S,
     bool H
 >
-auto halfword_data_transfer(Gba& gba, uint32_t opcode, uint32_t offset) -> void
+auto halfword_data_transfer(Gba& gba, u32 opcode, u32 offset) -> void
 {
     const auto Rd = bit::get_range<12, 15>(opcode);
     const auto Rn = bit::get_range<16, 19>(opcode);
@@ -44,7 +43,7 @@ auto halfword_data_transfer(Gba& gba, uint32_t opcode, uint32_t offset) -> void
     // if set, it's an LDR, else, STR
     if constexpr(L)
     {
-        uint32_t result = 0;
+        u32 result = 0;
 
         // if set, 16-bit transfer, else, 8-bit
         if constexpr(H)
@@ -105,7 +104,7 @@ auto halfword_data_transfer(Gba& gba, uint32_t opcode, uint32_t offset) -> void
 
 // [4.10] (LDRH/STRH/LDRSB/LDRSH)
 template<bool P, bool U, bool W, bool L, bool S, bool H>
-auto halfword_data_transfer_register_offset(Gba& gba, uint32_t opcode) -> void
+auto halfword_data_transfer_register_offset(Gba& gba, u32 opcode) -> void
 {
     const auto Rm = bit::get_range<0, 3>(opcode);
     const auto offset = get_reg(gba, Rm);
@@ -114,7 +113,7 @@ auto halfword_data_transfer_register_offset(Gba& gba, uint32_t opcode) -> void
 }
 
 template<bool P, bool U, bool W, bool L, bool S, bool H>
-auto halfword_data_transfer_immediate_offset(Gba& gba, uint32_t opcode) -> void
+auto halfword_data_transfer_immediate_offset(Gba& gba, u32 opcode) -> void
 {
     const auto lo = bit::get_range<0, 3>(opcode);
     const auto hi = bit::get_range<8, 11>(opcode);

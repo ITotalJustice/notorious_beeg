@@ -14,7 +14,7 @@ namespace gba::arm7tdmi::thumb {
 
 // page 146 (5.19)
 template<bool H>
-auto long_branch_with_link(Gba& gba, uint16_t opcode) -> void
+auto long_branch_with_link(Gba& gba, u16 opcode) -> void
 {
     const auto pc = get_pc(gba);
 

@@ -16,7 +16,7 @@ template<
     bool H, // 0=STR, 1=LDR
     bool S  // 0=normal, 1=sign-extended
 >
-auto load_store_sign_extended_byte_halfword(Gba& gba, uint16_t opcode) -> void
+auto load_store_sign_extended_byte_halfword(Gba& gba, u16 opcode) -> void
 {
     const auto Ro = bit::get_range<6, 8>(opcode);
     const auto Rb = bit::get_range<3, 5>(opcode);
@@ -35,14 +35,14 @@ auto load_store_sign_extended_byte_halfword(Gba& gba, uint16_t opcode) -> void
         }
         else // LDRH Rd,[Rb, Ro]
         {
-            std::uint32_t result = mem::read16(gba, addr & ~0x1);
+            u32 result = mem::read16(gba, addr & ~0x1);
             result = std::rotr(result, (addr & 0x1) * 8);
             set_reg_thumb(gba, Rd, result);
         }
     }
     else
     {
-        std::uint32_t result = 0;
+        u32 result = 0;
 
         if constexpr (H == 0) // LDSB Rd,[Rb, Ro]
         {
