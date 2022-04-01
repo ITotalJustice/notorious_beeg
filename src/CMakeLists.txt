@@ -118,6 +118,7 @@ endif()
 include(CheckCXXCompilerFlag)
 include(CheckLinkerFlag)
 include(CheckIPOSupported)
+include(FetchContent)
 
 function(target_apply_lto target)
     check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
@@ -131,7 +132,7 @@ endfunction()
 
 function(target_apply_lto_in_release target)
     if (CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
-        target_apply_lto(${target})    
+        target_apply_lto(${target})
     else()
         message(STATUS "IPO / LTO not enabled in debug build")
     endif()
@@ -207,20 +208,4 @@ macro(find_shared_lib package subdir)
 endmacro()
 
 add_subdirectory(core)
-
-add_executable(main main.cpp)
-find_package(SDL2 CONFIG REQUIRED)
-target_link_libraries(main GBA)
-target_link_libraries(main SDL2::SDL2)
-target_link_libraries(main SDL2::SDL2main)
-
-target_add_common_cflags(main PRIVATE)
-target_apply_lto_in_release(main)
-
-option(DUMP_AUDIO "dump audio to a file" OFF)
-option(SPEED_TEST "run uncapped fps, used for perf test" OFF)
-
-target_compile_definitions(main PRIVATE
-    SPEED_TEST=$<BOOL:${SPEED_TEST}>
-    DUMP_AUDIO=$<BOOL:${DUMP_AUDIO}>
-)
+add_subdirectory(frontend)

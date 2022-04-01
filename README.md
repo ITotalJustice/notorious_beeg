@@ -37,6 +37,7 @@ gba emulator witten in c++23.
 - add memory access time struct for slightly more accurate timings. this means in most cases, games now run slower (in game), meaning the performance of the emulator itself greatly increased.
 - fix edge case in scheduler where halt would be next event when firing all events, causing halt loop to run recursively until crash.
 - add `frame` event which fires at the end of a frame. this way, only 1 timer needs to be ticked and only 1 variable needs to be tracked if the frame has ended.
+- add imgui frontend.
 
 0.0.1
 - added readme
@@ -137,3 +138,5 @@ gba emulator witten in c++23.
 - jsmolka for their very helpful tests <https://github.com/jsmolka/gba-tests>
 - normmatt (and vba) for the builtin bios <https://github.com/Nebuleon/ReGBA/tree/master/bios>
 - endrift for mgba <https://github.com/mgba-emu/mgba>
+- ocornut for imgui <https://github.com/ocornut/imgui>
+- ocornut for imgui_club <https://github.com/ocornut/imgui_club>

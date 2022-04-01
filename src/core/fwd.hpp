@@ -32,6 +32,13 @@ namespace std
     #define gba_log_fatal(...)
 #endif // gba_DEBUG
 
+// cmake always sets this variable, however the frontend
+// will not have this macro defined, so we need to define it
+// to silence warnings.
+#ifndef SINGLE_FILE
+    #define SINGLE_FILE 0
+#endif
+
 #if SINGLE_FILE == 1
     #if defined(_MSC_VER)
         #define STATIC_INLINE static inline __forceinline
