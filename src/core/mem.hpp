@@ -52,7 +52,7 @@ struct Mem
     alignas(u32) u8 vram[1024 * 96];
 
     // 1kb, 32-bit
-    alignas(u32) u8 oam[1024 * 1];
+    alignas(u64) u8 oam[1024 * 1];
 
     // 1kb, 16/32-bit
     alignas(u32) u8 io[1024 * 1];

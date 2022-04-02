@@ -38,6 +38,8 @@ gba emulator witten in c++23.
 - fix edge case in scheduler where halt would be next event when firing all events, causing halt loop to run recursively until crash.
 - add `frame` event which fires at the end of a frame. this way, only 1 timer needs to be ticked and only 1 variable needs to be tracked if the frame has ended.
 - add imgui frontend.
+- add sprite rendering.
+- add bg layer viewer to frontend.
 
 0.0.1
 - added readme

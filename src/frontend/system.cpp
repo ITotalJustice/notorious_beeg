@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "system.hpp"
+#include <algorithm>
+#include <ranges>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <memory>
 #include <vector>
@@ -94,6 +97,99 @@ auto create_state_path(const std::string& path, int slot = 0) -> std::string
     return replace_extension(path, ".state" + std::to_string(slot));
 }
 
+// note that this function is slow, should only ever be used for
+// debugging gfx, never used in release builds.
+auto draw_grid(int size, int count, float thicc, int x, int y)
+{
+    if (count == 0) return;
+
+    for (int i = 1, j = size / count; i < count; i++)
+    {
+        ImGui::GetWindowDrawList()->AddLine(ImVec2(x + (j * i), y), ImVec2(x + (j * i), y + size), IM_COL32(40, 40, 40, 255), thicc);
+        ImGui::GetWindowDrawList()->AddLine(ImVec2(x, y + (j * i)), ImVec2(x + size, y + (j * i)), IM_COL32(40, 40, 40, 255), thicc);
+    }
+}
+
+auto on_hblank_callback(void* user, uint16_t line) -> void
+{
+    if (!System::debug_mode)
+    {
+        return;
+    }
+
+    if (line >= 160)
+    {
+        return;
+    }
+
+    auto sys = static_cast<System*>(user);
+
+    // on line 0, memset the layers
+    if (line == 0)
+    {
+        std::memset(sys->bg_pixel_layers, 0, sizeof(sys->bg_pixel_layers));
+    }
+
+    for (auto i = 0; i < 4; i++)
+    {
+        sys->gameboy_advance.render_mode(sys->bg_pixel_layers[i][line], 0, i);
+    }
+}
+
+auto System::render_layers() -> void
+{
+    if (!debug_mode)
+    {
+        return;
+    }
+
+    for (auto layer = 0; layer < 4; layer++)
+    {
+        if (show_layer[layer] == false)
+        {
+            continue;
+        }
+
+        void* pixels{};
+        int pitch{};
+
+        SDL_LockTexture(texture_bg_layer[layer], nullptr, &pixels, &pitch);
+            SDL_ConvertPixels(
+                width, height, // w,h
+                SDL_PIXELFORMAT_BGR555, bg_pixel_layers[layer], width * sizeof(uint16_t), // src
+                SDL_PIXELFORMAT_BGR555, pixels, pitch // dst
+            );
+        SDL_UnlockTexture(texture_bg_layer[layer]);
+
+        const auto flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav;
+        ImGui::SetNextWindowSize(ImVec2(240, 160));
+        ImGui::SetNextWindowSizeConstraints(ImVec2(240, 160), ImVec2(240, 160));
+
+        const auto s = "bg layer: " + std::to_string(layer);
+        ImGui::Begin(s.c_str(), &show_layer[layer], flags);
+        {
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+
+            ImGui::SetCursorPos({0, 0});
+
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            ImGui::Image(texture_bg_layer[layer], ImVec2(240, 160));
+            ImGui::PopStyleVar(5);
+
+            if (show_grid)
+            {
+                // 240/8 = 30
+                draw_grid(240, 30, 1.0f, p.x, p.y);
+            }
+        }
+        ImGui::End();
+    }
+}
+
 System::~System()
 {
     // save game on exit
@@ -103,6 +199,12 @@ System::~System()
     ImGui_ImplSDLRenderer_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
+
+    // destroy debug textures
+    for (auto& text : texture_bg_layer)
+    {
+        SDL_DestroyTexture(text);
+    }
 
     if (audio_device) SDL_CloseAudioDevice(audio_device);
     if (audio_stream) SDL_FreeAudioStream(audio_stream);
@@ -223,6 +325,14 @@ auto System::on_key_event(const SDL_KeyboardEvent& e) -> void
 
         if (shift)
         {
+            switch (e.keysym.scancode)
+            {
+                case SDL_SCANCODE_L:
+                    this->toggle_master_layer_enable();
+                    break;
+
+                default: break; // silence enum warning
+            }
         }
         else
         {
@@ -299,6 +409,7 @@ auto System::init(int argc, char** argv) -> bool
     // set audio callback and user data
     this->gameboy_advance.set_userdata(this);
     this->gameboy_advance.set_audio_callback(push_sample_callback);
+    this->gameboy_advance.set_hblank_callback(on_hblank_callback);
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER);
     this->window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
@@ -342,7 +453,7 @@ auto System::init(int argc, char** argv) -> bool
     // setup debugger
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
@@ -353,6 +464,12 @@ auto System::init(int argc, char** argv) -> bool
     // Setup Platform/Renderer backends
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer_Init(renderer);
+
+    // create debug textures
+    for (auto& text : texture_bg_layer)
+    {
+        text = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
+    }
 
     return true;
 }
@@ -383,6 +500,12 @@ auto System::run_emu() -> void
     {
         gameboy_advance.run();
     }
+}
+
+auto System::toggle_master_layer_enable() -> void
+{
+    this->layer_enable_master ^= 1;
+    std::ranges::fill(show_layer, layer_enable_master);
 }
 
 auto System::menubar_tab_file() -> void
@@ -440,7 +563,7 @@ auto System::menubar_tab_emulation() -> void
 {
     assert(has_rom);
 
-    if (ImGui::MenuItem(emu_run ? "Pause" : "Play", nullptr, &emu_run)) {}
+    ImGui::MenuItem("Play", nullptr, &emu_run);
     if (ImGui::MenuItem("Stop"))
     {
         this->closerom();
@@ -477,9 +600,8 @@ auto System::menubar_file_view() -> void
     {
         this->toggle_fullscreen();
     }
-    ImGui::Separator();
 
-    if (ImGui::BeginMenu("scale"))
+    if (ImGui::BeginMenu("Scale"))
     {
         if (ImGui::MenuItem("x1", nullptr, emu_scale == 1)) { emu_scale = 1; }
         if (ImGui::MenuItem("x2", nullptr, emu_scale == 2)) { emu_scale = 2; }
@@ -488,6 +610,26 @@ auto System::menubar_file_view() -> void
         ImGui::EndMenu();
     }
     ImGui::Separator();
+
+    ImGui::MenuItem("Show Grid", nullptr, &show_grid, debug_mode);
+    ImGui::Separator();
+    ImGui::MenuItem("Show Debug Window", nullptr, &show_debug_window, debug_mode);
+    ImGui::Separator();
+
+    if (ImGui::MenuItem("Enable Layers", "Ctrl+Shift+L", &layer_enable_master, debug_mode))
+    {
+        this->toggle_master_layer_enable();
+    }
+
+    if (ImGui::BeginMenu("Show Layer", debug_mode))
+    {
+        ImGui::MenuItem("Layer 0", nullptr, &show_layer[0]);
+        ImGui::MenuItem("Layer 1", nullptr, &show_layer[1]);
+        ImGui::MenuItem("Layer 2", nullptr, &show_layer[2]);
+        ImGui::MenuItem("Layer 3", nullptr, &show_layer[3]);
+        ImGui::EndMenu();
+    }
+
     ImGui::MenuItem("todo...");
 }
 
@@ -502,6 +644,11 @@ auto System::menubar_file_help() -> void
 
 auto System::menubar() -> void
 {
+    if (!debug_mode)
+    {
+        return;
+    }
+
     if (!show_menubar)
     {
         return;
@@ -556,6 +703,11 @@ auto mem_viewer_entry(const char* name, std::span<uint8_t> data) -> void
 
 auto System::im_debug_window() -> void
 {
+    if (show_debug_window == false)
+    {
+        return;
+    }
+
     ImGui::Begin("Debug Tab", &show_debug_window);
     {
         if (ImGui::Button("Run")) { emu_run = true; }
@@ -609,7 +761,7 @@ auto System::emu_update_texture() -> void
     SDL_LockTexture(texture, nullptr, &pixels, &pitch);
         SDL_ConvertPixels(
             width, height, // w,h
-            SDL_PIXELFORMAT_BGR555, gameboy_advance.ppu.pixels, width * 2, // src
+            SDL_PIXELFORMAT_BGR555, gameboy_advance.ppu.pixels, width * sizeof(uint16_t), // src
             SDL_PIXELFORMAT_BGR555, pixels, pitch // dst
         );
     SDL_UnlockTexture(texture);
@@ -617,7 +769,7 @@ auto System::emu_update_texture() -> void
 
 auto System::emu_render() -> void
 {
-    const auto flags =  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBringToFrontOnFocus;
+    const auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBringToFrontOnFocus;
     ImGui::SetNextWindowPos({0, 0});
     ImGui::SetNextWindowSize(ImVec2(240*emu_scale, 160*emu_scale));
     ImGui::SetNextWindowSizeConstraints({0, 0}, ImVec2(240*emu_scale, 160*emu_scale));
@@ -632,8 +784,16 @@ auto System::emu_render() -> void
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
 
         ImGui::SetCursorPos({0, 0});
+
+        ImVec2 p = ImGui::GetCursorScreenPos();
         ImGui::Image(texture, ImVec2(240*emu_scale, 160*emu_scale));
         ImGui::PopStyleVar(5);
+
+        if (show_grid)
+        {
+            // 240/8 = 30
+            draw_grid(240*emu_scale, 30, 1.0f, p.x, p.y);
+        }
     }
     ImGui::End();
 }
@@ -654,6 +814,7 @@ auto System::run_render() -> void
 
     this->menubar(); // this should be child to emu screen
     this->im_debug_window();
+    this->render_layers();
 
     // Rendering (REMEMBER TO RENDER IMGUI STUFF [BEFORE] THIS LINE)
     ImGui::Render();

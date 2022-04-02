@@ -4,7 +4,7 @@
 #pragma once
 
 #include "fwd.hpp"
-#include <cstdint>
+#include <span>
 
 namespace gba::ppu {
 
@@ -25,6 +25,9 @@ struct Ppu
     // bgr555
     std::uint16_t pixels[160][240];
 };
+
+// used for debugging
+auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> void;
 
 auto get_mode(Gba& gba) -> u8;
 auto is_bitmap_mode(Gba & gba) -> bool;

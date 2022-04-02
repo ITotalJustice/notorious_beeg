@@ -1,6 +1,7 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
+// todo: this needs to be cleaned up and split into multiple files
 #include <cstddef>
 #include <cstring>
 #include <gba.hpp>
@@ -31,6 +32,7 @@ struct System
     static inline SDL_Window* window{};
     static inline SDL_Renderer* renderer{};
     static inline SDL_Texture* texture{};
+    static inline SDL_Texture* texture_bg_layer[4]{};
     static inline SDL_AudioDeviceID audio_device{};
     static inline SDL_AudioStream* audio_stream{};
     static inline SDL_AudioSpec aspec_wnt{};
@@ -48,9 +50,23 @@ struct System
     static inline bool emu_run{true};
     static inline bool show_debug_window{false};
     static inline bool show_demo_window{false};
-    static inline bool show_menubar{false};
+    static inline bool show_menubar{true};
     // inputs are ignored if not pressed inside window
     static inline bool inside_emu_window{true};
+
+    static inline bool layer_enable_master{true};
+    static inline uint16_t bg_pixel_layers[4][160][240];
+
+    #ifdef NDEBUG
+    static inline const bool debug_mode{false};
+    #else
+    static inline const bool debug_mode{true};
+    #endif
+
+// todo: branch these off into structs
+private:
+    // static inline bool
+    static inline bool show_grid{false};
 
 private:
     auto run_events() -> void;
@@ -77,6 +93,12 @@ private:
     auto menubar_file_view() -> void;
     auto menubar_file_help() -> void;
     auto menubar() -> void;
+
+// debug stuff
+private:
+    static inline bool show_layer[4]{true, true, true, true};
     auto im_debug_window() -> void;
+    auto render_layers() -> void;
+    auto toggle_master_layer_enable() -> void;
 };
 } // namespace sys

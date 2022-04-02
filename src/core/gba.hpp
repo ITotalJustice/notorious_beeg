@@ -37,6 +37,8 @@ enum Button : u16
 
 struct State;
 using AudioCallback = void(*)(void* user, s16 left, s16 right);
+using VblankCallback = void(*)(void* user, u16 line);
+using HblankCallback = void(*)(void* user, u16 line);
 
 struct Gba
 {
@@ -73,9 +75,23 @@ struct Gba
 
     auto set_userdata(void* user) { this->userdata = user; }
     auto set_audio_callback(AudioCallback cb) { this->audio_callback = cb; }
+    auto set_vblank_callback(VblankCallback cb) { this->vblank_callback = cb; }
+    auto set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
+
+    auto get_render_mode() -> u8
+    {
+        return ppu::get_mode(*this);
+    }
+
+    auto render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> void
+    {
+        ppu::render_bg_mode(*this, mode, layer, pixels);
+    }
 
     void* userdata{};
     AudioCallback audio_callback{};
+    VblankCallback vblank_callback{};
+    HblankCallback hblank_callback{};
 };
 
 struct State
