@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <algorithm>
+#include <cstring>
 #include <ranges>
 #include <span>
 
@@ -506,7 +507,7 @@ auto render_mode2(Gba& gba) -> void
 auto render_mode3(Gba& gba) noexcept -> void
 {
     auto& pixels = gba.ppu.pixels[REG_VCOUNT];
-    std::ranges::copy(pixels, VRAM_16 + 240 * REG_VCOUNT);
+    std::memcpy(pixels, VRAM_16 + 240 * REG_VCOUNT, sizeof(pixels));
 }
 
 auto render_mode4(Gba& gba) noexcept -> void

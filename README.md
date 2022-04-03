@@ -11,6 +11,7 @@ gba emulator witten in c++23.
 - fixed flash, eeprom, sram not being initialised to 0xFF.
 - fixed sram region not being mirrored.
 - have addr alignment be handled by the memory r/w handlers. this sram 16-32bit stores at unaligned addresses.
+- fix regression in mode3 rendering.
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
