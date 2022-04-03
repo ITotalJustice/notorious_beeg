@@ -36,7 +36,7 @@ auto load_store_with_register_offset(Gba& gba, u16 opcode) -> void
         }
         else // word
         {
-            result = mem::read32(gba, addr & ~0x3);
+            result = mem::read32(gba, addr);
             result = std::rotr(result, (addr & 0x3) * 8);
         }
 
@@ -52,7 +52,7 @@ auto load_store_with_register_offset(Gba& gba, u16 opcode) -> void
         }
         else // word
         {
-            mem::write32(gba, addr & ~0x3, value);
+            mem::write32(gba, addr, value);
         }
     }
 }

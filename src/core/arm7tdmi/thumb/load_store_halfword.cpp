@@ -27,11 +27,11 @@ auto load_store_halfword(Gba& gba, u16 opcode) -> void
     if constexpr (L == 0) // STRH Rd,[Rb, #Imm]
     {
         const auto value = get_reg(gba, Rd);
-        mem::write16(gba, addr & ~0x1, value);
+        mem::write16(gba, addr, value);
     }
     else // LDRH Rd,[Rb, #Imm]
     {
-        std::uint32_t result = mem::read16(gba, addr & ~0x1);
+        std::uint32_t result = mem::read16(gba, addr);
         result = std::rotr(result, (addr & 0x1) * 8);
         set_reg_thumb(gba, Rd, result);
     }

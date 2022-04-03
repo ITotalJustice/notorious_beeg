@@ -31,11 +31,11 @@ auto load_store_sign_extended_byte_halfword(Gba& gba, u16 opcode) -> void
         if constexpr (H == 0) // STRH Rd,[Rb, Ro]
         {
             const auto value = get_reg(gba, Rd);
-            mem::write16(gba, addr & ~0x1, value);
+            mem::write16(gba, addr, value);
         }
         else // LDRH Rd,[Rb, Ro]
         {
-            u32 result = mem::read16(gba, addr & ~0x1);
+            u32 result = mem::read16(gba, addr);
             result = std::rotr(result, (addr & 0x1) * 8);
             set_reg_thumb(gba, Rd, result);
         }
@@ -59,7 +59,7 @@ auto load_store_sign_extended_byte_halfword(Gba& gba, u16 opcode) -> void
             }
             else
             {
-                result = mem::read16(gba, addr & ~0x1);
+                result = mem::read16(gba, addr);
                 result = bit::sign_extend<16>(result);
             }
         }

@@ -36,7 +36,7 @@ auto load_store_with_immediate_offset(Gba& gba, u16 opcode) -> void
         else // word
         {
             const auto addr = base + (offset << 2);
-            result = mem::read32(gba, addr & ~0x3);
+            result = mem::read32(gba, addr);
             result = std::rotr(result, (addr & 0x3) * 8);
         }
 
@@ -54,7 +54,7 @@ auto load_store_with_immediate_offset(Gba& gba, u16 opcode) -> void
         else // word
         {
             const auto addr = base + (offset << 2);
-            mem::write32(gba, addr & ~0x3, value);
+            mem::write32(gba, addr, value);
         }
     }
 }

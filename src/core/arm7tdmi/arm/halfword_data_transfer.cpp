@@ -82,15 +82,16 @@ auto halfword_data_transfer(Gba& gba, u32 opcode, u32 offset) -> void
     }
     else
     {
+        const auto value = get_reg(gba, Rd);
+
         // if set, 16-bit transfer, else, 8-bit
         if constexpr(H)
         {
-            // std::printf("16 bit transfer, addr: 0x%08X final_addr: 0x%08X offset: 0x%08X Rd: %u Reg: 0x%08X\n", addr, final_addr, offset, Rd, get_reg(gba, Rd));
-            mem::write16(gba, addr & ~0x1, get_reg(gba, Rd));
+            mem::write16(gba, addr, value);
         }
         else
         {
-            mem::write8(gba, addr, get_reg(gba, Rd));
+            mem::write8(gba, addr, value);
         }
     }
 

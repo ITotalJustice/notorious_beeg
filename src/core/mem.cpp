@@ -35,18 +35,40 @@ constexpr auto OAM_MASK         = 0x000003FF;
 constexpr auto ROM_MASK         = 0x01FFFFFF;
 
 // General Internal Memory
-constexpr auto BIOS_SIZE        = BIOS_MASK + 1;
-constexpr auto EWRAM_SIZE       = EWRAM_MASK + 1;
-constexpr auto IWRAM_SIZE       = IWRAM_MASK + 1;
-constexpr auto IO_SIZE          = IO_MASK + 1;
+[[maybe_unused]] constexpr auto BIOS_SIZE        = BIOS_MASK + 1;
+[[maybe_unused]] constexpr auto EWRAM_SIZE       = EWRAM_MASK + 1;
+[[maybe_unused]] constexpr auto IWRAM_SIZE       = IWRAM_MASK + 1;
+[[maybe_unused]] constexpr auto IO_SIZE          = IO_MASK + 1;
 // Internal Display Memory
-constexpr auto PALETTE_RAM_SIZE = PALETTE_RAM_MASK + 1;
-constexpr auto VRAM_SIZE        = 0x00017FFF + 1;
-constexpr auto OAM_SIZE         = OAM_MASK + 1;
+[[maybe_unused]] constexpr auto PALETTE_RAM_SIZE = PALETTE_RAM_MASK + 1;
+[[maybe_unused]] constexpr auto VRAM_SIZE        = 0x00017FFF + 1;
+[[maybe_unused]] constexpr auto OAM_SIZE         = OAM_MASK + 1;
 // External Memory (Game Pak)
-constexpr auto ROM_SIZE         = ROM_MASK + 1;
+[[maybe_unused]] constexpr auto ROM_SIZE         = ROM_MASK + 1;
 
 #define MEM gba.mem
+
+constexpr auto mirror_address(u32 addr) -> u32
+{
+    return addr & 0x0FFFFFFF;
+}
+
+template<typename T>
+constexpr auto align_address(u32 addr) -> u32
+{
+    if constexpr(std::is_same<T, u8>())
+    {
+        return addr;
+    }
+    if constexpr(std::is_same<T, u16>())
+    {
+        return addr & ~0x1;
+    }
+    if constexpr(std::is_same<T, u32>())
+    {
+        return addr & ~0x3;
+    }
+}
 
 [[nodiscard]]
 STATIC_INLINE auto get_memory_timing(u8 index, u32 addr) -> u8
@@ -473,6 +495,8 @@ constexpr auto write_io8(Gba& gba, u32 addr, u8 value) -> void
 template<typename T> [[nodiscard]]
 constexpr T read_io_region(Gba& gba, u32 addr)
 {
+    addr = align_address<T>(addr);
+
     if constexpr(std::is_same<T, u32>())
     {
         return read_io32(gba, addr);
@@ -490,6 +514,8 @@ constexpr T read_io_region(Gba& gba, u32 addr)
 template<typename T>
 constexpr void write_io_region(Gba& gba, u32 addr, T value)
 {
+    addr = align_address<T>(addr);
+
     if constexpr(std::is_same<T, u32>())
     {
         write_io32(gba, addr, value);
@@ -662,31 +688,28 @@ constexpr auto write_eeprom_region(Gba& gba, u32 addr, T value) -> void
 template<typename T> [[nodiscard]]
 constexpr auto read_sram_region(Gba& gba, u32 addr) -> T
 {
-    T value{};
-    const auto backup_type = gba.backup.type;
+    // https://github.com/jsmolka/gba-tests/blob/a6447c5404c8fc2898ddc51f438271f832083b7e/save/none.asm#L21
+    T value{0xFF};
+    const auto type = gba.backup.type;
+    using enum backup::Type;
 
-    if (backup_type == backup::Type::SRAM)
+    if (type == SRAM)
     {
         value = gba.backup.sram.read(gba, addr);
     }
-    else if (backup_type == backup::Type::FLASH || backup_type == backup::Type::FLASH1M || backup_type == backup::Type::FLASH512)
+    else if (type == FLASH || type == FLASH1M || type == FLASH512)
     {
         value = gba.backup.flash.read(gba, addr);
-    }
-    else // no backup. todo: open bus
-    {
-        return empty_read<T>(gba, addr);
     }
 
     // 16/32bit reads from sram area mirror the byte
     if constexpr(std::is_same<T, u16>())
     {
-        value |= value << 8;
+        value *= 0x0101;
     }
     else if constexpr(std::is_same<T, u32>())
     {
-        value |= value << 8;
-        value |= value << 16;
+        value *= 0x01010101;
     }
 
     return value;
@@ -695,13 +718,25 @@ constexpr auto read_sram_region(Gba& gba, u32 addr) -> T
 template<typename T>
 constexpr auto write_sram_region(Gba& gba, u32 addr, T value) -> void
 {
-    const auto backup_type = gba.backup.type;
+    // only byte store/loads are supported
+    // if not byte transfer, only a single byte is written
+    if constexpr(std::is_same<T, u16>())
+    {
+        value >>= (addr & 1) * 8;
+    }
+    if constexpr(std::is_same<T, u32>())
+    {
+        value >>= (addr & 3) * 8;
+    }
 
-    if (backup_type == backup::Type::SRAM)
+    const auto type = gba.backup.type;
+    using enum backup::Type;
+
+    if (type == SRAM)
     {
         gba.backup.sram.write(gba, addr, value);
     }
-    else if (backup_type == backup::Type::FLASH || backup_type == backup::Type::FLASH1M || backup_type == backup::Type::FLASH512)
+    else if (type == FLASH || type == FLASH1M || type == FLASH512)
     {
         gba.backup.flash.write(gba, addr, value);
     }
@@ -730,7 +765,7 @@ constexpr ReadFunction<T> READ_FUNCTION[0x10] =
     /*[0xC] =*/ empty_read,
     /*[0xD] =*/ read_eeprom_region<T>,
     /*[0xE] =*/ read_sram_region<T>,
-    /*[0xF] =*/ empty_read,
+    /*[0xF] =*/ read_sram_region<T>,
 };
 
 template<typename T>
@@ -751,18 +786,18 @@ constexpr WriteFunction<T> WRITE_FUNCTION[0x10] =
     /*[0xC] =*/ empty_write,
     /*[0xD] =*/ write_eeprom_region<T>,
     /*[0xE] =*/ write_sram_region<T>,
-    /*[0xF] =*/ empty_write,
+    /*[0xF] =*/ write_sram_region<T>,
 };
 
 // all these functions are inlined
 auto read8(Gba& gba, u32 addr) -> u8
 {
-    addr &= 0x0FFFFFFF;
     gba.scheduler.tick(get_memory_timing(0, addr));
-    auto& entry = MEM.rmap_8[addr >> 24];
 
+    addr = mirror_address(addr);
+    const auto& entry = MEM.rmap_8[addr >> 24];
 
-    if (entry.array.size()) [[likely]]
+    if (!entry.array.empty()) [[likely]]
     {
         return read_array<u8>(entry.array, entry.mask, addr);
     }
@@ -774,12 +809,12 @@ auto read8(Gba& gba, u32 addr) -> u8
 
 auto read16(Gba& gba, u32 addr) -> u16
 {
-    addr &= 0x0FFFFFFE;
     gba.scheduler.tick(get_memory_timing(1, addr));
-    auto& entry = MEM.rmap_16[addr >> 24];
 
+    addr = mirror_address(addr);
+    const auto& entry = MEM.rmap_16[addr >> 24];
 
-    if (entry.array.size()) [[likely]]
+    if (!entry.array.empty()) [[likely]]
     {
         return read_array<u16>(entry.array, entry.mask, addr);
     }
@@ -791,12 +826,12 @@ auto read16(Gba& gba, u32 addr) -> u16
 
 auto read32(Gba& gba, u32 addr) -> u32
 {
-    addr &= 0x0FFFFFFC;
     gba.scheduler.tick(get_memory_timing(2, addr));
-    auto& entry = MEM.rmap_32[addr >> 24];
 
+    addr = mirror_address(addr);
+    const auto& entry = MEM.rmap_32[addr >> 24];
 
-    if (entry.array.size()) [[likely]]
+    if (!entry.array.empty()) [[likely]]
     {
         return read_array<u32>(entry.array, entry.mask, addr);
     }
@@ -808,11 +843,12 @@ auto read32(Gba& gba, u32 addr) -> u32
 
 auto write8(Gba& gba, u32 addr, u8 value) -> void
 {
-    addr &= 0x0FFFFFFF;
     gba.scheduler.tick(get_memory_timing(0, addr));
-    auto& entry = MEM.wmap_8[addr >> 24];
 
-    if (entry.array.size()) // don't mark likely as vram,pram,io writes are common
+    addr = mirror_address(addr);
+    const auto& entry = MEM.wmap_8[addr >> 24];
+
+    if (!entry.array.empty()) // don't mark likely as vram,pram,io writes are common
     {
         write_array<u8>(entry.array, entry.mask, addr, value);
     }
@@ -824,11 +860,12 @@ auto write8(Gba& gba, u32 addr, u8 value) -> void
 
 auto write16(Gba& gba, u32 addr, u16 value) -> void
 {
-    addr &= 0x0FFFFFFE;
     gba.scheduler.tick(get_memory_timing(1, addr));
-    auto& entry = MEM.wmap_16[addr >> 24];
 
-    if (entry.array.size()) // don't mark likely as vram,pram,io writes are common
+    addr = mirror_address(addr); // the functions write handlers will manually align.
+    const auto& entry = MEM.wmap_16[addr >> 24];
+
+    if (!entry.array.empty()) // don't mark likely as vram,pram,io writes are common
     {
         write_array<u16>(entry.array, entry.mask, addr, value);
     }
@@ -840,11 +877,12 @@ auto write16(Gba& gba, u32 addr, u16 value) -> void
 
 auto write32(Gba& gba, u32 addr, u32 value) -> void
 {
-    addr &= 0x0FFFFFFC;
     gba.scheduler.tick(get_memory_timing(2, addr));
-    auto& entry = MEM.wmap_32[addr >> 24];
 
-    if (entry.array.size()) // don't mark likely as vram,pram,io writes are common
+    addr = mirror_address(addr);
+    const auto& entry = MEM.wmap_32[addr >> 24];
+
+    if (!entry.array.empty()) // don't mark likely as vram,pram,io writes are common
     {
         write_array<u32>(entry.array, entry.mask, addr, value);
     }

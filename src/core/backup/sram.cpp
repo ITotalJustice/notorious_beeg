@@ -12,10 +12,7 @@ namespace gba::backup::sram
 
 auto Sram::init([[maybe_unused]] Gba& gba) -> void
 {
-    // this is just to satisfy valid union access
-    // by first writing to the union before reading
-    // without causing UB.
-    this->dummy_union_write = true;
+    std::ranges::fill(this->data, 0xFF);
 }
 
 auto Sram::load_data(std::span<const u8> new_data) -> bool

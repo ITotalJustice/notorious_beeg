@@ -24,6 +24,7 @@ auto Eeprom::init([[maybe_unused]] Gba& gba) -> void
     this->write_address = 0;
     this->read_address = 0;
     this->bit_read_counter = READ_COUNTER_RESET;
+    std::ranges::fill(this->data, 0xFF);
 }
 
 auto Eeprom::load_data(std::span<const u8> new_data) -> bool

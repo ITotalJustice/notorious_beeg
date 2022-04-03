@@ -12,10 +12,12 @@
 namespace gba::backup::flash
 {
 
+constexpr auto BANK_SIZE = 1024 * 64;
+
 enum class Type : u32
 {
-    Flash64 = 1024 * 64,
-    Flash128 = 1024 * 128,
+    Flash64 = BANK_SIZE,
+    Flash128 = BANK_SIZE * 2,
 };
 
 enum class Command
@@ -42,7 +44,7 @@ struct Flash
 {
 public:
     // 2 banks of 64K
-    u8 data[1024 * 64 * 2];
+    u8 data[BANK_SIZE * 2];
     u32 mask;
     u32 bank; // 0 or 1024*64
 

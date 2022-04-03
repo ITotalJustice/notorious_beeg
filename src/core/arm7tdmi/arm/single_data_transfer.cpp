@@ -57,7 +57,7 @@ auto single_data_transfer(Gba& gba, u32 opcode, u32 addr, u32 offset, u8 Rn) -> 
         }
         else
         {
-            result = mem::read32(gba, addr &~ 0x3);
+            result = mem::read32(gba, addr);
             // the result is actually rotated if not word alligned!!!
             result = std::rotr(result, (addr & 0x3) * 8);
         }
@@ -84,7 +84,7 @@ auto single_data_transfer(Gba& gba, u32 opcode, u32 addr, u32 offset, u8 Rn) -> 
         }
         else
         {
-            mem::write32(gba, addr & ~0x3, result);
+            mem::write32(gba, addr, result);
         }
     }
 

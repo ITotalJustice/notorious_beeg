@@ -1,11 +1,17 @@
 # gba emu
-v0.0.1-dev
+v0.0.3-dev
 
 gba emulator witten in c++23.
 
 ---
 
 ## changelog
+0.0.3
+- fully implemented flash. fixes [#19](https://github.com/ITotalJustice/notorious_beeg/issues/19).
+- fixed flash, eeprom, sram not being initialised to 0xFF.
+- fixed sram region not being mirrored.
+- have addr alignment be handled by the memory r/w handlers. this sram 16-32bit stores at unaligned addresses.
+
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
 - fixed thumb cmp imm doing an add instead with the oprands complemented. this would give the correct result but the flags would be wrong.
