@@ -7,6 +7,7 @@
 #include "dma.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
+#include <algorithm>
 #include <cassert>
 #include <type_traits>
 
@@ -125,11 +126,11 @@ auto right_volume(Gba& gba)
 
 auto master_volume(Gba& gba)
 {
-    constexpr u8 VOL_SHIFT[4] = { 2, 1, 0, /*invalid*/0 };
+    constexpr s8 vols[4] = { 4, 2, 1, 1 };
     const auto index = bit::get_range<0, 1>(REG_SOUNDCNT_H);
     assert(index != 3 && "invalid master volume");
 
-    return VOL_SHIFT[index];
+    return vols[index];
 }
 
 template<u8 Number>
@@ -1139,43 +1140,76 @@ auto sample(Gba& gba)
         return;
     }
 
+    // before pushing, assert that this is actuall modes 0-1
+    // if not, we are resampling far lower that required
+    // and aliasing will happen due to this.
     [[maybe_unused]] const auto resample_mode = bit::get_range<0xE, 0xF>(REG_SOUNDBIAS);
-    assert(resample_mode == 0 || resample_mode == 1);
+    assert((resample_mode == 0 || resample_mode == 1) && "resample mode is not currently supported");
 
-    const auto fifo_a = APU.fifo[0].sample();
-    const auto fifo_b = APU.fifo[1].sample();
-    const auto square0 = APU.square0.sample(gba);
-    const auto square1 = APU.square1.sample(gba);
-    const auto wave = APU.wave.sample(gba);
-    const auto noise = APU.noise.sample(gba);
+    s16 sample_left = 0;
+    s16 sample_right = 0;
 
-    const auto fifo_a_left = fifo_a * APU.fifo[0].enable_left;
-    const auto fifo_b_left = fifo_b * APU.fifo[1].enable_left;
-    const auto square0_left = square0 * APU.square0.left_enabled(gba);
-    const auto square1_left = square1 * APU.square1.left_enabled(gba);
-    const auto wave_left = wave * APU.wave.left_enabled(gba);
-    const auto noise_left = noise * APU.noise.left_enabled(gba);
+    const auto square0_sample = APU.square0.sample(gba);
+    const auto square1_sample = APU.square1.sample(gba);
+    const auto wave_sample = APU.wave.sample(gba);
+    const auto noise_sample = APU.noise.sample(gba);
 
-    const auto fifo_a_right = fifo_a * APU.fifo[0].enable_right;
-    const auto fifo_b_right = fifo_b * APU.fifo[1].enable_right;
-    const auto square0_right = square0 * APU.square0.right_enabled(gba);
-    const auto square1_right = square1 * APU.square1.right_enabled(gba);
-    const auto wave_right = wave * APU.wave.right_enabled(gba);
-    const auto noise_right = noise * APU.noise.right_enabled(gba);
+    // dmg sampling is very simple, add everything together
+    sample_left += square0_sample * APU.square0.left_enabled(gba);
+    sample_left += square1_sample * APU.square1.left_enabled(gba);
+    sample_left += wave_sample * APU.wave.left_enabled(gba);
+    sample_left += noise_sample * APU.noise.left_enabled(gba);
 
-    const auto master_vol = master_volume(gba);
-    const auto left_vol = left_volume(gba);
-    const auto right_vol = right_volume(gba);
+    sample_right += square0_sample * APU.square0.right_enabled(gba);
+    sample_right += square1_sample * APU.square1.right_enabled(gba);
+    sample_right += wave_sample * APU.wave.right_enabled(gba);
+    sample_right += noise_sample * APU.noise.right_enabled(gba);
 
-    const auto final_fifo_left = (fifo_a_left + fifo_b_left) / 2;
-    const auto final_gb_left = (((square0_left + square1_left + wave_left + noise_left) * left_vol) >> master_vol) / 4;
-    const auto final_fifo_right = (fifo_a_right + fifo_b_right) / 2;
-    const auto final_gb_right = (((square0_right + square1_right + wave_right + noise_right) * right_vol) >> master_vol) / 4;
+    // apply the left / right volumes
+    sample_left *= left_volume(gba);
+    sample_right *= right_volume(gba);
 
-    const auto left = final_fifo_left + final_gb_left;
-    const auto right = final_fifo_right + final_gb_right;
+    // apply the master volume
+    sample_left /= master_volume(gba);
+    sample_right /= master_volume(gba);
 
-    gba.audio_callback(gba.userdata, left<<8, right<<8);
+    const auto fifo0_sample = APU.fifo[0].sample() * 2;
+    const auto fifo1_sample = APU.fifo[1].sample() * 2;
+
+    // thats it for fifo sampling
+    sample_left += fifo0_sample * APU.fifo[0].enable_left;
+    sample_left += fifo1_sample * APU.fifo[1].enable_left;
+    sample_right += fifo0_sample * APU.fifo[0].enable_right;
+    sample_right += fifo1_sample * APU.fifo[1].enable_right;
+
+    // apply bias
+    const s16 bias = bit::get_range<1, 9>(REG_SOUNDBIAS);
+    sample_left += bias;
+    sample_right += bias;
+
+    // audio is clamped to 11-bit
+    // it's actually 10-bit on gba, but it clips HARD when doing that
+    constexpr s16 min = -1024, max = 1023;
+    sample_left = std::clamp(sample_left, min, max);
+    sample_right = std::clamp(sample_right, min, max);
+
+    // don't bit crush (as gba does) because it sounds very bad.
+    #if 1
+    sample_left <<= 5;
+    sample_right <<= 5;
+    #else
+    // the bit-depth differs based on the resample mode
+    constexpr s16 divs[4] = { 2, 3, 4, 5 }; // 9bit, 8bit, 7bit, 6bit
+    sample_left >>= divs[resample_mode];
+    sample_right >>= divs[resample_mode];
+
+    // we now need to scale to to 16bit range
+    constexpr s16 scales[4] = { 7, 8, 9, 10 }; // 9bit, 8bit, 7bit, 6bit
+    sample_left <<= scales[resample_mode];
+    sample_right <<= scales[resample_mode];
+    #endif
+
+    gba.audio_callback(gba.userdata, sample_left, sample_right);
 }
 
 auto on_sample_event(Gba& gba) -> void

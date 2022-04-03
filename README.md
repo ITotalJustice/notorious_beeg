@@ -12,6 +12,8 @@ gba emulator witten in c++23.
 - fixed sram region not being mirrored.
 - have addr alignment be handled by the memory r/w handlers. this sram 16-32bit stores at unaligned addresses.
 - fix regression in mode3 rendering.
+- more accurately mix audio channels.
+- fix frontend audio_stream not being thread-safe.
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)

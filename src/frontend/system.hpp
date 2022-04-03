@@ -7,6 +7,7 @@
 #include <gba.hpp>
 #include <cstdint>
 #include <string>
+#include <mutex>
 #include <SDL.h>
 
 namespace sys {
@@ -54,8 +55,10 @@ struct System
     // inputs are ignored if not pressed inside window
     static inline bool inside_emu_window{true};
 
-    static inline bool layer_enable_master{true};
+    static inline bool layer_enable_master{false};
     static inline uint16_t bg_pixel_layers[4][160][240];
+
+    static inline std::mutex audio_mutex{};
 
     #ifdef NDEBUG
     static inline const bool debug_mode{false};
@@ -96,7 +99,7 @@ private:
 
 // debug stuff
 private:
-    static inline bool show_layer[4]{true, true, true, true};
+    static inline bool show_layer[4]{false};
     auto im_debug_window() -> void;
     auto render_layers() -> void;
     auto toggle_master_layer_enable() -> void;

@@ -5,7 +5,6 @@
 
 #include "fwd.hpp"
 #include <cstddef>
-#include <cstdint>
 
 namespace gba::apu
 {
@@ -18,21 +17,21 @@ struct Noise;
 struct FrameSequencer
 {
     static constexpr inline auto tick_rate = 280896*60/512;
-    std::uint16_t cycles;
-    std::uint8_t index;
+    u16 cycles;
+    u8 index;
 
     auto clock(Gba& gba) -> void;
 };
 
 struct Len
 {
-    std::uint16_t counter;
+    u16 counter;
     bool enable;
 };
 
 struct Sweep
 {
-    std::uint16_t freq_shadow_register;
+    u16 freq_shadow_register;
     u8 period;
     u8 shift;
     s8 timer;
@@ -129,7 +128,7 @@ struct Noise : Base<3>
 {
     Envelope env;
 
-    std::uint16_t lfsr;
+    u16 lfsr;
     u8 clock_shift;
     u8 divisor_code;
 
@@ -151,7 +150,7 @@ struct Fifo
     u8 w_index;
     u8 count;
 
-    int8_t current_sample;
+    s8 current_sample;
     bool volume_code;
     bool enable_right;
     bool enable_left;
@@ -159,7 +158,7 @@ struct Fifo
 
     auto update_current_sample(Gba& gba, u8 num) -> void;
 
-    auto sample() -> int8_t;
+    auto sample() -> s8;
     auto reset() -> void;
     auto size() const -> u8;
     auto push(u8 value) -> void;
@@ -168,7 +167,7 @@ struct Fifo
 
 struct Apu
 {
-    std::size_t cycles;
+    std::size_t cycles; // todo: remove once scheduler version is complete
     Fifo fifo[2];
 
     // legacy gb apu
@@ -182,13 +181,13 @@ struct Apu
 };
 
 auto on_fifo_write8(Gba& gba, u8 value, u8 num) -> void;
-auto on_fifo_write16(Gba& gba, std::uint16_t value, u8 num) -> void;
+auto on_fifo_write16(Gba& gba, u16 value, u8 num) -> void;
 auto on_fifo_write32(Gba& gba, u32 value, u8 num) -> void;
 auto on_timer_overflow(Gba& gba, u8 timer_num) -> void;
 auto on_soundcnt_write(Gba& gba) -> void;
 
 auto write_legacy8(Gba& gba, u32 addr, u8 value) -> void;
-auto write_legacy(Gba& gba, u32 addr, std::uint16_t value) -> void;
+auto write_legacy(Gba& gba, u32 addr, u16 value) -> void;
 
 auto on_square0_event(Gba& gba) -> void;
 auto on_square1_event(Gba& gba) -> void;
@@ -198,6 +197,6 @@ auto on_frame_sequencer_event(Gba& gba) -> void;
 auto on_sample_event(Gba& gba) -> void;
 
 auto reset(Gba& gba) -> void;
-auto run(Gba& gba, uint8_t cycles) -> void;
+auto run(Gba& gba, u8 cycles) -> void;
 
 } // namespace gba::apu
