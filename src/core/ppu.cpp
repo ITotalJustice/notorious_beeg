@@ -380,7 +380,7 @@ static auto render_line_bg(Gba& gba, std::span<u16> pixels, BGxCNT cnt, u16 xscr
             const auto tile_x = se.hflip ? 7 - (tx & 7) : tx & 7;
             const auto tile_y = se.vflip ? 7 - (y & 7) : y & 7;
 
-            const auto tile_offset = (tile_x + (tile_y * 8)) / 2;
+            const auto tile_offset = tile_x + (tile_y * 8);
 
             auto pram_addr = 0;
             auto pixel = 0;
@@ -388,7 +388,7 @@ static auto render_line_bg(Gba& gba, std::span<u16> pixels, BGxCNT cnt, u16 xscr
             // todo: don't allow access to blocks 4,5
             if constexpr(bpp == BG_4BPP)
             {
-                pixel = charblock[(se.tile_index * 32) + tile_offset];
+                pixel = charblock[(se.tile_index * 32) + tile_offset/2];
 
                 if (tile_x & 1) // hi or lo nibble
                 {
