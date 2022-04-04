@@ -146,14 +146,14 @@ static auto get_bg_offset_affine(BGxCNT cnt, auto x) -> u16
 struct Attr0
 {
     constexpr Attr0(u16 v) :
-        Y{static_cast<s16>(bit::get_range<0, 7>(v))},
+        Y{static_cast<u16>(bit::get_range<0, 7>(v))},
         OM{static_cast<u16>(bit::get_range<8, 9>(v))},
         GM{static_cast<u16>(bit::get_range<10, 11>(v))},
         Mos{static_cast<u16>(bit::is_set<12>(v))},
         CM{static_cast<u16>(bit::is_set<13>(v))},
         Sh{static_cast<u16>(bit::get_range<14, 15>(v))} {}
 
-    const s16 Y : 8; // Y coordinate. Marks the top of the sprite.
+    const u16 Y : 8; // Y coordinate. Marks the top of the sprite.
     const u16 OM : 2; // (Affine) object mode. Use to hide the sprite or govern affine mode.
     const u16 GM : 2; // Gfx mode. Flags for special effects.
     const u16 Mos : 1; // Enables mosaic effect. Covered here.
@@ -254,6 +254,7 @@ static auto render_obj(Gba& gba) -> void
     const auto ovram = reinterpret_cast<u8*>(gba.mem.vram + 4 * CHARBLOCK_SIZE);
     const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram + 512);
     const auto oam = reinterpret_cast<u64*>(gba.mem.oam);
+    const auto vcount = REG_VCOUNT;
 
     for (auto i = 0; i < 128; i++)
     {
@@ -278,11 +279,16 @@ static auto render_obj(Gba& gba) -> void
             continue;
         }
 
+        // if the sprite is out of range, wrap around.
+        // not sure how correct this is, but it works in emerald
+        // and phoenix wright text.
+        const auto sprite_y = obj.attr0.Y >= 160 ? obj.attr0.Y - 255 : obj.attr0.Y;
+
         const auto [xSize, ySize] = obj.get_size();
-        const auto mosY = obj.is_yflip() ? (ySize - 1) - (REG_VCOUNT - obj.attr0.Y) : REG_VCOUNT - obj.attr0.Y;
+        const auto mosY = obj.is_yflip() ? (ySize - 1) - (vcount - sprite_y) : vcount - sprite_y;
         const auto yMod = mosY % 8;
 
-        if (REG_VCOUNT >= obj.attr0.Y && REG_VCOUNT < obj.attr0.Y + ySize)
+        if (vcount >= sprite_y && vcount < sprite_y + ySize)
         {
             for (auto x = 0; x < xSize; x++)
             {
@@ -356,18 +362,19 @@ static auto render_line_bg(Gba& gba, std::span<u16> pixels, BGxCNT cnt, u16 xscr
     constexpr auto BG_4BPP = 0;
     constexpr auto BG_8BPP = 1;
 
-    //
-    const auto y = (yscroll + REG_VCOUNT) % 256;
-    // pal_mem
-    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram);
-    // tile_mem (where the tiles/tilesets are)
-    const auto charblock = reinterpret_cast<u8*>(gba.mem.vram + cnt.CBB * CHARBLOCK_SIZE);
-    // se_mem (where the tilemaps are)
-    const auto screenblock = reinterpret_cast<u16*>(gba.mem.vram + (cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<0>(cnt, yscroll + REG_VCOUNT) + ((y / 8) * 64));
-
     // todo: better name variables at somepoint
-    const auto func = [&]<bool bpp>()
+    const auto func = [&gba, pixels, cnt, yscroll, xscroll]<bool bpp>()
     {
+        const auto vcount = REG_VCOUNT;
+        //
+        const auto y = (yscroll + vcount) % 256;
+        // pal_mem
+        const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram);
+        // tile_mem (where the tiles/tilesets are)
+        const auto charblock = reinterpret_cast<u8*>(gba.mem.vram + cnt.CBB * CHARBLOCK_SIZE);
+        // se_mem (where the tilemaps are)
+        const auto screenblock = reinterpret_cast<u16*>(gba.mem.vram + (cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<0>(cnt, yscroll + vcount) + ((y / 8) * 64));
+
         for (auto x = 0; x < 240; x++)
         {
             // get tilemap (has num of the tile)
