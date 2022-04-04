@@ -53,14 +53,14 @@ struct ScreenEntry
     const u16 palette_bank : 4;
 };
 
-auto add_event(Gba& gba)
+static auto add_event(Gba& gba)
 {
     scheduler::add(gba, scheduler::Event::PPU, on_event, gba.ppu.period_cycles);
 }
 
 #define PPU gba.ppu
 
-auto update_period_cycles(Gba& gba) -> void
+static auto update_period_cycles(Gba& gba) -> void
 {
     switch (PPU.period)
     {
@@ -104,7 +104,7 @@ Table 9.5b: affine bg sizes Sz-flag 	define 	(tiles) 	(pixels)
 */
 
 template<bool Y> [[nodiscard]] // 0=Y, 1=X
-constexpr auto get_bg_offset(BGxCNT cnt, auto x) -> u16
+static auto get_bg_offset(BGxCNT cnt, auto x) -> u16
 {
     constexpr auto PIXEL_MAP_SIZE = 255;
 
@@ -114,7 +114,7 @@ constexpr auto get_bg_offset(BGxCNT cnt, auto x) -> u16
         { 256, 512, 256, 512 },
     };
 
-    constexpr u16 result[2][4] = // [0] = Y, [1] = X
+    static constexpr u16 result[2][4] = // [0] = Y, [1] = X
     {
         { 0x800, 0x800, 0x800, 0x800 },
         { 0x800, 0x800, 0x800, 0x800*2 }, // Y=1, Sz=3: this is a 2d array, so if we are on the next slot, then we need to move down 2*SCREENBLOCK_SIZE
@@ -127,11 +127,11 @@ constexpr auto get_bg_offset(BGxCNT cnt, auto x) -> u16
 }
 
 template<bool Y> [[nodiscard]] // 0=Y, 1=X
-constexpr auto get_bg_offset_affine(BGxCNT cnt, auto x) -> u16
+static auto get_bg_offset_affine(BGxCNT cnt, auto x) -> u16
 {
     constexpr auto PIXEL_MAP_SIZE = 255;
     constexpr u16 mod[4] = { 128, 256, 512, 1024 };
-    constexpr u16 result[2][4] = // [0] = Y, [1] = X
+    static constexpr u16 result[2][4] = // [0] = Y, [1] = X
     {
         { 0x800, 0x800, 0x800, 0x800 },
         { 0x800, 0x800, 0x800, 0x800*2 }, // Y=1, Sz=3: this is a 2d array, so if we are on the next slot, then we need to move down 2*SCREENBLOCK_SIZE
@@ -228,9 +228,9 @@ struct OBJ_Attr
 
     struct [[nodiscard]] SizePair { u8 x; u8 y; };
 
-    constexpr auto get_size() const -> SizePair
+    auto get_size() const -> SizePair
     {
-        constexpr SizePair sizes[4][4] =
+        static constexpr SizePair sizes[4][4] =
         {
             { { 8, 8 }, { 16, 16 }, { 32, 32 }, { 64, 64 } },
             { { 16, 8 }, { 32, 8 }, { 32, 16 }, { 64, 32 } },
@@ -242,7 +242,7 @@ struct OBJ_Attr
     }
 };
 
-auto render_obj(Gba& gba) -> void
+static auto render_obj(Gba& gba) -> void
 {
     constexpr auto CHARBLOCK_SIZE = 0x4000;
 
@@ -348,7 +348,7 @@ auto render_obj(Gba& gba) -> void
     }
 }
 
-auto render_line_bg(Gba& gba, std::span<u16> pixels, BGxCNT cnt, u16 xscroll, u16 yscroll)
+static auto render_line_bg(Gba& gba, std::span<u16> pixels, BGxCNT cnt, u16 xscroll, u16 yscroll)
 {
     constexpr auto CHARBLOCK_SIZE = 512 * 8 * sizeof(u32); // 0x4000
     constexpr auto SCREENBLOCK_SIZE = 1024 * sizeof(u16); // 0x800
@@ -430,19 +430,19 @@ struct Set
     bool enable;
 };
 
-auto render_backdrop(Gba& gba)
+static auto render_backdrop(Gba& gba)
 {
     std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], PALETTE_16[0]);
 }
 
-constexpr auto sort_priority_set(auto& set)
+static constexpr auto sort_priority_set(auto& set)
 {
     std::ranges::stable_sort(set, [](auto lhs, auto rhs){
         return lhs.cnt.Pr > rhs.cnt.Pr;
     });
 }
 
-auto render_set(Gba& gba, auto& set)
+static auto render_set(Gba& gba, auto& set)
 {
     std::ranges::for_each(set, [&gba](auto& p){
         if (p.enable) {
@@ -452,7 +452,7 @@ auto render_set(Gba& gba, auto& set)
 }
 
 // 4 regular
-auto render_mode0(Gba& gba) -> void
+static auto render_mode0(Gba& gba) -> void
 {
     Set set[4] =
     {
@@ -474,7 +474,7 @@ auto render_mode0(Gba& gba) -> void
 }
 
 // 2 regular, 1 affine
-auto render_mode1(Gba& gba) -> void
+static auto render_mode1(Gba& gba) -> void
 {
     Set set[2] =
     {
@@ -495,7 +495,7 @@ auto render_mode1(Gba& gba) -> void
 }
 
 // 4 affine
-auto render_mode2(Gba& gba) -> void
+static auto render_mode2(Gba& gba) -> void
 {
     render_backdrop(gba);
     assert(0);
@@ -504,13 +504,13 @@ auto render_mode2(Gba& gba) -> void
     // todo: obj
 }
 
-auto render_mode3(Gba& gba) noexcept -> void
+static auto render_mode3(Gba& gba) noexcept -> void
 {
     auto& pixels = gba.ppu.pixels[REG_VCOUNT];
     std::memcpy(pixels, VRAM_16 + 240 * REG_VCOUNT, sizeof(pixels));
 }
 
-auto render_mode4(Gba& gba) noexcept -> void
+static auto render_mode4(Gba& gba) noexcept -> void
 {
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
     auto addr = page + (240 * REG_VCOUNT);
@@ -521,7 +521,7 @@ auto render_mode4(Gba& gba) noexcept -> void
     });
 }
 
-auto render(Gba& gba)
+static auto render(Gba& gba)
 {
     // if forced blanking is enabled, the screen is black
     if (bit::is_set<7>(REG_DISPCNT)) [[unlikely]]
@@ -549,7 +549,7 @@ auto render(Gba& gba)
 
 // called during hblank from lines 0-227
 // this means that this is called during vblank as well
-auto on_hblank(Gba& gba)
+static auto on_hblank(Gba& gba)
 {
     REG_DISPSTAT = bit::set<1>(REG_DISPSTAT, true);
 
@@ -571,7 +571,7 @@ auto on_hblank(Gba& gba)
 }
 
 // called on line 160
-auto on_vblank(Gba& gba)
+static auto on_vblank(Gba& gba)
 {
     REG_DISPSTAT = bit::set<0>(REG_DISPSTAT, true);
     if (bit::is_set<3>(REG_DISPSTAT))
@@ -587,7 +587,7 @@ auto on_vblank(Gba& gba)
 }
 
 // called every time vcount is updated
-auto on_vcount_update(Gba& gba, uint16_t new_vcount)
+static auto on_vcount_update(Gba& gba, uint16_t new_vcount)
 {
     REG_VCOUNT = new_vcount;
     const auto lyc = bit::get_range<8, 15>(REG_DISPSTAT);
@@ -606,7 +606,7 @@ auto on_vcount_update(Gba& gba, uint16_t new_vcount)
     }
 }
 
-auto change_period(Gba& gba)
+static auto change_period(Gba& gba)
 {
     switch (PPU.period)
     {

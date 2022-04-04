@@ -25,7 +25,7 @@ enum class hi_register_operations_op : u8
 
 // page 119 (5.5)
 template<u8 Op2, u8 H1, u8 H2>
-auto hi_register_operations(Gba& gba, u16 opcode) -> void
+static auto hi_register_operations(Gba& gba, u16 opcode) -> void
 {
     static_assert(H1 == 0 || H1 == 8, "bad");
     static_assert(H2 == 0 || H2 == 8, "bad");
@@ -40,7 +40,7 @@ auto hi_register_operations(Gba& gba, u16 opcode) -> void
     using enum hi_register_operations_op;
 
     // note: only CMP sets flags
-    if constexpr (Op == ADD)
+    if constexpr(Op == ADD)
     {
         const auto result = internal_add<false>(gba, oprand1, oprand2);
         set_reg(gba, Rd, result);

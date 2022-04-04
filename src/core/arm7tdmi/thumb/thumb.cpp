@@ -23,7 +23,6 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "gba.hpp"
 #include <cassert>
-#include <cstdint>
 #include <cstdio>
 #include <array>
 
@@ -54,7 +53,7 @@ enum class Instruction
 };
 
 // page 108
-constexpr auto decode(uint16_t opcode) -> Instruction
+static constexpr auto decode(uint16_t opcode) -> Instruction
 {
     // only need bits 5-15
     constexpr auto shift_down = 6;
@@ -197,36 +196,7 @@ constexpr auto decode(uint16_t opcode) -> Instruction
     return Instruction::undefined;
 }
 
-constexpr auto decode_str(Instruction i) -> const char*
-{
-    switch (i)
-    {
-        case Instruction::move_shifted_register: return "move_shifted_register";
-        case Instruction::add_subtract: return "add_subtract";
-        case Instruction::move_compare_add_subtract_immediate: return "move_compare_add_subtract_immediate";
-        case Instruction::alu_operations: return "alu_operations";
-        case Instruction::hi_register_operations: return "hi_register_operations";
-        case Instruction::pc_relative_load: return "pc_relative_load";
-        case Instruction::load_store_with_register_offset: return "load_store_with_register_offset";
-        case Instruction::load_store_sign_extended_byte_halfword: return "load_store_sign_extended_byte_halfword";
-        case Instruction::load_store_with_immediate_offset: return "load_store_with_immediate_offset";
-        case Instruction::load_store_halfword: return "load_store_halfword";
-        case Instruction::sp_relative_load_store: return "sp_relative_load_store";
-        case Instruction::load_address: return "load_address";
-        case Instruction::add_offset_to_stack_pointer: return "add_offset_to_stack_pointer";
-        case Instruction::push_pop_registers: return "push_pop_registers";
-        case Instruction::multiple_load_store: return "multiple_load_store";
-        case Instruction::conditional_branch: return "conditional_branch";
-        case Instruction::software_interrupt: return "software_interrupt";
-        case Instruction::unconditional_branch: return "unconditional_branch";
-        case Instruction::long_branch_with_link: return "long_branch_with_link";
-        case Instruction::undefined: return "undefined";
-    }
-
-    std::unreachable();
-}
-
-auto undefined([[maybe_unused]] gba::Gba &gba, uint16_t opcode) -> void
+static auto undefined([[maybe_unused]] gba::Gba &gba, uint16_t opcode) -> void
 {
     std::printf("[THUMB] undefined %04X\n", opcode);
     assert(!"[THUMB] undefined instruction hit");
@@ -387,9 +357,7 @@ consteval auto generate_function_table()
     return table;
 };
 
-constexpr auto func_table = generate_function_table();
-
-auto fetch(Gba& gba)
+static auto fetch(Gba& gba)
 {
     const std::uint16_t opcode = CPU.pipeline[0];
     CPU.pipeline[0] = CPU.pipeline[1];
@@ -401,6 +369,8 @@ auto fetch(Gba& gba)
 
 auto execute(Gba& gba) -> void
 {
+    static constexpr auto func_table = generate_function_table();
+
     const auto opcode = fetch(gba);
     func_table[opcode>>6](gba, opcode);
 }

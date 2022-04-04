@@ -13,7 +13,7 @@ namespace gba::arm7tdmi::thumb {
 template<
     bool L // 0=STR, 1=LDR
 >
-auto sp_relative_load_store(Gba& gba, u16 opcode) -> void
+static auto sp_relative_load_store(Gba& gba, u16 opcode) -> void
 {
     const auto Rd = bit::get_range<8, 10>(opcode);
     // shifted to 10-bit value (unsigned)
@@ -21,7 +21,7 @@ auto sp_relative_load_store(Gba& gba, u16 opcode) -> void
 
     const auto addr = get_sp(gba) + Word8;
 
-    if constexpr (L == 0) // STR Rd,[SP, #Imm]
+    if constexpr(L == 0) // STR Rd,[SP, #Imm]
     {
         const auto value = get_reg(gba, Rd);
         mem::write32(gba, addr & ~0x3, value);

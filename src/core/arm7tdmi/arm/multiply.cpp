@@ -5,6 +5,7 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
+#include <cassert>
 
 namespace gba::arm7tdmi::arm {
 
@@ -13,7 +14,7 @@ template<
     bool A, // 0=mul, 1=mul and accumulate
     bool S  // 0=no flags, 1=mod flags
 >
-auto multiply(Gba& gba, u32 opcode) -> void
+static auto multiply(Gba& gba, u32 opcode) -> void
 {
     const auto Rd = bit::get_range<16, 19>(opcode); // dst
     const auto Rn = bit::get_range<12, 15>(opcode); // oprand
@@ -29,7 +30,7 @@ auto multiply(Gba& gba, u32 opcode) -> void
 
     const u32 result = a * b + c;
 
-    if constexpr (S)
+    if constexpr(S)
     {
         // todo: carry is set to random value???
         CPU.cpsr.Z = result == 0;

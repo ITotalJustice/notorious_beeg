@@ -18,7 +18,6 @@
 #include "mem.hpp"
 #include <cassert>
 #include <array>
-#include <cstdint>
 #include <cstdio>
 
 namespace gba::arm7tdmi::arm {
@@ -41,7 +40,7 @@ enum class Instruction
     software_interrupt,
 };
 
-constexpr auto decode_template(auto opcode)
+static constexpr auto decode_template(auto opcode)
 {
     return (bit::get_range<20, 27>(opcode) << 4) | (bit::get_range<4, 7>(opcode));
 }
@@ -147,30 +146,7 @@ consteval auto decode(uint32_t opcode) -> Instruction
     return Instruction::undefined;
 }
 
-constexpr auto decode_str(Instruction i) -> const char*
-{
-    switch (i)
-    {
-        case Instruction::data_processing: return "data_processing";
-        case Instruction::msr: return "msr";
-        case Instruction::mrs: return "mrs";
-        case Instruction::multiply: return "multiply";
-        case Instruction::multiply_long: return "multiply_long";
-        case Instruction::single_data_swap: return "single_data_swap";
-        case Instruction::branch_and_exchange: return "branch_and_exchange";
-        case Instruction::halfword_data_transfer_register_offset: return "halfword_data_transfer_register_offset";
-        case Instruction::halfword_data_transfer_immediate_offset: return "halfword_data_transfer_immediate_offset";
-        case Instruction::single_data_transfer: return "single_data_transfer";
-        case Instruction::undefined: return "undefined";
-        case Instruction::block_data_transfer: return "block_data_transfer";
-        case Instruction::branch: return "branch";
-        case Instruction::software_interrupt: return "software_interrupt";
-    }
-
-    std::unreachable();
-}
-
-auto undefined([[maybe_unused]] Gba& gba, u32 opcode) -> void
+static auto undefined([[maybe_unused]] Gba& gba, u32 opcode) -> void
 {
     std::printf("[arm] undefined %08X\n", opcode);
     assert(!"[arm] undefined");
@@ -369,9 +345,7 @@ consteval auto generate_function_table()
     return table;
 };
 
-constexpr auto func_table = generate_function_table();
-
-auto fetch(Gba& gba)
+static auto fetch(Gba& gba)
 {
     const auto opcode = CPU.pipeline[0];
     CPU.pipeline[0] = CPU.pipeline[1];
@@ -383,6 +357,8 @@ auto fetch(Gba& gba)
 
 auto execute(Gba& gba) -> void
 {
+    static constexpr auto func_table = generate_function_table();
+
     const auto opcode = fetch(gba);
     const auto cond = bit::get_range<28, 31>(opcode);
 

@@ -16,7 +16,7 @@ template<
     bool I, // 0=reg, 1=imm
     bool P  // 0=cpsr, 1=spsr
 >
-auto msr(Gba& gba, u32 opcode) -> void
+static auto msr(Gba& gba, u32 opcode) -> void
 {
     const auto F = bit::is_set<19>(opcode); // write to flags
     const auto C = bit::is_set<16>(opcode); // write to control

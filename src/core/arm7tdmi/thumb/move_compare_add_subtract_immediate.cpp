@@ -6,9 +6,6 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
-#include <bit>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
 
@@ -22,14 +19,14 @@ enum class move_compare_add_subtract_immediate_op
 
 // page 115 (5.3)
 template<u8 Op2>
-auto move_compare_add_subtract_immediate(Gba& gba, u16 opcode) -> void
+static auto move_compare_add_subtract_immediate(Gba& gba, u16 opcode) -> void
 {
     constexpr auto Op = static_cast<move_compare_add_subtract_immediate_op>(Op2);
     const auto Rd = bit::get_range<8, 10>(opcode);
     const auto Offset8 = bit::get_range<0, 7>(opcode);
     using enum move_compare_add_subtract_immediate_op;
 
-    if constexpr (Op == MOV)
+    if constexpr(Op == MOV)
     {
         set_reg_thumb(gba, Rd, Offset8);
         set_logical_flags2<true>(gba, Offset8);

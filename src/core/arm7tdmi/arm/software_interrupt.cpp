@@ -8,7 +8,7 @@
 namespace gba::arm7tdmi::arm {
 
 // page 91 (4.13)
-auto software_interrupt(Gba& gba, u32 opcode) -> void
+static auto software_interrupt(Gba& gba, u32 opcode) -> void
 {
     const auto comment_field = bit::get_range<0, 23>(opcode) >> 16;
     arm7tdmi::software_interrupt(gba, comment_field);

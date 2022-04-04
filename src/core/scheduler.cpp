@@ -23,7 +23,7 @@ namespace gba::scheduler
 constexpr auto START_CYCLES = INT16_MAX;
 constexpr auto RESET_CYCLES = INT32_MAX;
 
-auto fire_all_expired_events(Gba& gba) -> bool
+static auto fire_all_expired_events(Gba& gba) -> bool
 {
     bool fire_halt = false;
 
@@ -56,7 +56,7 @@ auto fire_all_expired_events(Gba& gba) -> bool
     return fire_halt;
 }
 
-auto on_reset_event(Gba& gba) -> void
+static auto on_reset_event(Gba& gba) -> void
 {
     // first thing to do is to flush all events which also
     // expire at the same time!
@@ -138,7 +138,7 @@ auto on_loadstate(Gba& gba) -> void
     }
 }
 
-auto find_next_event(Gba& gba, bool fire)
+static auto find_next_event(Gba& gba, bool fire)
 {
     u32 next_cycles = UINT32_MAX;
     std::uint8_t index = 0;

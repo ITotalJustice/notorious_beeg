@@ -16,7 +16,7 @@ template<
     bool A,
     bool S
 >
-auto multiply_long(Gba& gba, u32 opcode) -> void
+static auto multiply_long(Gba& gba, u32 opcode) -> void
 {
     const auto RdHi = bit::get_range<16, 19>(opcode); // dst Hi
     const auto RdLo = bit::get_range<12, 15>(opcode); // dst Lo
@@ -57,7 +57,7 @@ template<
     bool A, // 0=mull, 1=mlal and accumulate
     bool S  // 0=no flags, 1=mod flags
 >
-auto multiply_long(Gba& gba, u32 opcode) -> void
+static auto multiply_long(Gba& gba, u32 opcode) -> void
 {
     if constexpr(U) // signed
     {

@@ -16,7 +16,7 @@
 namespace gba::dma
 {
 
-constexpr arm7tdmi::Interrupt INTERRUPTS[4] =
+static constexpr arm7tdmi::Interrupt INTERRUPTS[4] =
 {
     arm7tdmi::Interrupt::DMA0,
     arm7tdmi::Interrupt::DMA1,
@@ -32,7 +32,7 @@ struct [[nodiscard]] Registers
     u16 dmacnt_l;
 };
 
-auto get_channel_registers(Gba& gba, u8 channel_num) -> Registers
+static auto get_channel_registers(Gba& gba, u8 channel_num) -> Registers
 {
     switch (channel_num)
     {
@@ -46,7 +46,7 @@ auto get_channel_registers(Gba& gba, u8 channel_num) -> Registers
 }
 
 template<bool Special = false>
-auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
+static auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
 {
     const auto len = dma.len;
     // const auto src = dma.src_addr;

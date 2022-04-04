@@ -6,8 +6,6 @@
 #include "gba.hpp"
 #include "mem.hpp"
 #include <bit>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
 
@@ -15,7 +13,7 @@ namespace gba::arm7tdmi::thumb {
 template<
     bool L // 0=STR, 1=LDR
 >
-auto load_store_halfword(Gba& gba, u16 opcode) -> void
+static auto load_store_halfword(Gba& gba, u16 opcode) -> void
 {
     const auto Rb = bit::get_range<3, 5>(opcode);
     const auto Rd = bit::get_range<0, 2>(opcode);
@@ -24,14 +22,14 @@ auto load_store_halfword(Gba& gba, u16 opcode) -> void
     const auto base = get_reg(gba, Rb);
     const auto addr = base + offset;
 
-    if constexpr (L == 0) // STRH Rd,[Rb, #Imm]
+    if constexpr(L == 0) // STRH Rd,[Rb, #Imm]
     {
         const auto value = get_reg(gba, Rd);
         mem::write16(gba, addr, value);
     }
     else // LDRH Rd,[Rb, #Imm]
     {
-        std::uint32_t result = mem::read16(gba, addr);
+        u32 result = mem::read16(gba, addr);
         result = std::rotr(result, (addr & 0x1) * 8);
         set_reg_thumb(gba, Rd, result);
     }

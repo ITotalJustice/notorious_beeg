@@ -7,20 +7,18 @@
 #include "mem.hpp"
 #include <bit>
 #include <cassert>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
 
 template<
     bool L // 0=store, 1=load
 >
-auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
+static auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
 {
     const auto Rb = bit::get_range<8, 10>(opcode); // base
     auto addr = get_reg(gba, Rb);
 
-    if constexpr (L)
+    if constexpr(L)
     {
         const auto value = mem::read32(gba, addr);
         set_pc(gba, value);
@@ -39,7 +37,7 @@ auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
 template<
     bool L // 0=store, 1=load
 >
-auto multiple_load_store(Gba& gba, u16 opcode) -> void
+static auto multiple_load_store(Gba& gba, u16 opcode) -> void
 {
     const auto Rb = bit::get_range<8, 10>(opcode); // base
     u16 Rlist = bit::get_range<0, 7>(opcode);
@@ -51,7 +49,7 @@ auto multiple_load_store(Gba& gba, u16 opcode) -> void
         return;
     }
 
-    if constexpr (L) // load
+    if constexpr(L) // load
     {
         bool write_back = true;
 

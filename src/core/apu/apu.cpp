@@ -23,7 +23,7 @@ namespace gba::apu
 
 #define APU gba.apu
 
-constexpr scheduler::Event EVENTS[4] =
+static constexpr scheduler::Event EVENTS[4] =
 {
     scheduler::Event::APU_SQUARE0,
     scheduler::Event::APU_SQUARE1,
@@ -31,7 +31,7 @@ constexpr scheduler::Event EVENTS[4] =
     scheduler::Event::APU_NOISE,
 };
 
-constexpr scheduler::callback CALLBACKS[4] =
+static constexpr scheduler::callback CALLBACKS[4] =
 {
     on_square0_event,
     on_square1_event,
@@ -46,7 +46,7 @@ constexpr scheduler::callback CALLBACKS[4] =
 constexpr auto SAMPLE_RATE = 65536;
 constexpr auto SAMPLE_TICKS = 280896*60/SAMPLE_RATE;
 
-constexpr u8 PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
+static constexpr u8 PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
 
 // set this to have the dmg channels only output a vol 0-15
 // unset to have a range of -15 - +15 (not including wave channel).
@@ -58,7 +58,7 @@ constexpr u8 PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
 #define BIT_CRUSH_SAMPLE 0
 
 #if UNSIGNED_DMG_CHANNELS
-constexpr bool SQUARE_DUTY_CYCLES[4][8] =
+static constexpr bool SQUARE_DUTY_CYCLES[4][8] =
 {
     /*[0] = */{ 0, 0, 0, 0, 0, 0, 0, 1 },
     /*[1] = */{ 1, 0, 0, 0, 0, 0, 0, 1 },
@@ -66,7 +66,7 @@ constexpr bool SQUARE_DUTY_CYCLES[4][8] =
     /*[3] = */{ 0, 1, 1, 1, 1, 1, 1, 0 },
 };
 #else
-constexpr s8 SQUARE_DUTY_CYCLES[4][8] =
+static constexpr s8 SQUARE_DUTY_CYCLES[4][8] =
 {
     /*[0] = */{ -1, -1, -1, -1, -1, -1, -1, +1 },
     /*[1] = */{ +1, -1, -1, -1, -1, -1, -1, +1 },
@@ -75,17 +75,17 @@ constexpr s8 SQUARE_DUTY_CYCLES[4][8] =
 };
 #endif
 
-bool is_apu_enabled(Gba& gba);
-auto apu_on_enabled(Gba& gba) -> void;
-auto apu_on_disabled(Gba& gba) -> void;
+static auto is_apu_enabled(Gba& gba) -> bool;
+static auto apu_on_enabled(Gba& gba) -> void;
+static auto apu_on_disabled(Gba& gba) -> void;
 
-void on_wave_mem_write(Gba& gba, u32 addr, u8 value);
-void on_nr52_write(Gba& gba, u8 value);
-bool is_next_frame_sequencer_step_not_len(const Gba& gba);
-bool is_next_frame_sequencer_step_vol(const Gba& gba);
+static auto on_wave_mem_write(Gba& gba, u32 addr, u8 value) -> void;
+static auto on_nr52_write(Gba& gba, u8 value) -> void;
+static auto is_next_frame_sequencer_step_not_len(const Gba& gba) -> bool;
+static auto is_next_frame_sequencer_step_vol(const Gba& gba) -> bool;
 
 template<typename T>
-auto& get_channel_from_type(Gba& gba)
+static auto& get_channel_from_type(Gba& gba)
 {
     if constexpr(std::is_same<T, Square0>())
     {
@@ -112,38 +112,38 @@ auto& get_channel_from_type(Gba& gba)
 // codebase to recompile.
 namespace sweep
 {
-    auto clock(Gba& gba, auto& channel);
-    auto trigger(Gba& gba, auto& channel);
-    auto get_new_freq(auto& channel) -> u16;
-    auto do_freq_calc(Gba& gba, auto& channel, bool update_value) -> void;
-    auto update_enabled_flag(auto& channel) -> void;
+    static auto clock(Gba& gba, auto& channel);
+    static auto trigger(Gba& gba, auto& channel);
+    static auto get_new_freq(auto& channel) -> u16;
+    static auto do_freq_calc(Gba& gba, auto& channel, bool update_value) -> void;
+    static auto update_enabled_flag(auto& channel) -> void;
 }
 
 namespace len
 {
-    auto clock(Gba& gba, auto& channel);
-    auto trigger(Gba& gba, auto& channel, auto reload);
-    void on_nrx4_edge_case_write(Gba& gba, auto& channel, u8 value);
+    static auto clock(Gba& gba, auto& channel);
+    static auto trigger(Gba& gba, auto& channel, auto reload);
+    static auto on_nrx4_edge_case_write(Gba& gba, auto& channel, u8 value);
 }
 
 namespace env
 {
-    auto clock(Gba& gba, auto& channel);
-    auto trigger(Gba& gba, auto& channel);
-    void write(Gba& gba, auto& channel, u8 value);
+    static auto clock(Gba& gba, auto& channel);
+    static auto trigger(Gba& gba, auto& channel);
+    static auto write(Gba& gba, auto& channel, u8 value);
 }
 
-auto left_volume(Gba& gba)
+static auto left_volume(Gba& gba)
 {
     return 1 + bit::get_range<0, 2>(REG_SOUNDCNT_L);
 }
 
-auto right_volume(Gba& gba)
+static auto right_volume(Gba& gba)
 {
     return 1 + bit::get_range<4, 6>(REG_SOUNDCNT_L);
 }
 
-auto master_volume(Gba& gba)
+static auto master_volume(Gba& gba)
 {
     constexpr s8 vols[4] = { 4, 2, 1, 1 };
     const auto index = bit::get_range<0, 1>(REG_SOUNDCNT_H);
@@ -183,7 +183,7 @@ auto Base<Number>::right_enabled(Gba& gba) const -> bool
     return bit::is_set<12 + num>(REG_SOUNDCNT_L);
 }
 
-auto sweep::clock(Gba& gba, auto& channel)
+static auto sweep::clock(Gba& gba, auto& channel)
 {
     auto& sweep = channel.sweep;
 
@@ -205,7 +205,7 @@ auto sweep::clock(Gba& gba, auto& channel)
     }
 }
 
-auto sweep::trigger(Gba &gba, auto &channel)
+static auto sweep::trigger(Gba &gba, auto &channel)
 {
     auto& sweep = channel.sweep;
 
@@ -228,7 +228,7 @@ auto sweep::trigger(Gba &gba, auto &channel)
     }
 }
 
-auto sweep::get_new_freq(auto& channel) -> u16
+static auto sweep::get_new_freq(auto& channel) -> u16
 {
     auto& sweep = channel.sweep;
     const auto new_freq = sweep.freq_shadow_register >> sweep.shift;
@@ -244,7 +244,7 @@ auto sweep::get_new_freq(auto& channel) -> u16
     }
 }
 
-auto sweep::do_freq_calc(Gba& gba, auto& channel, bool update_value) -> void
+static auto sweep::do_freq_calc(Gba& gba, auto& channel, bool update_value) -> void
 {
     auto& sweep = channel.sweep;
     const auto new_freq = get_new_freq(channel);
@@ -261,7 +261,7 @@ auto sweep::do_freq_calc(Gba& gba, auto& channel, bool update_value) -> void
     }
 }
 
-auto sweep::update_enabled_flag(auto& channel) -> void
+static auto sweep::update_enabled_flag(auto& channel) -> void
 {
     auto& sweep = channel.sweep;
 
@@ -269,7 +269,7 @@ auto sweep::update_enabled_flag(auto& channel) -> void
     sweep.enabled = (sweep.period != 0) || (sweep.shift != 0);
 }
 
-auto len::clock(Gba& gba, auto& channel)
+static auto len::clock(Gba& gba, auto& channel)
 {
     auto& len = channel.len;
 
@@ -284,7 +284,7 @@ auto len::clock(Gba& gba, auto& channel)
     }
 }
 
-auto len::trigger(Gba& gba, auto& channel, auto reload)
+static auto len::trigger(Gba& gba, auto& channel, auto reload)
 {
     auto& len = channel.len;
 
@@ -299,7 +299,7 @@ auto len::trigger(Gba& gba, auto& channel, auto reload)
     }
 }
 
-void len::on_nrx4_edge_case_write(Gba& gba, auto& channel, u8 value)
+static auto len::on_nrx4_edge_case_write(Gba& gba, auto& channel, u8 value)
 {
     auto& len = channel.len;
 
@@ -317,7 +317,7 @@ void len::on_nrx4_edge_case_write(Gba& gba, auto& channel, u8 value)
     }
 }
 
-auto env::clock([[maybe_unused]] Gba& gba, auto& channel)
+static auto env::clock([[maybe_unused]] Gba& gba, auto& channel)
 {
     auto& env = channel.env;
 
@@ -347,7 +347,7 @@ auto env::clock([[maybe_unused]] Gba& gba, auto& channel)
     }
 }
 
-auto env::trigger(Gba& gba, auto& channel)
+static auto env::trigger(Gba& gba, auto& channel)
 {
     auto& env = channel.env;
 
@@ -364,7 +364,7 @@ auto env::trigger(Gba& gba, auto& channel)
     env.volume = env.starting_vol;
 }
 
-void env::write(Gba& gba, auto& channel, u8 value)
+static auto env::write(Gba& gba, auto& channel, u8 value)
 {
     auto& env = channel.env;
 
@@ -529,7 +529,7 @@ auto SquareBase<Number>::is_dac_enabled() -> bool
 }
 
 template<typename T>
-constexpr auto clock2(Gba& gba, T& channel)
+static constexpr auto clock2(Gba& gba, T& channel)
 {
     if constexpr(std::is_same<T, Wave>())
     {
@@ -549,7 +549,7 @@ constexpr auto clock2(Gba& gba, T& channel)
 }
 
 template<typename T>
-auto on_channel_event(Gba& gba) -> void
+static auto on_channel_event(Gba& gba) -> void
 {
     auto& channel = get_channel_from_type<T>(gba);
 
@@ -583,7 +583,7 @@ auto on_noise_event(Gba& gba) -> void
 }
 
 template<typename T>
-constexpr auto trigger(Gba& gba, T& channel)
+static constexpr auto trigger(Gba& gba, T& channel)
 {
     channel.enable(gba);
 
@@ -691,7 +691,7 @@ auto Noise::is_dac_enabled() -> bool
 }
 
 template<typename T>
-constexpr auto on_nrx0_write(Gba& gba, T& channel, u8 value)
+static constexpr auto on_nrx0_write(Gba& gba, T& channel, u8 value)
 {
     if constexpr(std::is_same<T, Square0>())
     {
@@ -723,7 +723,7 @@ constexpr auto on_nrx0_write(Gba& gba, T& channel, u8 value)
 }
 
 template<typename T>
-constexpr auto on_nrx1_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
+static constexpr auto on_nrx1_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 {
     if constexpr(std::is_same<T, Wave>())
     {
@@ -741,7 +741,7 @@ constexpr auto on_nrx1_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 }
 
 template<typename T>
-constexpr auto on_nrx2_write(Gba& gba, T& channel, u8 value)
+static constexpr auto on_nrx2_write(Gba& gba, T& channel, u8 value)
 {
     if constexpr(std::is_same<T, Wave>())
     {
@@ -755,7 +755,7 @@ constexpr auto on_nrx2_write(Gba& gba, T& channel, u8 value)
 }
 
 template<typename T>
-constexpr auto on_nrx3_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
+static constexpr auto on_nrx3_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 {
     if constexpr(std::is_same<T, Noise>())
     {
@@ -770,7 +770,7 @@ constexpr auto on_nrx3_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 }
 
 template<typename T>
-constexpr auto on_nrx4_write(Gba& gba, T& channel, u8 value)
+static constexpr auto on_nrx4_write(Gba& gba, T& channel, u8 value)
 {
     len::on_nrx4_edge_case_write(gba, channel, value);
 
@@ -1047,14 +1047,14 @@ auto apu_on_disabled(Gba& gba) -> void
 }
 
 // this is used when a channel is triggered
-bool is_next_frame_sequencer_step_not_len(const Gba& gba)
+static auto is_next_frame_sequencer_step_not_len(const Gba& gba) -> bool
 {
     // check if the current counter is the len clock, the next one won't be!
     return APU.frame_sequencer.index & 0x1; // same as below code
 }
 
 // this is used when channels 1,2,4 are triggered
-bool is_next_frame_sequencer_step_vol(const Gba& gba)
+static auto is_next_frame_sequencer_step_vol(const Gba& gba) -> bool
 {
     // check if the current counter is the len clock, the next one won't be!
     return APU.frame_sequencer.index == 7;

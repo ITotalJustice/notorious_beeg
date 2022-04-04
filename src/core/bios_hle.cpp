@@ -13,7 +13,7 @@
 namespace gba::bios {
 
 // https://problemkaputt.de/gbatek.htm#biosfunctionsummary
-constexpr const char* SWI_STR[0xFF] =
+static constexpr const char* SWI_STR[0xFF] =
 {
    /*[0x00] =*/ "SoftReset",
    /*[0x01] =*/ "RegisterRamReset",
@@ -91,14 +91,14 @@ constexpr const char* SWI_STR[0xFF] =
 // https://problemkaputt.de/gbatek.htm#biosarithmeticfunctions
 
 // 0x2
-auto Halt(Gba& gba) -> bool
+static auto Halt(Gba& gba) -> bool
 {
     arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::hle_halt);
     return true;
 }
 
 // 0x6
-auto Div(Gba& gba) -> bool
+static auto Div(Gba& gba) -> bool
 {
     const s32 number = arm7tdmi::get_reg(gba, 0);
     const s32 denom = arm7tdmi::get_reg(gba, 1);
@@ -120,7 +120,7 @@ auto Div(Gba& gba) -> bool
 }
 
 // 0x8
-auto Sqrt(Gba& gba) -> bool
+static auto Sqrt(Gba& gba) -> bool
 {
     const u32 number = arm7tdmi::get_reg(gba, 0);
     const u16 result = std::sqrt(number);

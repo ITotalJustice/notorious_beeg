@@ -240,7 +240,7 @@ auto Gba::getsave() const -> std::span<const u8>
 }
 
 #if ENABLE_SCHEDULER
-auto on_frame_event(Gba& gba)
+static auto on_frame_event(Gba& gba)
 {
     gba.scheduler.frame_end = true;
 }

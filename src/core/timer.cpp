@@ -12,7 +12,7 @@
 namespace gba::timer
 {
 
-constexpr arm7tdmi::Interrupt INTERRUPT[4] =
+static constexpr arm7tdmi::Interrupt INTERRUPT[4] =
 {
     arm7tdmi::Interrupt::Timer0,
     arm7tdmi::Interrupt::Timer1,
@@ -20,7 +20,7 @@ constexpr arm7tdmi::Interrupt INTERRUPT[4] =
     arm7tdmi::Interrupt::Timer3,
 };
 
-constexpr scheduler::Event EVENTS[4] =
+static constexpr scheduler::Event EVENTS[4] =
 {
     scheduler::Event::TIMER0,
     scheduler::Event::TIMER1,
@@ -28,7 +28,7 @@ constexpr scheduler::Event EVENTS[4] =
     scheduler::Event::TIMER3,
 };
 
-constexpr scheduler::callback CALLBACKS[4] =
+static constexpr scheduler::callback CALLBACKS[4] =
 {
     on_timer0_event,
     on_timer1_event,
@@ -37,7 +37,7 @@ constexpr scheduler::callback CALLBACKS[4] =
 };
 
 template<u8 Number>
-auto add_timer_event(Gba& gba, auto& timer, auto offset) -> void
+static auto add_timer_event(Gba& gba, auto& timer, auto offset) -> void
 {
     const auto value = (0x10000 - timer.counter) * timer.freq;
     assert(value >= 1);
@@ -47,7 +47,7 @@ auto add_timer_event(Gba& gba, auto& timer, auto offset) -> void
 }
 
 template<u8 Number>
-auto on_overflow(Gba& gba) -> void
+static auto on_overflow(Gba& gba) -> void
 {
     auto& timer = gba.timer[Number];
     timer.counter = timer.reload;
@@ -68,7 +68,7 @@ auto on_overflow(Gba& gba) -> void
 }
 
 template<u8 Number>
-auto on_cnt_write(Gba& gba, u16 cnt) -> void
+static auto on_cnt_write(Gba& gba, u16 cnt) -> void
 {
     constexpr u16 freq_table[4] = {1, 64, 256, 1024};
 

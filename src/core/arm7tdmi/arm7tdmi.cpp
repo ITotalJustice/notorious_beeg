@@ -388,7 +388,7 @@ auto disable_interrupts(Gba& gba) -> void
     CPU.cpsr.I = true; // 1=off
 }
 
-auto on_int(Gba& gba)
+static auto on_int(Gba& gba)
 {
     //printf("performing irq IE: 0x%04X IF 0x%04X lr: 0x%08X pc: 0x%08X mode: %u state: %s\n", REG_IE, REG_IF, get_lr(gba), get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
 
@@ -429,7 +429,8 @@ auto schedule_interrupt(Gba& gba) -> void
     }
 }
 
-auto poll_interrupts(Gba& gba) -> void
+#if ENABLE_SCHEDULER == 0
+static auto poll_interrupts(Gba& gba) -> void
 {
     if (REG_IE & REG_IF & 0b11'1111'1111'1111)
     {
@@ -441,6 +442,7 @@ auto poll_interrupts(Gba& gba) -> void
         }
     }
 }
+#endif
 
 auto on_halt_event(Gba& gba) -> void
 {

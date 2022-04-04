@@ -17,7 +17,7 @@ template<
     bool B, // 0=byte,1=word
     bool W  // 0=none,1=write
 >
-auto single_data_transfer(Gba& gba, u32 opcode, u32 addr, u32 offset, u8 Rn) -> void
+static auto single_data_transfer(Gba& gba, u32 opcode, u32 addr, u32 offset, u8 Rn) -> void
 {
     const auto Rd = bit::get_range<12, 15>(opcode);
 
@@ -62,8 +62,6 @@ auto single_data_transfer(Gba& gba, u32 opcode, u32 addr, u32 offset, u8 Rn) -> 
             result = std::rotr(result, (addr & 0x3) * 8);
         }
 
-        gba_log("single data: %s Rn: %u Rd: %u, offset: 0x%08X addr: 0x%08X final_addr: 0x%08X result: 0x%08X\n", L ? "LDR" : "STR", Rn, Rd, offset, addr, final_addr, result);
-
         set_reg(gba, Rd, result);
     }
     else
@@ -74,8 +72,6 @@ auto single_data_transfer(Gba& gba, u32 opcode, u32 addr, u32 offset, u8 Rn) -> 
         {
             result += 4;
         }
-
-        gba_log("single data: %s Rn: %u Rd: %u, offset: 0x%08X addr: 0x%08X final_addr: 0x%08X result: 0x%08X\n", L ? "LDR" : "STR", Rn, Rd, offset, addr, final_addr, result);
 
         // if set, 8-bit transfer, else, 32-bit
         if constexpr(B)
@@ -106,7 +102,7 @@ template<
     bool B, // 0=byte,1=word
     bool W  // 0=none,1=write
 >
-auto single_data_transfer_imm(Gba& gba, u32 opcode) -> void
+static auto single_data_transfer_imm(Gba& gba, u32 opcode) -> void
 {
     const auto Rn = bit::get_range<16, 19>(opcode);
     const auto addr = get_reg(gba, Rn);
@@ -123,7 +119,7 @@ template<
     u8 shift_type, // see barrel_shifter.hpp
     bool reg_shift // 0=shift reg by imm, 1=shift reg by reg
 >
-auto single_data_transfer_reg(Gba& gba, u32 opcode) -> void
+static auto single_data_transfer_reg(Gba& gba, u32 opcode) -> void
 {
     const auto Rn = bit::get_range<16, 19>(opcode);
     auto addr = get_reg(gba, Rn);

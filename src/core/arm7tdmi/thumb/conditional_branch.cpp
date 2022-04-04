@@ -11,7 +11,7 @@ namespace gba::arm7tdmi::thumb {
 
 // page 142 (5.16)
 // thumb_instruction_template
-auto conditional_branch(Gba& gba, u16 opcode) -> void
+static auto conditional_branch(Gba& gba, u16 opcode) -> void
 {
     // CONSTEXPR const auto cond = bit_decoded_get_range(8, 11);
     const auto cond = bit::get_range<8, 11>(opcode);
