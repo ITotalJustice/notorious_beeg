@@ -256,6 +256,7 @@ static auto render_obj(Gba& gba) -> void
     const auto oam = reinterpret_cast<u64*>(gba.mem.oam);
     const auto vcount = REG_VCOUNT;
 
+    // 1024 entries in oam, each entry is 64bytes, 1024/64=128
     for (auto i = 0; i < 128; i++)
     {
         const OBJ_Attr obj = oam[i];
@@ -279,17 +280,19 @@ static auto render_obj(Gba& gba) -> void
             continue;
         }
 
-        // if the sprite is out of range, wrap around.
-        // not sure how correct this is, but it works in emerald
-        // and phoenix wright text.
-        const auto sprite_y = obj.attr0.Y >= 160 ? obj.attr0.Y - 255 : obj.attr0.Y;
-
+        // fetch the x/y size of the sprite
         const auto [xSize, ySize] = obj.get_size();
+        // see here for wrapping: https://www.coranac.com/tonc/text/affobj.htm#ssec-wrap
+        const auto sprite_y = obj.attr0.Y + ySize > 256 ? obj.attr0.Y - 256 : obj.attr0.Y;
+        // calculate the y_index, handling flipping
         const auto mosY = obj.is_yflip() ? (ySize - 1) - (vcount - sprite_y) : vcount - sprite_y;
+        // fine_y
         const auto yMod = mosY % 8;
 
+        // check if the sprite is to be drawn on this ;ine
         if (vcount >= sprite_y && vcount < sprite_y + ySize)
         {
+            // for each pixel of the sprite
             for (auto x = 0; x < xSize; x++)
             {
                 // this is the index into the pixel array
@@ -301,7 +304,9 @@ static auto render_obj(Gba& gba) -> void
                     continue;
                 }
 
+                // x_index, handling flipping
                 const auto mosX = obj.is_xflip() ? xSize - 1 - x : x;
+                // fine_x
                 const auto xMod = mosX % 8;
 
                 assert(obj.attr0.is_4bpp());
@@ -345,6 +350,7 @@ static auto render_obj(Gba& gba) -> void
                     pram_addr += obj.attr2.PB * 32;
                 }
 
+                // don't render transparent pixels
                 if (pixel != 0)
                 {
                     gba.ppu.pixels[REG_VCOUNT][pixel_x] = pram[pram_addr / 2];
@@ -439,7 +445,8 @@ struct Set
 
 static auto render_backdrop(Gba& gba)
 {
-    std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], PALETTE_16[0]);
+    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram);
+    std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], pram[0]);
 }
 
 static constexpr auto sort_priority_set(auto& set)
@@ -457,6 +464,59 @@ static auto render_set(Gba& gba, auto& set)
         }
     });
 }
+
+template <u8 WinNum>
+struct WININ
+{
+    static_assert(WinNum == 0 || WinNum == 1);
+    static constexpr auto b = WinNum == 0 ? 0 : 8;
+
+    constexpr WININ(u16 v) :
+        bg0{static_cast<u8>(bit::is_set<b+0>(v))},
+        bg1{static_cast<u8>(bit::is_set<b+1>(v))},
+        bg2{static_cast<u8>(bit::is_set<b+2>(v))},
+        bg3{static_cast<u8>(bit::is_set<b+3>(v))},
+        obj{static_cast<u8>(bit::is_set<b+4>(v))},
+        blend{static_cast<u8>(bit::is_set<b+5>(v))} {}
+
+    const u8 bg0 : 1; // BG0 in winX
+    const u8 bg1 : 1; // BG1 in winX
+    const u8 bg2 : 1; // BG2 in winX
+    const u8 bg3 : 1; // BG3 in winX
+    const u8 obj : 1; // Sprites in winX
+    const u8 blend : 1; // Blends in winX
+};
+
+struct WINOUT
+{
+    constexpr WINOUT(u16 v) :
+        bg0_out{static_cast<u8>(bit::is_set<0>(v))},
+        bg1_out{static_cast<u8>(bit::is_set<1>(v))},
+        bg2_out{static_cast<u8>(bit::is_set<2>(v))},
+        bg3_out{static_cast<u8>(bit::is_set<3>(v))},
+        obj_out{static_cast<u8>(bit::is_set<4>(v))},
+        blend_out{static_cast<u8>(bit::is_set<5>(v))},
+        bg0_in_obj_win{static_cast<u8>(bit::is_set<8>(v))},
+        bg1_in_obj_win{static_cast<u8>(bit::is_set<9>(v))},
+        bg2_in_obj_win{static_cast<u8>(bit::is_set<10>(v))},
+        bg3_in_obj_win{static_cast<u8>(bit::is_set<11>(v))},
+        obj_in_obj_win{static_cast<u8>(bit::is_set<12>(v))},
+        blend_in_obj_win{static_cast<u8>(bit::is_set<13>(v))} {}
+
+    const u8 bg0_out : 1;
+    const u8 bg1_out : 1;
+    const u8 bg2_out : 1;
+    const u8 bg3_out : 1;
+    const u8 obj_out : 1;
+    const u8 blend_out : 1;
+
+    const u8 bg0_in_obj_win : 1;
+    const u8 bg1_in_obj_win : 1;
+    const u8 bg2_in_obj_win : 1;
+    const u8 bg3_in_obj_win : 1;
+    const u8 obj_in_obj_win : 1;
+    const u8 blend_in_obj_win : 1;
+};
 
 // 4 regular
 static auto render_mode0(Gba& gba) -> void
@@ -514,7 +574,8 @@ static auto render_mode2(Gba& gba) -> void
 static auto render_mode3(Gba& gba) noexcept -> void
 {
     auto& pixels = gba.ppu.pixels[REG_VCOUNT];
-    std::memcpy(pixels, VRAM_16 + 240 * REG_VCOUNT, sizeof(pixels));
+    const auto vram = reinterpret_cast<u16*>(gba.mem.vram);
+    std::memcpy(pixels, vram + 240 * REG_VCOUNT, sizeof(pixels));
 }
 
 static auto render_mode4(Gba& gba) noexcept -> void
@@ -522,9 +583,10 @@ static auto render_mode4(Gba& gba) noexcept -> void
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
     auto addr = page + (240 * REG_VCOUNT);
     auto& pixels = gba.ppu.pixels[REG_VCOUNT];
+    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram);
 
-    std::ranges::for_each(pixels, [&gba, &addr](auto& pixel){
-        pixel = PALETTE_16[gba.mem.vram[addr++]];
+    std::ranges::for_each(pixels, [&gba, &addr, pram](auto& pixel){
+        pixel = pram[gba.mem.vram[addr++]];
     });
 }
 
@@ -669,7 +731,7 @@ auto run(Gba& gba, u8 cycles) -> void
 }
 #endif
 
-auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> void
+auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
 {
     if (mode == 0)
     {
@@ -682,7 +744,9 @@ auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> void
         };
 
         render_line_bg(gba, pixels, set[layer].cnt, set[layer].xscroll, set[layer].yscroll);
+        return set[layer].cnt.Pr;
     }
+
     if (mode == 1)
     {
         const Set set[2] =
@@ -692,7 +756,10 @@ auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> void
         };
 
         render_line_bg(gba, pixels, set[layer].cnt, set[layer].xscroll, set[layer].yscroll);
+        return set[layer].cnt.Pr;
     }
+
+    return 0;
 }
 
 #undef PPU

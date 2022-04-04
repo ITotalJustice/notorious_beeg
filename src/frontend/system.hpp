@@ -56,8 +56,15 @@ struct System
     static inline bool inside_emu_window{true};
 
     static inline bool layer_enable_master{false};
-    static inline uint16_t bg_pixel_layers[4][160][240];
 
+    struct Layer
+    {
+        uint16_t pixels[160][240];
+        uint8_t priority;
+        bool enabled;
+    };
+
+    static inline Layer layers[4];
     static inline std::mutex audio_mutex{};
 
     #ifdef NDEBUG
@@ -99,7 +106,6 @@ private:
 
 // debug stuff
 private:
-    static inline bool show_layer[4]{false};
     auto im_debug_window() -> void;
     auto render_layers() -> void;
     auto toggle_master_layer_enable() -> void;

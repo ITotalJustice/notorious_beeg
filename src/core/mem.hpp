@@ -58,14 +58,6 @@ struct Mem
     alignas(u32) u8 io[1024 * 1];
 };
 
-#define EWRAM_16   reinterpret_cast<u16*>(gba.mem.ewram)
-#define IWRAM_32   reinterpret_cast<u32*>(gba.mem.iwram)
-#define IO_16      reinterpret_cast<u16*>(gba.mem.io)
-#define PALETTE_16 reinterpret_cast<u16*>(gba.mem.palette_ram)
-#define VRAM_16    reinterpret_cast<u16*>(gba.mem.vram)
-#define OAM_32     reinterpret_cast<u32*>(gba.mem.oam)
-#define ROM_16     reinterpret_cast<u16*>(gba.mem.rom)
-
 constexpr auto IO_DISPCNT = 0x04000000;
 constexpr auto IO_DISPSTAT = 0x04000004;
 constexpr auto IO_VCOUNT = 0x04000006;
@@ -84,8 +76,15 @@ constexpr auto IO_BG2VOFS = 0x0400001A; // (w)
 constexpr auto IO_BG3HOFS = 0x0400001C; // (w)
 constexpr auto IO_BG3VOFS = 0x0400001E; // (w)
 
+constexpr auto IO_WIN0H = 0x4000040; // (w)
+constexpr auto IO_WIN1H = 0x4000042; // (w)
+constexpr auto IO_WIN0V = 0x4000044; // (w)
+constexpr auto IO_WIN1V = 0x4000046; // (w)
+constexpr auto IO_WININ = 0x4000048; // (r+w)
+constexpr auto IO_WINOUT = 0x400004A; // (r+w)
+
 constexpr auto IO_MOSAIC = 0x400004C; // (w)
-constexpr auto IO_BLDMOD = 0x4000050; // r+w
+constexpr auto IO_BLDMOD = 0x4000050; // (r+w)
 constexpr auto IO_COLEV = 0x4000052; // (w)
 constexpr auto IO_COLEY = 0x4000054; // (w)
 
@@ -178,6 +177,28 @@ constexpr auto IO_HALTCNT_H = 0x4000301; // (Low Power Mode Control)
 #define REG_BG2VOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG2VOFS & 0x3FF))
 #define REG_BG3HOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG3HOFS & 0x3FF))
 #define REG_BG3VOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG3VOFS & 0x3FF))
+
+#define REG_WIN0H_LO *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN0H+0) & 0x3FF))
+#define REG_WIN0H_HI *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN0H+1) & 0x3FF))
+#define REG_WIN1H_LO *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN1H+0) & 0x3FF))
+#define REG_WIN1H_HI *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN1H+1) & 0x3FF))
+
+#define REG_WIN0V_LO *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN0V+0) & 0x3FF))
+#define REG_WIN0V_HI *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN0V+1) & 0x3FF))
+#define REG_WIN1V_LO *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN1V+0) & 0x3FF))
+#define REG_WIN1V_HI *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN1V+1) & 0x3FF))
+
+#define REG_WIN0H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WIN0H & 0x3FF))
+#define REG_WIN1H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WIN1H & 0x3FF))
+#define REG_WIN0V *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WIN0V & 0x3FF))
+#define REG_WIN1V *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WIN1V & 0x3FF))
+
+#define REG_WININ *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WININ & 0x3FF))
+#define REG_WINOUT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WINOUT & 0x3FF))
+
+#define REG_BLDMOD *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BLDMOD & 0x3FF))
+#define REG_COLEV *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_COLEV & 0x3FF))
+#define REG_COLEY *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_COLEY & 0x3FF))
 
 // sound registers
 // http://belogic.com/gba/

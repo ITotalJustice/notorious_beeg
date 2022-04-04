@@ -83,9 +83,10 @@ struct Gba
         return ppu::get_mode(*this);
     }
 
-    auto render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> void
+    // returns the priority of the layer
+    auto render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> u8
     {
-        ppu::render_bg_mode(*this, mode, layer, pixels);
+        return ppu::render_bg_mode(*this, mode, layer, pixels);
     }
 
     void* userdata{};

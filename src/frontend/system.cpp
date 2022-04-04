@@ -166,12 +166,15 @@ auto on_hblank_callback(void* user, uint16_t line) -> void
     // on line 0, memset the layers
     if (line == 0)
     {
-        std::memset(sys->bg_pixel_layers, 0, sizeof(sys->bg_pixel_layers));
+        for (auto& layer : sys->layers)
+        {
+            std::memset(layer.pixels, 0, sizeof(layer.pixels));
+        }
     }
 
     for (auto i = 0; i < 4; i++)
     {
-        sys->gameboy_advance.render_mode(sys->bg_pixel_layers[i][line], 0, i);
+        sys->layers[i].priority = sys->gameboy_advance.render_mode(sys->layers[i].pixels[line], 0, i);
     }
 }
 
@@ -184,7 +187,7 @@ auto System::render_layers() -> void
 
     for (auto layer = 0; layer < 4; layer++)
     {
-        if (show_layer[layer] == false)
+        if (this->layers[layer].enabled == false)
         {
             continue;
         }
@@ -195,7 +198,7 @@ auto System::render_layers() -> void
         SDL_LockTexture(texture_bg_layer[layer], nullptr, &pixels, &pitch);
             SDL_ConvertPixels(
                 width, height, // w,h
-                SDL_PIXELFORMAT_BGR555, bg_pixel_layers[layer], width * sizeof(uint16_t), // src
+                SDL_PIXELFORMAT_BGR555, this->layers[layer].pixels, width * sizeof(uint16_t), // src
                 SDL_PIXELFORMAT_BGR555, pixels, pitch // dst
             );
         SDL_UnlockTexture(texture_bg_layer[layer]);
@@ -204,8 +207,8 @@ auto System::render_layers() -> void
         ImGui::SetNextWindowSize(ImVec2(240, 160));
         ImGui::SetNextWindowSizeConstraints(ImVec2(240, 160), ImVec2(240, 160));
 
-        const auto s = "bg layer: " + std::to_string(layer);
-        ImGui::Begin(s.c_str(), &show_layer[layer], flags);
+        const auto s = "bg layer: " + std::to_string(layer) + " priority: " + std::to_string(this->layers[layer].priority);
+        ImGui::Begin(s.c_str(), &this->layers[layer].enabled, flags);
         {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -563,7 +566,10 @@ auto System::run_emu() -> void
 auto System::toggle_master_layer_enable() -> void
 {
     this->layer_enable_master ^= 1;
-    std::ranges::fill(show_layer, layer_enable_master);
+    for (auto& layer : this->layers)
+    {
+        layer.enabled = layer_enable_master;
+    }
 }
 
 auto System::menubar_tab_file() -> void
@@ -681,10 +687,10 @@ auto System::menubar_file_view() -> void
 
     if (ImGui::BeginMenu("Show Layer", debug_mode))
     {
-        ImGui::MenuItem("Layer 0", nullptr, &show_layer[0]);
-        ImGui::MenuItem("Layer 1", nullptr, &show_layer[1]);
-        ImGui::MenuItem("Layer 2", nullptr, &show_layer[2]);
-        ImGui::MenuItem("Layer 3", nullptr, &show_layer[3]);
+        ImGui::MenuItem("Layer 0", nullptr, &layers[0].enabled);
+        ImGui::MenuItem("Layer 1", nullptr, &layers[1].enabled);
+        ImGui::MenuItem("Layer 2", nullptr, &layers[2].enabled);
+        ImGui::MenuItem("Layer 3", nullptr, &layers[3].enabled);
         ImGui::EndMenu();
     }
 

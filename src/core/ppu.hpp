@@ -27,7 +27,7 @@ struct Ppu
 };
 
 // used for debugging
-auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> void;
+auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8;
 
 auto get_mode(Gba& gba) -> u8;
 auto is_bitmap_mode(Gba & gba) -> bool;
