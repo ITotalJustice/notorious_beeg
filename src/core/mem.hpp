@@ -160,106 +160,107 @@ constexpr auto IO_IME = 0x4000208; // (Interrupt Master Enable)
 constexpr auto IO_HALTCNT_L = 0x4000300; // (LFirst Boot/Debug Control)
 constexpr auto IO_HALTCNT_H = 0x4000301; // (Low Power Mode Control)
 
-#define REG_DISPCNT  *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_DISPCNT & 0x3FF))
-#define REG_DISPSTAT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_DISPSTAT & 0x3FF))
-#define REG_VCOUNT   *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_VCOUNT & 0x3FF))
+#define REG_DISPCNT  *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DISPCNT & 0x3FF))
+#define REG_DISPSTAT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DISPSTAT & 0x3FF))
+#define REG_VCOUNT   *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_VCOUNT & 0x3FF))
 
-#define REG_BG0CNT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG0CNT & 0x3FF))
-#define REG_BG1CNT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG1CNT & 0x3FF))
-#define REG_BG2CNT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG2CNT & 0x3FF))
-#define REG_BG3CNT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG3CNT & 0x3FF))
+#define REG_BG0CNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG0CNT & 0x3FF))
+#define REG_BG1CNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG1CNT & 0x3FF))
+#define REG_BG2CNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG2CNT & 0x3FF))
+#define REG_BG3CNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG3CNT & 0x3FF))
 
-#define REG_BG0HOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG0HOFS & 0x3FF))
-#define REG_BG0VOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG0VOFS & 0x3FF))
-#define REG_BG1HOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG1HOFS & 0x3FF))
-#define REG_BG1VOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG1VOFS & 0x3FF))
-#define REG_BG2HOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG2HOFS & 0x3FF))
-#define REG_BG2VOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG2VOFS & 0x3FF))
-#define REG_BG3HOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG3HOFS & 0x3FF))
-#define REG_BG3VOFS *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BG3VOFS & 0x3FF))
+#define REG_BG0HOFS *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG0HOFS & 0x3FF))
+#define REG_BG0VOFS *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG0VOFS & 0x3FF))
+#define REG_BG1HOFS *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG1HOFS & 0x3FF))
+#define REG_BG1VOFS *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG1VOFS & 0x3FF))
+#define REG_BG2HOFS *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG2HOFS & 0x3FF))
+#define REG_BG2VOFS *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG2VOFS & 0x3FF))
+#define REG_BG3HOFS *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG3HOFS & 0x3FF))
+#define REG_BG3VOFS *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BG3VOFS & 0x3FF))
 
-#define REG_WIN0H_LO *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN0H+0) & 0x3FF))
-#define REG_WIN0H_HI *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN0H+1) & 0x3FF))
-#define REG_WIN1H_LO *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN1H+0) & 0x3FF))
-#define REG_WIN1H_HI *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN1H+1) & 0x3FF))
+#define REG_WIN0H_LO *reinterpret_cast<std::uint8_t*>(gba.mem.io + ((mem::IO_WIN0H+0) & 0x3FF))
+#define REG_WIN0H_HI *reinterpret_cast<std::uint8_t*>(gba.mem.io + ((mem::IO_WIN0H+1) & 0x3FF))
+#define REG_WIN1H_LO *reinterpret_cast<std::uint8_t*>(gba.mem.io + ((mem::IO_WIN1H+0) & 0x3FF))
+#define REG_WIN1H_HI *reinterpret_cast<std::uint8_t*>(gba.mem.io + ((mem::IO_WIN1H+1) & 0x3FF))
 
-#define REG_WIN0V_LO *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN0V+0) & 0x3FF))
-#define REG_WIN0V_HI *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN0V+1) & 0x3FF))
-#define REG_WIN1V_LO *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN1V+0) & 0x3FF))
-#define REG_WIN1V_HI *reinterpret_cast<u8*>(gba.mem.io + ((mem::IO_WIN1V+1) & 0x3FF))
+#define REG_WIN0V_LO *reinterpret_cast<std::uint8_t*>(gba.mem.io + ((mem::IO_WIN0V+0) & 0x3FF))
+#define REG_WIN0V_HI *reinterpret_cast<std::uint8_t*>(gba.mem.io + ((mem::IO_WIN0V+1) & 0x3FF))
+#define REG_WIN1V_LO *reinterpret_cast<std::uint8_t*>(gba.mem.io + ((mem::IO_WIN1V+0) & 0x3FF))
+#define REG_WIN1V_HI *reinterpret_cast<std::uint8_t*>(gba.mem.io + ((mem::IO_WIN1V+1) & 0x3FF))
 
-#define REG_WIN0H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WIN0H & 0x3FF))
-#define REG_WIN1H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WIN1H & 0x3FF))
-#define REG_WIN0V *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WIN0V & 0x3FF))
-#define REG_WIN1V *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WIN1V & 0x3FF))
+#define REG_WIN0H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_WIN0H & 0x3FF))
+#define REG_WIN1H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_WIN1H & 0x3FF))
+#define REG_WIN0V *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_WIN0V & 0x3FF))
+#define REG_WIN1V *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_WIN1V & 0x3FF))
 
-#define REG_WININ *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WININ & 0x3FF))
-#define REG_WINOUT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_WINOUT & 0x3FF))
+#define REG_WININ *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_WININ & 0x3FF))
+#define REG_WINOUT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_WINOUT & 0x3FF))
 
-#define REG_BLDMOD *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_BLDMOD & 0x3FF))
-#define REG_COLEV *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_COLEV & 0x3FF))
-#define REG_COLEY *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_COLEY & 0x3FF))
+#define REG_MOSAIC *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_MOSAIC & 0x3FF))
+#define REG_BLDMOD *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_BLDMOD & 0x3FF))
+#define REG_COLEV *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_COLEV & 0x3FF))
+#define REG_COLEY *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_COLEY & 0x3FF))
 
 // sound registers
 // http://belogic.com/gba/
-#define REG_SOUND1CNT_L *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUND1CNT_L & 0x3FF)) /* Sound 1 Sweep control */
-#define REG_SOUND1CNT_H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUND1CNT_H & 0x3FF)) /* Sound 1 Lenght, wave duty and envelope control */
-#define REG_SOUND1CNT_X *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUND1CNT_X & 0x3FF)) /* Sound 1 Frequency, reset and loop control */
-#define REG_SOUND2CNT_L *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUND2CNT_L & 0x3FF)) /* Sound 2 Lenght, wave duty and envelope control */
-#define REG_SOUND2CNT_H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUND2CNT_H & 0x3FF)) /* Sound 2 Frequency, reset and loop control */
-#define REG_SOUND3CNT_L *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUND3CNT_L & 0x3FF)) /* Sound 3 Enable and wave ram bank control */
-#define REG_SOUND3CNT_H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUND3CNT_H & 0x3FF)) /* Sound 3 Sound lenght and output level control */
-#define REG_SOUND3CNT_X *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUND3CNT_X & 0x3FF)) /* Sound 3 Frequency, reset and loop control */
-#define REG_SOUND4CNT_L *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUND4CNT_L & 0x3FF)) /* Sound 4 Lenght, output level and envelope control */
-#define REG_SOUND4CNT_H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUND4CNT_H & 0x3FF)) /* Sound 4 Noise parameters, reset and loop control */
-#define REG_SOUNDCNT_L  *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUNDCNT_L & 0x3FF)) /* Sound 1-4 Output level and Stereo control */
-#define REG_SOUNDCNT_H  *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUNDCNT_H & 0x3FF)) /* Direct Sound control and Sound 1-4 output ratio */
-#define REG_SOUNDCNT_X  *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUNDCNT_X & 0x3FF)) /* Master sound enable and Sound 1-4 play status */
-#define REG_SOUNDBIAS   *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_SOUNDBIAS & 0x3FF)) /* Sound bias and Amplitude resolution control */
-#define REG_FIFO_A_L    *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_FIFO_A_L & 0x3FF)) /* Direct Sound channel A samples 0-1 */
-#define REG_FIFO_A_H    *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_FIFO_A_H & 0x3FF)) /* Direct Sound channel A samples 2-3 */
-#define REG_FIFO_B_L    *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_FIFO_B_L & 0x3FF)) /* Direct Sound channel B samples 0-1 */
-#define REG_FIFO_B_H    *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_FIFO_B_H & 0x3FF)) /* Direct Sound channel B samples 2-3 */
+#define REG_SOUND1CNT_L *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUND1CNT_L & 0x3FF)) /* Sound 1 Sweep control */
+#define REG_SOUND1CNT_H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUND1CNT_H & 0x3FF)) /* Sound 1 Lenght, wave duty and envelope control */
+#define REG_SOUND1CNT_X *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUND1CNT_X & 0x3FF)) /* Sound 1 Frequency, reset and loop control */
+#define REG_SOUND2CNT_L *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUND2CNT_L & 0x3FF)) /* Sound 2 Lenght, wave duty and envelope control */
+#define REG_SOUND2CNT_H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUND2CNT_H & 0x3FF)) /* Sound 2 Frequency, reset and loop control */
+#define REG_SOUND3CNT_L *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUND3CNT_L & 0x3FF)) /* Sound 3 Enable and wave ram bank control */
+#define REG_SOUND3CNT_H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUND3CNT_H & 0x3FF)) /* Sound 3 Sound lenght and output level control */
+#define REG_SOUND3CNT_X *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUND3CNT_X & 0x3FF)) /* Sound 3 Frequency, reset and loop control */
+#define REG_SOUND4CNT_L *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUND4CNT_L & 0x3FF)) /* Sound 4 Lenght, output level and envelope control */
+#define REG_SOUND4CNT_H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUND4CNT_H & 0x3FF)) /* Sound 4 Noise parameters, reset and loop control */
+#define REG_SOUNDCNT_L  *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUNDCNT_L & 0x3FF)) /* Sound 1-4 Output level and Stereo control */
+#define REG_SOUNDCNT_H  *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUNDCNT_H & 0x3FF)) /* Direct Sound control and Sound 1-4 output ratio */
+#define REG_SOUNDCNT_X  *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUNDCNT_X & 0x3FF)) /* Master sound enable and Sound 1-4 play status */
+#define REG_SOUNDBIAS   *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_SOUNDBIAS & 0x3FF)) /* Sound bias and Amplitude resolution control */
+#define REG_FIFO_A_L    *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_FIFO_A_L & 0x3FF)) /* Direct Sound channel A samples 0-1 */
+#define REG_FIFO_A_H    *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_FIFO_A_H & 0x3FF)) /* Direct Sound channel A samples 2-3 */
+#define REG_FIFO_B_L    *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_FIFO_B_L & 0x3FF)) /* Direct Sound channel B samples 0-1 */
+#define REG_FIFO_B_H    *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_FIFO_B_H & 0x3FF)) /* Direct Sound channel B samples 2-3 */
 
-#define REG_DMA0SAD *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA0SAD & 0x3FF))
-#define REG_DMA1SAD *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA1SAD & 0x3FF))
-#define REG_DMA2SAD *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA2SAD & 0x3FF))
-#define REG_DMA3SAD *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA3SAD & 0x3FF))
+#define REG_DMA0SAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA0SAD & 0x3FF))
+#define REG_DMA1SAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA1SAD & 0x3FF))
+#define REG_DMA2SAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA2SAD & 0x3FF))
+#define REG_DMA3SAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA3SAD & 0x3FF))
 
-#define REG_DMA0DAD *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA0DAD & 0x3FF))
-#define REG_DMA1DAD *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA1DAD & 0x3FF))
-#define REG_DMA2DAD *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA2DAD & 0x3FF))
-#define REG_DMA3DAD *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA3DAD & 0x3FF))
+#define REG_DMA0DAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA0DAD & 0x3FF))
+#define REG_DMA1DAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA1DAD & 0x3FF))
+#define REG_DMA2DAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA2DAD & 0x3FF))
+#define REG_DMA3DAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA3DAD & 0x3FF))
 
-#define REG_DMA0CNT *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA0CNT & 0x3FF))
-#define REG_DMA1CNT *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA1CNT & 0x3FF))
-#define REG_DMA2CNT *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA2CNT & 0x3FF))
-#define REG_DMA3CNT *reinterpret_cast<u32*>(gba.mem.io + (mem::IO_DMA3CNT & 0x3FF))
+#define REG_DMA0CNT *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA0CNT & 0x3FF))
+#define REG_DMA1CNT *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA1CNT & 0x3FF))
+#define REG_DMA2CNT *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA2CNT & 0x3FF))
+#define REG_DMA3CNT *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA3CNT & 0x3FF))
 
-#define REG_DMA0CNT_L *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_DMA0CNT_L & 0x3FF))
-#define REG_DMA1CNT_L *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_DMA1CNT_L & 0x3FF))
-#define REG_DMA2CNT_L *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_DMA2CNT_L & 0x3FF))
-#define REG_DMA3CNT_L *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_DMA3CNT_L & 0x3FF))
+#define REG_DMA0CNT_L *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DMA0CNT_L & 0x3FF))
+#define REG_DMA1CNT_L *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DMA1CNT_L & 0x3FF))
+#define REG_DMA2CNT_L *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DMA2CNT_L & 0x3FF))
+#define REG_DMA3CNT_L *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DMA3CNT_L & 0x3FF))
 
-#define REG_DMA0CNT_H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_DMA0CNT_H & 0x3FF))
-#define REG_DMA1CNT_H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_DMA1CNT_H & 0x3FF))
-#define REG_DMA2CNT_H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_DMA2CNT_H & 0x3FF))
-#define REG_DMA3CNT_H *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_DMA3CNT_H & 0x3FF))
+#define REG_DMA0CNT_H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DMA0CNT_H & 0x3FF))
+#define REG_DMA1CNT_H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DMA1CNT_H & 0x3FF))
+#define REG_DMA2CNT_H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DMA2CNT_H & 0x3FF))
+#define REG_DMA3CNT_H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DMA3CNT_H & 0x3FF))
 
-#define REG_TM0D *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_TM0D & 0x3FF))
-#define REG_TM1D *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_TM1D & 0x3FF))
-#define REG_TM2D *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_TM2D & 0x3FF))
-#define REG_TM3D *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_TM3D & 0x3FF))
+#define REG_TM0D *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_TM0D & 0x3FF))
+#define REG_TM1D *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_TM1D & 0x3FF))
+#define REG_TM2D *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_TM2D & 0x3FF))
+#define REG_TM3D *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_TM3D & 0x3FF))
 
-#define REG_TM0CNT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_TM0CNT & 0x3FF))
-#define REG_TM1CNT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_TM1CNT & 0x3FF))
-#define REG_TM2CNT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_TM2CNT & 0x3FF))
-#define REG_TM3CNT *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_TM3CNT & 0x3FF))
+#define REG_TM0CNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_TM0CNT & 0x3FF))
+#define REG_TM1CNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_TM1CNT & 0x3FF))
+#define REG_TM2CNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_TM2CNT & 0x3FF))
+#define REG_TM3CNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_TM3CNT & 0x3FF))
 
-#define REG_KEY *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_KEY & 0x3FF))
-#define REG_IE *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_IE & 0x3FF))
-#define REG_IF *reinterpret_cast<u16*>(gba.mem.io + (mem::IO_IF & 0x3FF))
-#define REG_IME *reinterpret_cast<u8*>(gba.mem.io + (mem::IO_IME & 0x3FF))
+#define REG_KEY *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_KEY & 0x3FF))
+#define REG_IE *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_IE & 0x3FF))
+#define REG_IF *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_IF & 0x3FF))
+#define REG_IME *reinterpret_cast<std::uint8_t*>(gba.mem.io + (gba::mem::IO_IME & 0x3FF))
 
 auto setup_tables(Gba& gba) -> void;
 auto reset(Gba& gba) -> void;

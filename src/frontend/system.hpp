@@ -41,7 +41,7 @@ struct System
 
     static constexpr inline auto width = 240;
     static constexpr inline auto height = 160;
-    static constexpr inline auto scale = 3;
+    static constexpr inline auto scale = 4;
 
     static inline int emu_scale{scale};
     static inline int state_slot{};
@@ -73,6 +73,8 @@ struct System
     static inline const bool debug_mode{true};
     #endif
 
+    static inline bool viewer_io{false};
+
 // todo: branch these off into structs
 private:
     // static inline bool
@@ -98,10 +100,10 @@ private:
 private:
     auto menubar_tab_file() -> void;
     auto menubar_tab_emulation() -> void;
-    auto menubar_file_options() -> void;
-    auto menubar_file_tools() -> void;
-    auto menubar_file_view() -> void;
-    auto menubar_file_help() -> void;
+    auto menubar_tab_options() -> void;
+    auto menubar_tab_tools() -> void;
+    auto menubar_tab_view() -> void;
+    auto menubar_tab_help() -> void;
     auto menubar() -> void;
 
 // debug stuff

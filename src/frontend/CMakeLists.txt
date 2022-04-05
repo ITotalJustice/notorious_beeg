@@ -46,7 +46,12 @@ add_library(imgui_club INTERFACE)
 target_include_directories(imgui INTERFACE ${imgui_club_SOURCE_DIR}/imgui_memory_editor)
 # fetch imgui is done!
 
-add_executable(main main.cpp system.cpp)
+add_executable(main
+    main.cpp
+    system.cpp
+    debugger/io.cpp
+)
+
 find_package(SDL2 CONFIG REQUIRED)
 target_link_libraries(main PRIVATE GBA)
 target_link_libraries(main PRIVATE SDL2::SDL2)

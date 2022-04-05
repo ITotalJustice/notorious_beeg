@@ -38,6 +38,27 @@ consteval auto get_mask() -> T {
     }
 }
 
+template <u8 start, u8 end, IntV T> [[nodiscard]]
+consteval auto get_mask() -> T {
+    static_assert(start <= end);
+    static_assert(end < (sizeof(T) * 8));
+
+    T result = 0;
+    for (auto bit = start; bit <= end; ++bit) {
+        result |= (1 << bit);
+    }
+
+    return result;
+}
+
+static_assert(
+    bit::get_mask<3, 5, u32>() == 0b111'000 &&
+    bit::get_mask<0, 2, u32>() == 0b000'111 &&
+    bit::get_mask<1, 5, u32>() == 0b111'110 &&
+    bit::get_mask<4, 5, u32>() == 0b110'000,
+    "bit::get_mask is broken!"
+);
+
 // bit value should probably be either masked or, in debug mode,
 // check if bit is ever >= 32, if so, throw.
 template <IntV T> [[nodiscard]]
@@ -64,6 +85,20 @@ constexpr auto set(const T value, const bool on) -> T {
     // this allows toggling the bit.
     // if on = true, the bit is set, else nothing is set
     constexpr auto mask = get_mask<T>() & (~(1ULL << bit));
+
+    return (value & mask) | (static_cast<T>(on) << bit);
+}
+
+template <IntV T> [[nodiscard]]
+constexpr auto set(const T value, const bool on, u8 bit) -> T {
+    constexpr auto bit_width = sizeof(T) * 8;
+
+    assert(bit < bit_width && "bit value out of bounds!");
+
+    // create a mask with all bits set apart from THE `bit`
+    // this allows toggling the bit.
+    // if on = true, the bit is set, else nothing is set
+    const auto mask = get_mask<T>() & (~(1ULL << bit));
 
     return (value & mask) | (static_cast<T>(on) << bit);
 }
@@ -127,29 +162,8 @@ static_assert(
 );
 
 template <u8 start, u8 end, IntV T> [[nodiscard]]
-consteval auto get_mask() -> T {
-    static_assert(start < end);
-    static_assert(end < (sizeof(T) * 8));
-
-    T result = 0;
-    for (auto bit = start; bit <= end; ++bit) {
-        result |= (1 << bit);
-    }
-
-    return result;
-}
-
-static_assert(
-    bit::get_mask<3, 5, u32>() == 0b111'000 &&
-    bit::get_mask<0, 2, u32>() == 0b000'111 &&
-    bit::get_mask<1, 5, u32>() == 0b111'110 &&
-    bit::get_mask<4, 5, u32>() == 0b110'000,
-    "bit::get_mask is broken!"
-);
-
-template <u8 start, u8 end, IntV T> [[nodiscard]]
 constexpr auto get_range(const T value) {
-    static_assert(start < end, "range is inverted! remember its lo, hi");
+    static_assert(start <= end, "range is inverted! remember its lo, hi");
     static_assert(end < (sizeof(T) * 8));
 
     constexpr auto mask = get_mask<start, end, T>() >> start;

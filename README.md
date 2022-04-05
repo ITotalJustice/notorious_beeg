@@ -16,6 +16,7 @@ gba emulator witten in c++23.
 - fix frontend audio_stream not being thread-safe.
 - fix sprite_y wrapping behaviour. fixes [#27](https://github.com/ITotalJustice/notorious_beeg/issues/27).
 - fix 8-bit io writes. fixes [#18](https://github.com/ITotalJustice/notorious_beeg/issues/18).
+- add io viewer.
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
