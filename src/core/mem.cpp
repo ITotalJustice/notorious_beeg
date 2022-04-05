@@ -486,11 +486,11 @@ static constexpr auto write_io8(Gba& gba, u32 addr, u8 value) -> void
     if (addr & 1)
     {
         actual_value <<= 8;
-        actual_value |= MEM.io[addr & 0x3FF];
+        actual_value |= MEM.io[addr & 0x3FE];
     }
     else
     {
-        actual_value |= static_cast<u16>(MEM.io[addr & 0x3FF]) << 8;
+        actual_value |= static_cast<u16>(MEM.io[(addr+1) & 0x3FF]) << 8;
     }
 
     write_io16(gba, addr & ~0x1, actual_value);
