@@ -19,6 +19,9 @@ struct System
     auto init(int argc, char** argv) -> bool;
     auto run() -> void;
     auto on_key_event(const SDL_KeyboardEvent& e) -> void;
+    auto on_display_event(const SDL_DisplayEvent& e) -> void;
+    auto on_window_event(const SDL_WindowEvent& e) -> void;
+    auto on_dropfile_event(SDL_DropEvent& e) -> void;
 
     auto loadrom(std::string path) -> bool;
     auto closerom() -> void;
@@ -42,6 +45,14 @@ struct System
     static constexpr inline auto width = 240;
     static constexpr inline auto height = 160;
     static constexpr inline auto scale = 4;
+
+    // used for padding the size of the window to fit both the
+    // menubar and the emu screen.
+    static inline int menubar_height{0};
+    static inline bool should_resize{true};
+    static inline SDL_Rect emu_rect{};
+
+    static constexpr inline auto sample_rate{65536};
 
     static inline int emu_scale{scale};
     static inline int state_slot{};
@@ -68,9 +79,9 @@ struct System
     static inline std::mutex audio_mutex{};
 
     #ifdef NDEBUG
-    static inline const bool debug_mode{false};
+    static constexpr inline bool debug_mode{false};
     #else
-    static inline const bool debug_mode{true};
+    static constexpr inline bool debug_mode{true};
     #endif
 
     static inline bool viewer_io{false};
@@ -89,6 +100,8 @@ private:
 private:
     auto is_fullscreen() -> bool;
     auto toggle_fullscreen() -> void;
+    auto resize_to_menubar() -> void;
+    auto resize_emu_screen() -> void;
 
 // emu stuff
 private:

@@ -345,6 +345,10 @@ auto System::on_key_event(const SDL_KeyboardEvent& e) -> void
                     this->toggle_master_layer_enable();
                     break;
 
+                case SDL_SCANCODE_A:
+                    this->gameboy_advance.bit_crushing ^= 1;
+                    break;
+
                 default: break; // silence enum warning
             }
         }
@@ -389,6 +393,49 @@ auto System::on_key_event(const SDL_KeyboardEvent& e) -> void
     #endif // EMSCRIPTEN
 
         default: break; // silence enum warning
+    }
+}
+
+auto System::on_display_event(const SDL_DisplayEvent& e) -> void
+{
+
+}
+
+auto System::on_window_event(const SDL_WindowEvent& e) -> void
+{
+    switch (e.event)
+    {
+        case SDL_WINDOWEVENT_SHOWN:
+        case SDL_WINDOWEVENT_HIDDEN:
+        case SDL_WINDOWEVENT_EXPOSED:
+        case SDL_WINDOWEVENT_MOVED:
+        case SDL_WINDOWEVENT_RESIZED:
+            break;
+
+        case SDL_WINDOWEVENT_SIZE_CHANGED:
+            this->resize_emu_screen();
+            break;
+
+        case SDL_WINDOWEVENT_MINIMIZED:
+        case SDL_WINDOWEVENT_MAXIMIZED:
+        case SDL_WINDOWEVENT_RESTORED:
+        case SDL_WINDOWEVENT_ENTER:
+        case SDL_WINDOWEVENT_LEAVE:
+        case SDL_WINDOWEVENT_FOCUS_GAINED:
+        case SDL_WINDOWEVENT_FOCUS_LOST:
+        case SDL_WINDOWEVENT_CLOSE:
+        case SDL_WINDOWEVENT_TAKE_FOCUS:
+        case SDL_WINDOWEVENT_HIT_TEST:
+            break;
+    }
+}
+
+auto System::on_dropfile_event(SDL_DropEvent& e) -> void
+{
+    if (e.file != nullptr)
+    {
+        this->loadrom(e.file);
+        SDL_free(e.file);
     }
 }
 
@@ -456,7 +503,7 @@ auto System::init(int argc, char** argv) -> bool
         SDL_FreeSurface(icon);
     }
 
-    aspec_wnt.freq = 65536;
+    aspec_wnt.freq = sample_rate;
     aspec_wnt.format = AUDIO_S16;
     aspec_wnt.channels = 2;
     aspec_wnt.silence = 0;
@@ -526,6 +573,69 @@ auto System::run_events() -> void
             case SDL_KEYDOWN:
             case SDL_KEYUP:
                 on_key_event(e.key);
+                break;
+
+            case SDL_DISPLAYEVENT:
+                on_display_event(e.display);
+                break;
+
+            case SDL_WINDOWEVENT:
+                on_window_event(e.window);
+                break;
+
+            case SDL_DROPFILE:
+                on_dropfile_event(e.drop);
+                break;
+
+            case SDL_DROPTEXT:
+            case SDL_DROPBEGIN:
+            case SDL_DROPCOMPLETE:
+
+            case SDL_APP_TERMINATING:
+            case SDL_APP_LOWMEMORY:
+            case SDL_APP_WILLENTERBACKGROUND:
+            case SDL_APP_DIDENTERBACKGROUND:
+            case SDL_APP_WILLENTERFOREGROUND:
+            case SDL_APP_DIDENTERFOREGROUND:
+            case SDL_LOCALECHANGED:
+            case SDL_SYSWMEVENT:
+            case SDL_TEXTEDITING:
+            case SDL_TEXTINPUT:
+            case SDL_KEYMAPCHANGED:
+            case SDL_MOUSEMOTION:
+            case SDL_MOUSEBUTTONDOWN:
+            case SDL_MOUSEBUTTONUP:
+            case SDL_MOUSEWHEEL:
+            case SDL_JOYAXISMOTION:
+            case SDL_JOYBALLMOTION:
+            case SDL_JOYHATMOTION:
+            case SDL_JOYBUTTONDOWN:
+            case SDL_JOYBUTTONUP:
+            case SDL_JOYDEVICEADDED:
+            case SDL_JOYDEVICEREMOVED:
+            case SDL_CONTROLLERAXISMOTION:
+            case SDL_CONTROLLERBUTTONDOWN:
+            case SDL_CONTROLLERBUTTONUP:
+            case SDL_CONTROLLERDEVICEADDED:
+            case SDL_CONTROLLERDEVICEREMOVED:
+            case SDL_CONTROLLERDEVICEREMAPPED:
+            case SDL_CONTROLLERTOUCHPADDOWN:
+            case SDL_CONTROLLERTOUCHPADMOTION:
+            case SDL_CONTROLLERTOUCHPADUP:
+            case SDL_CONTROLLERSENSORUPDATE:
+            case SDL_FINGERDOWN:
+            case SDL_FINGERUP:
+            case SDL_FINGERMOTION:
+            case SDL_DOLLARGESTURE:
+            case SDL_DOLLARRECORD:
+            case SDL_MULTIGESTURE:
+            case SDL_CLIPBOARDUPDATE:
+            case SDL_AUDIODEVICEADDED:
+            case SDL_AUDIODEVICEREMOVED:
+            case SDL_SENSORUPDATE:
+            case SDL_RENDER_TARGETS_RESET:
+            case SDL_RENDER_DEVICE_RESET:
+            case SDL_USEREVENT:
                 break;
 
             default: break; // silence enum warning
@@ -634,6 +744,7 @@ auto System::menubar_tab_options() -> void
 auto System::menubar_tab_tools() -> void
 {
     ImGui::MenuItem("todo...");
+    ImGui::MenuItem("bit crushing", "Ctrl+A", &gameboy_advance.bit_crushing);
 }
 
 auto System::menubar_tab_view() -> void
@@ -692,11 +803,6 @@ auto System::menubar_tab_help() -> void
 
 auto System::menubar() -> void
 {
-    if (!debug_mode)
-    {
-        return;
-    }
-
     if (!show_menubar)
     {
         return;
@@ -704,6 +810,8 @@ auto System::menubar() -> void
 
     if (ImGui::BeginMainMenuBar())
     {
+        menubar_height = ImGui::GetWindowSize().y;
+
         if (ImGui::BeginMenu("File"))
         {
             this->menubar_tab_file();
@@ -818,9 +926,9 @@ auto System::emu_update_texture() -> void
 auto System::emu_render() -> void
 {
     const auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBringToFrontOnFocus;
-    ImGui::SetNextWindowPos({0, 0});
-    ImGui::SetNextWindowSize(ImVec2(240*emu_scale, 160*emu_scale));
-    ImGui::SetNextWindowSizeConstraints({0, 0}, ImVec2(240*emu_scale, 160*emu_scale));
+    ImGui::SetNextWindowPos(ImVec2(0, emu_rect.y));
+    ImGui::SetNextWindowSize(ImVec2(emu_rect.w, emu_rect.h));
+    ImGui::SetNextWindowSizeConstraints({0, 0}, ImVec2(emu_rect.w, emu_rect.h));
 
     ImGui::Begin("emu window", nullptr, flags);
     {
@@ -831,16 +939,16 @@ auto System::emu_render() -> void
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
 
-        ImGui::SetCursorPos({0, 0});
+        ImGui::SetCursorPos(ImVec2(0, 0));
 
         ImVec2 p = ImGui::GetCursorScreenPos();
-        ImGui::Image(texture, ImVec2(240*emu_scale, 160*emu_scale));
+        ImGui::Image(texture, ImVec2(emu_rect.w, emu_rect.h));
         ImGui::PopStyleVar(5);
 
         if (show_grid)
         {
             // 240/8 = 30
-            draw_grid(240*emu_scale, 30, 1.0f, p.x, p.y);
+            draw_grid(emu_rect.w, 30, 1.0f, p.x, p.y);
         }
     }
     ImGui::End();
@@ -873,6 +981,8 @@ auto System::run_render() -> void
     this->menubar(); // this should be child to emu screen
     this->im_debug_window();
     this->render_layers();
+
+    resize_to_menubar();
 
     // Rendering (REMEMBER TO RENDER IMGUI STUFF [BEFORE] THIS LINE)
     ImGui::Render();
@@ -908,6 +1018,34 @@ auto System::toggle_fullscreen() -> void
     {
         SDL_SetWindowFullscreen(window, 0);
     }
+}
+
+auto System::resize_to_menubar() -> void
+{
+    if (!should_resize)
+    {
+        return;
+    }
+
+    should_resize = false;
+
+    int w, h;
+    SDL_GetRendererOutputSize(renderer, &w, &h);
+    SDL_SetWindowSize(window, w, h + menubar_height);
+
+    this->resize_emu_screen();
+}
+
+auto System::resize_emu_screen() -> void
+{
+    int w, h;
+    SDL_GetRendererOutputSize(renderer, &w, &h);
+
+    // update rect
+    emu_rect.x = 0;
+    emu_rect.y = menubar_height;
+    emu_rect.w = w;
+    emu_rect.h = h-menubar_height;
 }
 
 } // namespace sys

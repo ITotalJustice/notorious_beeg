@@ -99,11 +99,11 @@ static auto io_button(gba::Gba& gba, auto& reg, const char* name) -> void
 {
     char label[128]{};
     std::sprintf(label, "[0x%X] %s", bit, name);
-    const bool is_set = bit::is_set<bit>(reg);
+    bool is_set = bit::is_set<bit>(reg);
 
-    if (ImGui::RadioButton(label, is_set))
+    if (ImGui::Checkbox(label, &is_set))
     {
-        reg = bit::set<bit>(reg, is_set^1);
+        reg = bit::set<bit>(reg, is_set);
     }
 }
 

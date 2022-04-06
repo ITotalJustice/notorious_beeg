@@ -89,6 +89,8 @@ struct Gba
         return ppu::render_bg_mode(*this, mode, layer, pixels);
     }
 
+    bool bit_crushing{false};
+
     void* userdata{};
     AudioCallback audio_callback{};
     VblankCallback vblank_callback{};

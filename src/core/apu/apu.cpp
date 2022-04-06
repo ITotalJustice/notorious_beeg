@@ -1196,20 +1196,23 @@ auto sample(Gba& gba)
     sample_right = std::clamp(sample_right, min, max);
 
     // don't bit crush (as gba does) because it sounds very bad.
-#if BIT_CRUSH_SAMPLE == 0
-    sample_left <<= 5;
-    sample_right <<= 5;
-#else
-    // the bit-depth differs based on the resample mode
-    constexpr s16 divs[4] = { 2, 3, 4, 5 }; // 9bit, 8bit, 7bit, 6bit
-    sample_left >>= divs[resample_mode];
-    sample_right >>= divs[resample_mode];
+    if (gba.bit_crushing == false)
+    {
+        sample_left <<= 5;
+        sample_right <<= 5;
+    }
+    else
+    {
+        // the bit-depth differs based on the resample mode
+        constexpr s16 divs[4] = { 2, 3, 4, 5 }; // 9bit, 8bit, 7bit, 6bit
+        sample_left >>= divs[resample_mode];
+        sample_right >>= divs[resample_mode];
 
-    // we now need to scale to to 16bit range
-    constexpr s16 scales[4] = { 7, 8, 9, 10 }; // 9bit, 8bit, 7bit, 6bit
-    sample_left <<= scales[resample_mode];
-    sample_right <<= scales[resample_mode];
-#endif
+        // we now need to scale to to 16bit range
+        constexpr s16 scales[4] = { 7, 8, 9, 10 }; // 9bit, 8bit, 7bit, 6bit
+        sample_left <<= scales[resample_mode];
+        sample_right <<= scales[resample_mode];
+    }
 
     gba.audio_callback(gba.userdata, sample_left, sample_right);
 }

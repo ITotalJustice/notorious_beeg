@@ -222,6 +222,22 @@ constexpr auto IO_HALTCNT_H = 0x4000301; // (Low Power Mode Control)
 #define REG_FIFO_B_L    *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_FIFO_B_L & 0x3FF)) /* Direct Sound channel B samples 0-1 */
 #define REG_FIFO_B_H    *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_FIFO_B_H & 0x3FF)) /* Direct Sound channel B samples 2-3 */
 
+// alias using tonc's naming
+#define REG_SND1SWEEP  REG_SOUND1CNT_L
+#define REG_SND1CNT    REG_SOUND1CNT_H
+#define REG_SND1FREQ   REG_SOUND1CNT_X
+#define REG_SND2CNT    REG_SOUND2CNT_L
+#define REG_SND2FREQ   REG_SOUND2CNT_H
+#define REG_SND3SEL    REG_SOUND3CNT_L
+#define REG_SND3CNT    REG_SOUND3CNT_H
+#define REG_SND3FREQ   REG_SOUND3CNT_X
+#define REG_SND4CNT    REG_SOUND4CNT_L
+#define REG_SND4FREQ   REG_SOUND4CNT_H
+#define REG_SNDDMGCNT  REG_SOUNDCNT_L
+#define REG_SNDDSCNT   REG_SOUNDCNT_H
+#define REG_SNDSTAT    REG_SOUNDCNT_X
+#define REG_SNDBIAS    REG_SOUNDBIAS
+
 #define REG_DMA0SAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA0SAD & 0x3FF))
 #define REG_DMA1SAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA1SAD & 0x3FF))
 #define REG_DMA2SAD *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_DMA2SAD & 0x3FF))
