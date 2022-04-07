@@ -8,7 +8,8 @@
 
 #if SINGLE_FILE == 1
     #include "gba.cpp"
-    #include "ppu.cpp"
+    #include "ppu/ppu.cpp"
+    #include "ppu/render.cpp"
     #include "mem.cpp"
     #include "dma.cpp"
     #include "timer.cpp"

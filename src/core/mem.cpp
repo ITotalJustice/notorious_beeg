@@ -7,7 +7,7 @@
 #include "backup/backup.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include "ppu.hpp"
+#include "ppu/ppu.hpp"
 #include "scheduler.hpp"
 #include "timer.hpp"
 

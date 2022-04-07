@@ -13,7 +13,8 @@ if (SINGLE_FILE)
 else ()
     add_library(GBA
         gba.cpp
-        ppu.cpp
+        ppu/ppu.cpp
+        ppu/render.cpp
         mem.cpp
         dma.cpp
         timer.cpp

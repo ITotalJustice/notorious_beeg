@@ -4,7 +4,7 @@
 #pragma once
 
 #include "arm7tdmi/arm7tdmi.hpp"
-#include "ppu.hpp"
+#include "ppu/ppu.hpp"
 #include "apu/apu.hpp"
 #include "mem.hpp"
 #include "dma.hpp"

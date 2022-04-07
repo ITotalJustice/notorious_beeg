@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <string>
 #include <mutex>
+#include <chrono>
 #include <SDL.h>
 
 namespace sys {
@@ -67,6 +68,10 @@ struct System
     static inline bool inside_emu_window{true};
 
     static inline bool layer_enable_master{false};
+    #if SPEED_TEST == 1
+    static inline auto fps = 0;
+    static inline auto start_time = std::chrono::high_resolution_clock::now();
+    #endif
 
     struct Layer
     {

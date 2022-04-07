@@ -998,6 +998,19 @@ auto System::run() -> void
     {
         this->run_events();
         this->run_emu();
+
+        #if SPEED_TEST == 1
+        const auto current_time = std::chrono::high_resolution_clock::now();
+        fps++;
+        if (std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count() >= 1) [[unlikely]]
+        {
+            std::string title = "Notorious BEEG - fps: " + std::to_string(fps);
+            SDL_SetWindowTitle(window, title.c_str());
+            start_time = current_time;//std::chrono::high_resolution_clock::now();
+            fps = 0;
+        }
+        #endif
+
         this->run_render();
     }
 }
