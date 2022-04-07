@@ -12,6 +12,7 @@
 #include <cstring>
 #include <ranges>
 #include <span>
+#include <utility>
 
 namespace gba::ppu {
 
@@ -325,27 +326,35 @@ struct OBJ_Attr
     }
 };
 
-template<bool Y> [[nodiscard]] // 0=Y, 1=X
+enum class Index : bool
+{
+    X = 0,
+    Y = 1
+};
+
+template<Index index> [[nodiscard]] // 1=Y, 0=X
 static auto get_bg_offset(BGxCNT cnt, auto x) -> u16
 {
     constexpr auto PIXEL_MAP_SIZE = 255;
 
-    constexpr u16 mod[2][4] = // [0] = Y, [1] = X
+    constexpr u16 mod[2][4] = // [1] = Y, [1] = X
     {
-        { 256, 256, 512, 512 },
         { 256, 512, 256, 512 },
+        { 256, 256, 512, 512 },
     };
 
-    static constexpr u16 result[2][4] = // [0] = Y, [1] = X
+    static constexpr u16 result[2][4] = // [1] = Y, [0] = X
     {
         { 0x800, 0x800, 0x800, 0x800 },
         { 0x800, 0x800, 0x800, 0x800*2 }, // Y=1, Sz=3: this is a 2d array, so if we are on the next slot, then we need to move down 2*SCREENBLOCK_SIZE
     };
 
-    // move to the next block if out of range
-    const auto next_block = (x % mod[Y][cnt.Sz]) > PIXEL_MAP_SIZE;
+    constexpr auto i = std::to_underlying(index);
 
-    return result[Y][cnt.Sz] * next_block;
+    // move to the next block if out of range
+    const auto next_block = (x % mod[i][cnt.Sz]) > PIXEL_MAP_SIZE;
+
+    return result[i][cnt.Sz] * next_block;
 }
 
 template<bool Y> [[nodiscard]] // 0=Y, 1=X
@@ -589,7 +598,7 @@ static auto render_line_bg(Gba& gba, Line& line, BGxCNT cnt, u16 xscroll, u16 ys
     // tile_mem (where the tiles/tilesets are)
     const auto charblock = reinterpret_cast<u8*>(gba.mem.vram + cnt.CBB * CHARBLOCK_SIZE);
     // se_mem (where the tilemaps are)
-    const auto screenblock = reinterpret_cast<u16*>(gba.mem.vram + (cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<0>(cnt, yscroll + vcount) + ((y / 8) * 64));
+    const auto screenblock = reinterpret_cast<u16*>(gba.mem.vram + (cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(cnt, yscroll + vcount) + ((y / 8) * 64));
 
     for (auto x = 0; x < 240; x++)
     {
@@ -613,7 +622,7 @@ static auto render_line_bg(Gba& gba, Line& line, BGxCNT cnt, u16 xscroll, u16 ys
         }
 
         const auto tx = (x + xscroll) % 256;
-        const auto se_number = (tx / 8) + (get_bg_offset<1>(cnt, x + xscroll) / 2); // SE-number n = tx+ty·tw,
+        const auto se_number = (tx / 8) + (get_bg_offset<Index::X>(cnt, x + xscroll) / 2); // SE-number n = tx+ty·tw,
         const ScreenEntry se = screenblock[se_number];
 
         const auto tile_x = se.hflip ? 7 - (tx & 7) : tx & 7;

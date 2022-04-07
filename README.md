@@ -17,6 +17,7 @@ gba emulator witten in c++23.
 - fix sprite_y wrapping behaviour. fixes [#27](https://github.com/ITotalJustice/notorious_beeg/issues/27).
 - fix 8-bit io writes. fixes [#18](https://github.com/ITotalJustice/notorious_beeg/issues/18).
 - add io viewer.
+- fix `get_bg_offset()` being used incorrectly by always using X index.
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
