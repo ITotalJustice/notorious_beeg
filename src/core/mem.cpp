@@ -603,11 +603,13 @@ static constexpr auto write_vram_region(Gba& gba, u32 addr, T value) -> void
             // align to 16bits
             addr &= ~0x1;
             const u16 new_value = (value << 8) | value;
+            gba.dirty_vram[(addr & VRAM_MASK) >> Gba::dirty_vram_shift] |= new_value != read_array<u16>(MEM.vram, VRAM_MASK, addr);
             write_array<u16>(MEM.vram, VRAM_MASK, addr, new_value);
         }
     }
     else
     {
+        gba.dirty_vram[(addr & VRAM_MASK) >> Gba::dirty_vram_shift] |= value != read_array<T>(MEM.vram, VRAM_MASK, addr);
         write_array<T>(MEM.vram, VRAM_MASK, addr, value);
     }
 }

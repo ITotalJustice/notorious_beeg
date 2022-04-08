@@ -89,6 +89,13 @@ struct Gba
         return ppu::render_bg_mode(*this, mode, layer, pixels);
     }
 
+    // only memcpy vram if one of the blocks are dirty
+    // (these vars are placed here because i dont want to mess up my savestates atm).
+    static constexpr inline auto dirty_vram_shift = 8; // 256 per block
+    static constexpr inline auto dirty_vram_size = 1024 * 96 >> dirty_vram_shift; // 384 entries
+
+    bool dirty_vram[dirty_vram_size]{false};
+
     bool bit_crushing{false};
 
     void* userdata{};

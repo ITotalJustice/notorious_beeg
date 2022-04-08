@@ -8,5 +8,6 @@
 namespace gba::ppu {
 
 auto render(Gba& gba) -> void;
+auto start_thread(Gba& gba) -> void;
 
 } // namespace gba::ppu

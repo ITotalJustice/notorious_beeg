@@ -1005,13 +1005,17 @@ auto System::run() -> void
         if (std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count() >= 1) [[unlikely]]
         {
             std::string title = "Notorious BEEG - fps: " + std::to_string(fps);
+            std::printf("%s\n", title.c_str());
             SDL_SetWindowTitle(window, title.c_str());
             start_time = current_time;//std::chrono::high_resolution_clock::now();
             fps = 0;
         }
         #endif
 
+        // comment out this line to run at max fps (no frontend, other than events).
+        #if SPEED_TEST == 0
         this->run_render();
+        #endif
     }
 }
 

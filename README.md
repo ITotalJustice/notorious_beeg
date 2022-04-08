@@ -1,7 +1,13 @@
 # gba emu
-v0.0.3-dev
+v0.0.3-threaded-ppu
 
 gba emulator witten in c++23.
+
+```cmake
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DSINGLE_FILE=ON -DSPEED_TEST=ON
+```
+
+frontend is (mostly) disabled with `SPEED_TEST=ON` set, so it'll run at it's max speed.
 
 ---
 

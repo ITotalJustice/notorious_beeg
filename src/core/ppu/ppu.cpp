@@ -54,6 +54,7 @@ auto reset(Gba& gba) -> void
     PPU.period = Period::hdraw;
     update_period_cycles(gba);
     add_event(gba);
+    start_thread(gba);
 }
 
 // called during hblank from lines 0-227

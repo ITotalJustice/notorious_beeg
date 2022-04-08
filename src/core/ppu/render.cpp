@@ -4,6 +4,7 @@
 #include "render.hpp"
 #include "gba.hpp"
 #include "bit.hpp"
+#include "mem.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -14,7 +15,43 @@
 #include <span>
 #include <utility>
 
+#include <thread>
+
 namespace gba::ppu {
+
+struct RenderData
+{
+    alignas(u32) u8 palette_ram[1024 * 1];
+    alignas(u32) u8 vram[1024 * 96];
+    alignas(u64) u8 oam[1024 * 1];
+    std::span<u16> pixels;
+
+    u16 DISPCNT;
+    u16 VCOUNT;
+    u16 BG0CNT;
+    u16 BG1CNT;
+    u16 BG2CNT;
+    u16 BG3CNT;
+    u16 BG0HOFS;
+    u16 BG1HOFS;
+    u16 BG2HOFS;
+    u16 BG3HOFS;
+    u16 BG0VOFS;
+    u16 BG1VOFS;
+    u16 BG2VOFS;
+    u16 BG3VOFS;
+    u16 WIN0H;
+    u16 WIN0V;
+    u16 WIN1H;
+    u16 WIN1V;
+    u16 WININ;
+    u16 WINOUT;
+    u16 BLDMOD;
+    u16 COLEV;
+    u16 COLEY;
+
+    u8 mode;
+};
 
 constexpr auto CHARBLOCK_SIZE = 0x4000;
 constexpr auto SCREENBLOCK_SIZE = 0x800;
@@ -33,6 +70,11 @@ constexpr auto BG_BACKDROP_NUM = 4;
 [[maybe_unused]] constexpr auto PRIORITY_2 = 2;
 [[maybe_unused]] constexpr auto PRIORITY_3 = 3;
 constexpr auto PRIORITY_BACKDROP = 4;
+
+// the thread itself, detached for now
+static std::jthread render_thread;
+// shared data between threads
+static RenderData render_data;
 
 enum class Window
 {
@@ -450,7 +492,7 @@ static constexpr auto blend_black(u16 col, u8 coeff) -> u16
     return fin_col.pack();
 }
 
-static auto render_obj(Gba& gba, Line& line) -> void
+static auto render_obj(RenderData& data, Line& line) -> void
 {
     // keep track if a sprite has already been rendered.
     u8 drawn[240];
@@ -459,10 +501,10 @@ static auto render_obj(Gba& gba, Line& line) -> void
     // ovram is the last 2 entries of the charblock in vram.
     // in tile modes, this allows for 1024 tiles in total.
     // in bitmap modes, this allows for 512 tiles in total.
-    const auto ovram = reinterpret_cast<u8*>(gba.mem.vram + 4 * CHARBLOCK_SIZE);
-    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram + 512);
-    const auto oam = reinterpret_cast<u64*>(gba.mem.oam);
-    const auto vcount = REG_VCOUNT;
+    const auto ovram = reinterpret_cast<u8*>(data.vram + 4 * CHARBLOCK_SIZE);
+    const auto pram = reinterpret_cast<u16*>(data.palette_ram + 512);
+    const auto oam = reinterpret_cast<u64*>(data.oam);
+    const auto vcount = data.VCOUNT;
 
     // 1024 entries in oam, each entry is 64bytes, 1024/64=128
     for (auto i = 0; i < 128; i++)
@@ -545,9 +587,9 @@ static auto render_obj(Gba& gba, Line& line) -> void
                 }
 
                 // in bitmap mode, only the last charblock can be used for sprites.
-                if (is_bitmap_mode(gba) && tileRowAddress < CHARBLOCK_SIZE) [[unlikely]]
+                // if (is_bitmap_mode(gba) && tileRowAddress < CHARBLOCK_SIZE) [[unlikely]]
                 {
-                    continue;
+                    // continue;
                 }
 
                 auto pram_addr = 0;
@@ -584,21 +626,21 @@ static auto render_obj(Gba& gba, Line& line) -> void
 }
 
 template<Window window, Blend blend, WinBlend winblend, u8 bpp>
-static auto render_line_bg(Gba& gba, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
+static auto render_line_bg(RenderData& data, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
 {
-    const auto coeff_src = bit::get_range<0, 4>(REG_COLEV);
-    const auto coeff_dst = bit::get_range<8, 12>(REG_COLEV);
-    const auto coeff_wb = bit::get_range<0, 4>(REG_COLEY);
+    const auto coeff_src = bit::get_range<0, 4>(data.COLEV);
+    const auto coeff_dst = bit::get_range<8, 12>(data.COLEV);
+    const auto coeff_wb = bit::get_range<0, 4>(data.COLEY);
 
-    const auto vcount = REG_VCOUNT;
+    const auto vcount = data.VCOUNT;
     //
     const auto y = (yscroll + vcount) % 256;
     // pal_mem
-    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram);
+    const auto pram = reinterpret_cast<u16*>(data.palette_ram);
     // tile_mem (where the tiles/tilesets are)
-    const auto charblock = reinterpret_cast<u8*>(gba.mem.vram + cnt.CBB * CHARBLOCK_SIZE);
+    const auto charblock = reinterpret_cast<u8*>(data.vram + cnt.CBB * CHARBLOCK_SIZE);
     // se_mem (where the tilemaps are)
-    const auto screenblock = reinterpret_cast<u16*>(gba.mem.vram + (cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(cnt, yscroll + vcount) + ((y / 8) * 64));
+    const auto screenblock = reinterpret_cast<u16*>(data.vram + (cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(cnt, yscroll + vcount) + ((y / 8) * 64));
 
     for (auto x = 0; x < 240; x++)
     {
@@ -713,90 +755,90 @@ struct Set
 };
 
 template<Window window, Blend blend, WinBlend winblend>
-static auto render_line_bg(Gba& gba, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
+static auto render_line_bg(RenderData& data, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
 {
     if (cnt.CM == BG_4BPP)
     {
-       render_line_bg<window, blend, winblend, BG_4BPP>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
+       render_line_bg<window, blend, winblend, BG_4BPP>(data, line, cnt, xscroll, yscroll, winx_start, winx_end);
     }
     else if (cnt.CM == BG_8BPP)
     {
-        render_line_bg<window, blend, winblend, BG_8BPP>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
+        render_line_bg<window, blend, winblend, BG_8BPP>(data, line, cnt, xscroll, yscroll, winx_start, winx_end);
     }
 }
 
 template<Window window, Blend blend>
-static auto render_line_bg(Gba& gba, WinBlend winblend, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
+static auto render_line_bg(RenderData& data, WinBlend winblend, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
 {
     // if blending is disabled, winblend is also disabled
     if constexpr(blend == Blend::None)
     {
-        render_line_bg<window, blend, WinBlend::None>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
+        render_line_bg<window, blend, WinBlend::None>(data, line, cnt, xscroll, yscroll, winx_start, winx_end);
     }
     else
     {
         switch (winblend)
         {
             case WinBlend::None:
-                render_line_bg<window, blend, WinBlend::None>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
+                render_line_bg<window, blend, WinBlend::None>(data, line, cnt, xscroll, yscroll, winx_start, winx_end);
                 break;
 
             case WinBlend::Inside:
-                render_line_bg<window, blend, WinBlend::Inside>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
+                render_line_bg<window, blend, WinBlend::Inside>(data, line, cnt, xscroll, yscroll, winx_start, winx_end);
                 break;
 
             case WinBlend::Outside:
-                render_line_bg<window, blend, WinBlend::Outside>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
+                render_line_bg<window, blend, WinBlend::Outside>(data, line, cnt, xscroll, yscroll, winx_start, winx_end);
                 break;
         }
     }
 }
 
 template<Window window>
-static auto render_line_bg(Gba& gba, Blend blend, WinBlend winblend, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
+static auto render_line_bg(RenderData& data, Blend blend, WinBlend winblend, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
 {
     switch (blend)
     {
         case Blend::None:
-            render_line_bg<window, Blend::None>(gba, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
+            render_line_bg<window, Blend::None>(data, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
             break;
 
         case Blend::Alpha:
-            render_line_bg<window, Blend::Alpha>(gba, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
+            render_line_bg<window, Blend::Alpha>(data, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
             break;
 
         case Blend::White:
-            render_line_bg<window, Blend::White>(gba, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
+            render_line_bg<window, Blend::White>(data, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
             break;
 
         case Blend::Black:
-            render_line_bg<window, Blend::Black>(gba, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
+            render_line_bg<window, Blend::Black>(data, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
             break;
     }
 }
 
-static auto render_line_bg(Gba& gba, Window window, Blend blend, WinBlend winblend, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
+static auto render_line_bg(RenderData& data, Window window, Blend blend, WinBlend winblend, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
 {
     switch (window)
     {
         case Window::None:
-            render_line_bg<Window::None>(gba, blend, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
+            render_line_bg<Window::None>(data, blend, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
             break;
 
         case Window::Inside:
-            render_line_bg<Window::Inside>(gba, blend, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
+            render_line_bg<Window::Inside>(data, blend, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
             break;
 
         case Window::Outside:
-            render_line_bg<Window::Outside>(gba, blend, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
+            render_line_bg<Window::Outside>(data, blend, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
             break;
     }
 }
 
-static auto render_backdrop(Gba& gba)
+static auto render_backdrop(RenderData& data)
 {
-    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram);
-    std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], pram[0]);
+    const auto pram = reinterpret_cast<u16*>(data.palette_ram);
+    std::ranges::fill(data.pixels, pram[0]);
 }
 
 static constexpr auto sort_priority_set(auto& set)
@@ -806,17 +848,17 @@ static constexpr auto sort_priority_set(auto& set)
     });
 }
 
-static auto render_set(Gba& gba, std::span<Set> set, Line& line)
+static auto render_set(RenderData& data, std::span<Set> set, Line& line)
 {
     // is the window enabled
-    const auto win0 = bit::is_set<13>(REG_DISPCNT);
-    const auto win1 = bit::is_set<14>(REG_DISPCNT);
+    const auto win0 = bit::is_set<13>(data.DISPCNT);
+    const auto win1 = bit::is_set<14>(data.DISPCNT);
     // todo: what is an obj window?????????
-    // const auto win_obj = bit::is_set<15>(REG_DISPCNT);
+    // const auto win_obj = bit::is_set<15>(data.DISPCNT);
 
     // parse the window bits
-    WININ win_in[2] = { { REG_WININ }, { REG_WININ >> 8 } };
-    const WINOUT win_out{REG_WINOUT};
+    WININ win_in[2] = { { data.WININ }, { data.WININ >> 8 } };
+    const WINOUT win_out{data.WINOUT};
 
     // window stuff, wrapping isn't handled yet
     u16 x_start = 0; // leftmost (inclusive)
@@ -824,7 +866,7 @@ static auto render_set(Gba& gba, std::span<Set> set, Line& line)
     u16 y_start = 0; // top (inclusive)
     u16 y_end = 0; // bottom (exclusive)
 
-    const BLDMOD bldmod{REG_BLDMOD};
+    const BLDMOD bldmod{data.BLDMOD};
     const auto blend_mode = bldmod.get_mode();
 
     const WININ* winin = nullptr;
@@ -832,26 +874,26 @@ static auto render_set(Gba& gba, std::span<Set> set, Line& line)
 
     if (win1)
     {
-        x_start = bit::get_range<8, 15>(REG_WIN1H);
-        x_end = bit::get_range<0, 7>(REG_WIN1H);
-        y_start = bit::get_range<8, 15>(REG_WIN1V);
-        y_end = bit::get_range<0, 7>(REG_WIN1V);
+        x_start = bit::get_range<8, 15>(data.WIN1H);
+        x_end = bit::get_range<0, 7>(data.WIN1H);
+        y_start = bit::get_range<8, 15>(data.WIN1V);
+        y_end = bit::get_range<0, 7>(data.WIN1V);
 
         window_enabled = true;
         winin = &win_in[1];
     }
     if (win0)
     {
-        x_start = bit::get_range<8, 15>(REG_WIN0H);
-        x_end = bit::get_range<0, 7>(REG_WIN0H);
-        y_start = bit::get_range<8, 15>(REG_WIN0V);
-        y_end = bit::get_range<0, 7>(REG_WIN0V);
+        x_start = bit::get_range<8, 15>(data.WIN0H);
+        x_end = bit::get_range<0, 7>(data.WIN0H);
+        y_start = bit::get_range<8, 15>(data.WIN0V);
+        y_end = bit::get_range<0, 7>(data.WIN0V);
 
         window_enabled = true;
         winin = &win_in[0];
     }
 
-    const auto in_range = REG_VCOUNT >= y_start && REG_VCOUNT < y_end;
+    const auto in_range = data.VCOUNT >= y_start && data.VCOUNT < y_end;
 
     for (std::size_t i = 0; i < set.size(); i++)
     {
@@ -956,84 +998,141 @@ static auto render_set(Gba& gba, std::span<Set> set, Line& line)
             }
         }
 
-        render_line_bg(gba, window, blend, winblend, line, p.cnt, p.xscroll, p.yscroll, x_start, x_end);
+        render_line_bg(data, window, blend, winblend, line, p.cnt, p.xscroll, p.yscroll, x_start, x_end);
     }
 }
 
 // 4 regular
-static auto render_mode0(Gba& gba) -> void
+static auto render_mode0(RenderData& data) -> void
 {
-    Line line{gba.ppu.pixels[REG_VCOUNT]};
+    Line line{data.pixels};
 
     Set set[4] =
     {
-        { REG_BG3CNT, REG_BG3HOFS, REG_BG3VOFS, bit::is_set<11>(REG_DISPCNT), 3 },
-        { REG_BG2CNT, REG_BG2HOFS, REG_BG2VOFS, bit::is_set<10>(REG_DISPCNT), 2 },
-        { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS, bit::is_set<9>(REG_DISPCNT), 1 },
-        { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS, bit::is_set<8>(REG_DISPCNT), 0 }
+        { data.BG3CNT, data.BG3HOFS, data.BG3VOFS, bit::is_set<11>(data.DISPCNT), 3 },
+        { data.BG2CNT, data.BG2HOFS, data.BG2VOFS, bit::is_set<10>(data.DISPCNT), 2 },
+        { data.BG1CNT, data.BG1HOFS, data.BG1VOFS, bit::is_set<9>(data.DISPCNT), 1 },
+        { data.BG0CNT, data.BG0HOFS, data.BG0VOFS, bit::is_set<8>(data.DISPCNT), 0 }
     };
 
-    render_backdrop(gba);
+    render_backdrop(data);
     sort_priority_set(set);
-    render_set(gba, set, line);
+    render_set(data, set, line);
 
-    if (bit::is_set<12>(REG_DISPCNT))
+    if (bit::is_set<12>(data.DISPCNT))
     {
-        assert(bit::is_set<6>(REG_DISPCNT));
-        render_obj(gba, line);
+        assert(bit::is_set<6>(data.DISPCNT));
+        render_obj(data, line);
     }
 }
 
 // 2 regular, 1 affine
-static auto render_mode1(Gba& gba) -> void
+static auto render_mode1(RenderData& data) -> void
 {
-    Line line{gba.ppu.pixels[REG_VCOUNT]};
+    Line line{data.pixels};
 
     Set set[2] =
     {
-        { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS, bit::is_set<9>(REG_DISPCNT), 1 },
-        { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS, bit::is_set<8>(REG_DISPCNT), 0 }
+        { data.BG1CNT, data.BG1HOFS, data.BG1VOFS, bit::is_set<9>(data.DISPCNT), 1 },
+        { data.BG0CNT, data.BG0HOFS, data.BG0VOFS, bit::is_set<8>(data.DISPCNT), 0 }
     };
 
-    render_backdrop(gba);
+    render_backdrop(data);
     sort_priority_set(set);
-    render_set(gba, set, line);
+    render_set(data, set, line);
 
     // todo: affine
-    if (bit::is_set<12>(REG_DISPCNT))
+    if (bit::is_set<12>(data.DISPCNT))
     {
-        assert(bit::is_set<6>(REG_DISPCNT));
-        render_obj(gba, line);
+        assert(bit::is_set<6>(data.DISPCNT));
+        render_obj(data, line);
     }
 }
 
 // 4 affine
-static auto render_mode2(Gba& gba) -> void
+static auto render_mode2(RenderData& data) -> void
 {
-    render_backdrop(gba);
+    render_backdrop(data);
     assert(0);
 
     // todo: affine*4
     // todo: obj
 }
 
-static auto render_mode3(Gba& gba) noexcept -> void
+static auto render_mode3(RenderData& data) noexcept -> void
 {
-    auto& pixels = gba.ppu.pixels[REG_VCOUNT];
-    const auto vram = reinterpret_cast<u16*>(gba.mem.vram);
-    std::memcpy(pixels, vram + 240 * REG_VCOUNT, sizeof(pixels));
+    const auto vram = reinterpret_cast<u16*>(data.vram);
+    std::memcpy(data.pixels.data(), vram + 240 * data.VCOUNT, data.pixels.size_bytes());
 }
 
-static auto render_mode4(Gba& gba) noexcept -> void
+static auto render_mode4(RenderData& data) noexcept -> void
 {
-    const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
-    auto addr = page + (240 * REG_VCOUNT);
-    auto& pixels = gba.ppu.pixels[REG_VCOUNT];
-    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram);
+    const auto page = bit::is_set<4>(data.DISPCNT) ? 0xA000 : 0;
+    auto addr = page + (240 * data.VCOUNT);
+    const auto pram = reinterpret_cast<u16*>(data.palette_ram);
 
-    std::ranges::for_each(pixels, [&gba, &addr, pram](auto& pixel){
-        pixel = pram[gba.mem.vram[addr++]];
+    std::ranges::for_each(data.pixels, [&data, &addr, pram](auto& pixel){
+        pixel = pram[data.vram[addr++]];
     });
+}
+
+// spinlock, could use atmoic, but volatile is fine
+static volatile bool is_done{false};
+
+auto setup_render_thread(Gba& gba) -> void
+{
+    // wait for thread to finish (spinlock was faster)
+    while (is_done)
+    {
+        // std::this_thread::yield(); // this lost me ~50 fps
+    }
+
+    // vram memcpy is kinda slow, so i optimised this into blocks
+    // in emerald, this on avg is 1-4 dirty blocks per frame
+    // so, 256kib - 1024kib per frame, very small (as fast as possible really).
+    for (auto i = 0; i < Gba::dirty_vram_size; i++)
+    {
+        if (gba.dirty_vram[i])
+        {
+            gba.dirty_vram[i] = false;
+            const auto slot = i * (1 << Gba::dirty_vram_shift);
+
+            std::memcpy(render_data.vram + slot, gba.mem.vram + slot, Gba::dirty_vram_size);
+        }
+    }
+
+    // can optimise these as well
+    std::ranges::copy(gba.mem.palette_ram, render_data.palette_ram);
+    std::ranges::copy(gba.mem.oam, render_data.oam);
+    render_data.pixels = gba.ppu.pixels[REG_VCOUNT];
+
+    render_data.DISPCNT = REG_DISPCNT;
+    render_data.VCOUNT = REG_VCOUNT;
+    render_data.BG0CNT = REG_BG0CNT;
+    render_data.BG1CNT = REG_BG1CNT;
+    render_data.BG2CNT = REG_BG2CNT;
+    render_data.BG3CNT = REG_BG3CNT;
+    render_data.BG0HOFS = REG_BG0HOFS;
+    render_data.BG1HOFS = REG_BG1HOFS;
+    render_data.BG2HOFS = REG_BG2HOFS;
+    render_data.BG3HOFS = REG_BG3HOFS;
+    render_data.BG0VOFS = REG_BG0VOFS;
+    render_data.BG1VOFS = REG_BG1VOFS;
+    render_data.BG2VOFS = REG_BG2VOFS;
+    render_data.BG3VOFS = REG_BG3VOFS;
+    render_data.WIN0H = REG_WIN0H;
+    render_data.WIN0V = REG_WIN0V;
+    render_data.WIN1H = REG_WIN1H;
+    render_data.WIN1V = REG_WIN1V;
+    render_data.WININ = REG_WININ;
+    render_data.WINOUT = REG_WINOUT;
+    render_data.BLDMOD = REG_BLDMOD;
+    render_data.COLEV = REG_COLEV;
+    render_data.COLEY = REG_COLEY;
+    render_data.mode = get_mode(gba);
+
+    // wake up thread saying we have data
+    is_done = true;
 }
 
 auto render(Gba& gba) -> void
@@ -1045,54 +1144,78 @@ auto render(Gba& gba) -> void
         return;
     }
 
-    const auto mode = get_mode(gba);
+    // waits for thread to finish, then, memcpy data
+    setup_render_thread(gba);
+}
 
-    switch (mode)
+// this is for frontend, disabled atm for threading
+auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
+{
+    // Line line{pixels};
+
+    // if (mode == 0)
+    // {
+    //     const Set set[4] =
+    //     {
+    //         { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS, bit::is_set<8>(REG_DISPCNT), 0 },
+    //         { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS, bit::is_set<9>(REG_DISPCNT), 1 },
+    //         { REG_BG2CNT, REG_BG2HOFS, REG_BG2VOFS, bit::is_set<10>(REG_DISPCNT), 2 },
+    //         { REG_BG3CNT, REG_BG3HOFS, REG_BG3VOFS, bit::is_set<11>(REG_DISPCNT), 3 },
+    //     };
+
+    //     render_line_bg<Window::None, Blend::None, WinBlend::None>(gba, line, set[layer].cnt, set[layer].xscroll, set[layer].yscroll, 0, 0);
+    //     return set[layer].cnt.Pr;
+    // }
+
+    // if (mode == 1)
+    // {
+    //     const Set set[2] =
+    //     {
+    //         { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS, bit::is_set<8>(REG_DISPCNT), 0 },
+    //         { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS, bit::is_set<9>(REG_DISPCNT), 1 },
+    //     };
+
+    //     render_line_bg<Window::None, Blend::None, WinBlend::None>(gba, line, set[layer].cnt, set[layer].xscroll, set[layer].yscroll, 0, 0);
+    //     return set[layer].cnt.Pr;
+    // }
+
+    return 0;
+}
+
+auto worker_thread() -> void
+{
+    // dont handle exiting yet
+    while (1)
     {
-        case 0: render_mode0(gba); break;
-        case 1: render_mode1(gba); break;
-        case 2: render_mode2(gba); break;
-        case 3: render_mode3(gba); break;
-        case 4: render_mode4(gba); break;
-        // case 5: // only unhandled mode atm
+        // spin lock was fastest
+        while (!is_done)
+        {
+            // std::this_thread::yield();
+        }
 
-        default:
-            std::printf("unhandled ppu mode: %u\n", mode);
-            break;
+        switch (render_data.mode)
+        {
+            case 0: render_mode0(render_data); break;
+            case 1: render_mode1(render_data); break;
+            case 2: render_mode2(render_data); break;
+            case 3: render_mode3(render_data); break;
+            case 4: render_mode4(render_data); break;
+            // case 5: // only unhandled mode atm
+
+            default:
+                // std::printf("unhandled ppu mode: %u\n", mode);
+                break;
+        }
+
+        is_done = false;
     }
 }
 
-auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
+auto start_thread(Gba& gba) -> void
 {
-    Line line{pixels};
-
-    if (mode == 0)
-    {
-        const Set set[4] =
-        {
-            { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS, bit::is_set<8>(REG_DISPCNT), 0 },
-            { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS, bit::is_set<9>(REG_DISPCNT), 1 },
-            { REG_BG2CNT, REG_BG2HOFS, REG_BG2VOFS, bit::is_set<10>(REG_DISPCNT), 2 },
-            { REG_BG3CNT, REG_BG3HOFS, REG_BG3VOFS, bit::is_set<11>(REG_DISPCNT), 3 },
-        };
-
-        render_line_bg<Window::None, Blend::None, WinBlend::None>(gba, line, set[layer].cnt, set[layer].xscroll, set[layer].yscroll, 0, 0);
-        return set[layer].cnt.Pr;
-    }
-
-    if (mode == 1)
-    {
-        const Set set[2] =
-        {
-            { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS, bit::is_set<8>(REG_DISPCNT), 0 },
-            { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS, bit::is_set<9>(REG_DISPCNT), 1 },
-        };
-
-        render_line_bg<Window::None, Blend::None, WinBlend::None>(gba, line, set[layer].cnt, set[layer].xscroll, set[layer].yscroll, 0, 0);
-        return set[layer].cnt.Pr;
-    }
-
-    return 0;
+    render_thread = std::jthread(worker_thread);
+    // worry about this later
+    render_thread.detach();
 }
 
 } // namespace gba::ppu
