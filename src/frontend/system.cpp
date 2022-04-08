@@ -893,7 +893,7 @@ auto System::im_debug_window() -> void
         {
             mem_viewer_entry<0>("256kb ewram", gameboy_advance.mem.ewram);
             mem_viewer_entry<1>("32kb iwram", gameboy_advance.mem.iwram);
-            mem_viewer_entry<2>("1kb pram", gameboy_advance.mem.palette_ram);
+            mem_viewer_entry<2>("1kb pram", gameboy_advance.mem.pram);
             mem_viewer_entry<3>("96kb vram", gameboy_advance.mem.vram);
             mem_viewer_entry<4>("1kb oam", gameboy_advance.mem.oam);
             mem_viewer_entry<5>("1kb io", gameboy_advance.mem.io);

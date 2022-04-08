@@ -46,10 +46,10 @@ struct Mem
     alignas(u32) u8 iwram[1024 * 32];
 
     // 1kb, 16-bit
-    alignas(u32) u8 palette_ram[1024 * 1];
+    alignas(u64) u8 pram[1024 * 1];
 
     // 96kb, 16-bit bus
-    alignas(u32) u8 vram[1024 * 96];
+    alignas(u64) u8 vram[1024 * 96];
 
     // 1kb, 32-bit
     alignas(u64) u8 oam[1024 * 1];

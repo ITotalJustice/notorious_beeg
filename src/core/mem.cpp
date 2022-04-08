@@ -28,7 +28,7 @@ constexpr auto EWRAM_MASK       = 0x0003FFFF;
 constexpr auto IWRAM_MASK       = 0x00007FFF;
 constexpr auto IO_MASK          = 0x3FF;
 // Internal Display Memory
-constexpr auto PALETTE_RAM_MASK = 0x000003FF;
+constexpr auto PRAM_MASK = 0x000003FF;
 constexpr auto VRAM_MASK        = 0x0001FFFF;
 constexpr auto OAM_MASK         = 0x000003FF;
 // External Memory (Game Pak)
@@ -40,7 +40,7 @@ constexpr auto ROM_MASK         = 0x01FFFFFF;
 [[maybe_unused]] constexpr auto IWRAM_SIZE       = IWRAM_MASK + 1;
 [[maybe_unused]] constexpr auto IO_SIZE          = IO_MASK + 1;
 // Internal Display Memory
-[[maybe_unused]] constexpr auto PALETTE_RAM_SIZE = PALETTE_RAM_MASK + 1;
+[[maybe_unused]] constexpr auto pram_SIZE = PRAM_MASK + 1;
 [[maybe_unused]] constexpr auto VRAM_SIZE        = 0x00017FFF + 1;
 [[maybe_unused]] constexpr auto OAM_SIZE         = OAM_MASK + 1;
 // External Memory (Game Pak)
@@ -96,7 +96,7 @@ auto setup_tables(Gba& gba) -> void
     MEM.rmap_16[0x0] = {gba.mem.bios, BIOS_MASK};
     MEM.rmap_16[0x2] = {gba.mem.ewram, EWRAM_MASK};
     MEM.rmap_16[0x3] = {gba.mem.iwram, IWRAM_MASK};
-    MEM.rmap_16[0x5] = {gba.mem.palette_ram, PALETTE_RAM_MASK};
+    MEM.rmap_16[0x5] = {gba.mem.pram, PRAM_MASK};
     MEM.rmap_16[0x7] = {gba.mem.oam, OAM_MASK};
     MEM.rmap_16[0x8] = {gba.rom, ROM_MASK};
     MEM.rmap_16[0x9] = {gba.rom, ROM_MASK};
@@ -107,8 +107,8 @@ auto setup_tables(Gba& gba) -> void
 
     MEM.wmap_16[0x2] = {gba.mem.ewram, EWRAM_MASK};
     MEM.wmap_16[0x3] = {gba.mem.iwram, IWRAM_MASK};
-    MEM.wmap_16[0x5] = {gba.mem.palette_ram, PALETTE_RAM_MASK};
-    MEM.wmap_16[0x7] = {gba.mem.oam, OAM_MASK};
+    // MEM.wmap_16[0x5] = {gba.mem.pram, PRAM_MASK};
+    // MEM.wmap_16[0x7] = {gba.mem.oam, OAM_MASK};
 
     // this will be handled by the function handlers
     if (gba.backup.type == backup::Type::EEPROM)
@@ -132,7 +132,7 @@ auto reset(Gba& gba) -> void
 {
     std::ranges::fill(MEM.ewram, 0);
     std::ranges::fill(MEM.iwram, 0);
-    std::ranges::fill(MEM.palette_ram, 0);
+    std::ranges::fill(MEM.pram, 0);
     std::ranges::fill(MEM.vram, 0);
     std::ranges::fill(MEM.oam, 0);
     REG_KEY = 0xFFFF;
@@ -548,13 +548,15 @@ static constexpr auto write_iwram_region(Gba& gba, u32 addr, T value) -> void
     write_array<T>(MEM.iwram, IWRAM_MASK, addr, value);
 }
 
-// unused, handled in array writes
 template<typename T>
 static constexpr auto write_oam_region(Gba& gba, u32 addr, T value) -> void
 {
     // only non-byte writes are allowed
     if constexpr(std::is_same<T, u8>() == false)
     {
+        const auto dirty_index = (addr & OAM_MASK) / Gba::dirty_oam_shift;
+        gba.dirty_oam[dirty_index] |= value != read_array<T>(MEM.oam, OAM_MASK, addr);
+        gba.dirty_oam_any |= gba.dirty_oam[dirty_index];
         write_array<T>(MEM.oam, OAM_MASK, addr, value);
     }
 }
@@ -603,13 +605,20 @@ static constexpr auto write_vram_region(Gba& gba, u32 addr, T value) -> void
             // align to 16bits
             addr &= ~0x1;
             const u16 new_value = (value << 8) | value;
-            gba.dirty_vram[(addr & VRAM_MASK) >> Gba::dirty_vram_shift] |= new_value != read_array<u16>(MEM.vram, VRAM_MASK, addr);
+
+            const auto dirty_index = (addr & VRAM_MASK) / Gba::dirty_vram_shift;
+            gba.dirty_vram[dirty_index] |= new_value != read_array<u16>(MEM.vram, VRAM_MASK, addr);
+            gba.dirty_vram_any |= gba.dirty_vram[dirty_index];
+
             write_array<u16>(MEM.vram, VRAM_MASK, addr, new_value);
         }
     }
     else
     {
-        gba.dirty_vram[(addr & VRAM_MASK) >> Gba::dirty_vram_shift] |= value != read_array<T>(MEM.vram, VRAM_MASK, addr);
+        const auto dirty_index = (addr & VRAM_MASK) / Gba::dirty_vram_shift;
+        gba.dirty_vram[dirty_index] |= value != read_array<T>(MEM.vram, VRAM_MASK, addr);
+        gba.dirty_vram_any |= gba.dirty_vram[dirty_index];
+
         write_array<T>(MEM.vram, VRAM_MASK, addr, value);
     }
 }
@@ -629,12 +638,20 @@ static constexpr auto write_pram_region(Gba& gba, u32 addr, T value) -> void
             addr &= ~0x1;
             const u16 new_value = (value << 8) | value;
 
-            write_array<u16>(MEM.palette_ram, PALETTE_RAM_MASK, addr, new_value);
+            const auto dirty_index = (addr & PRAM_MASK) / Gba::dirty_pram_shift;
+            gba.dirty_pram[dirty_index] |= new_value != read_array<u16>(MEM.pram, PRAM_MASK, addr);
+            gba.dirty_pram_any |= gba.dirty_pram[dirty_index];
+
+            write_array<u16>(MEM.pram, PRAM_MASK, addr, new_value);
         }
     }
     else
     {
-        write_array<T>(MEM.palette_ram, PALETTE_RAM_MASK, addr, value);
+        const auto dirty_index = (addr & PRAM_MASK) / Gba::dirty_pram_shift;
+        gba.dirty_pram[dirty_index] |= value != read_array<T>(MEM.pram, PRAM_MASK, addr);
+        gba.dirty_pram_any |= gba.dirty_pram[dirty_index];
+
+        write_array<T>(MEM.pram, PRAM_MASK, addr, value);
     }
 }
 

@@ -15,15 +15,16 @@
 #include <span>
 #include <utility>
 
+#include <atomic>
 #include <thread>
 
 namespace gba::ppu {
 
 struct RenderData
 {
-    alignas(u32) u8 palette_ram[1024 * 1];
-    alignas(u32) u8 vram[1024 * 96];
-    alignas(u64) u8 oam[1024 * 1];
+    alignas(u64) u8 pram[sizeof(mem::Mem::pram)];
+    alignas(u64) u8 vram[sizeof(mem::Mem::vram)];
+    alignas(u64) u8 oam[sizeof(mem::Mem::oam)];
     std::span<u16> pixels;
 
     u16 DISPCNT;
@@ -502,7 +503,7 @@ static auto render_obj(RenderData& data, Line& line) -> void
     // in tile modes, this allows for 1024 tiles in total.
     // in bitmap modes, this allows for 512 tiles in total.
     const auto ovram = reinterpret_cast<u8*>(data.vram + 4 * CHARBLOCK_SIZE);
-    const auto pram = reinterpret_cast<u16*>(data.palette_ram + 512);
+    const auto pram = reinterpret_cast<u16*>(data.pram + 512);
     const auto oam = reinterpret_cast<u64*>(data.oam);
     const auto vcount = data.VCOUNT;
 
@@ -636,7 +637,7 @@ static auto render_line_bg(RenderData& data, Line& line, BGxCNT cnt, u16 xscroll
     //
     const auto y = (yscroll + vcount) % 256;
     // pal_mem
-    const auto pram = reinterpret_cast<u16*>(data.palette_ram);
+    const auto pram = reinterpret_cast<u16*>(data.pram);
     // tile_mem (where the tiles/tilesets are)
     const auto charblock = reinterpret_cast<u8*>(data.vram + cnt.CBB * CHARBLOCK_SIZE);
     // se_mem (where the tilemaps are)
@@ -837,7 +838,7 @@ static auto render_line_bg(RenderData& data, Window window, Blend blend, WinBlen
 
 static auto render_backdrop(RenderData& data)
 {
-    const auto pram = reinterpret_cast<u16*>(data.palette_ram);
+    const auto pram = reinterpret_cast<u16*>(data.pram);
     std::ranges::fill(data.pixels, pram[0]);
 }
 
@@ -1069,15 +1070,15 @@ static auto render_mode4(RenderData& data) noexcept -> void
 {
     const auto page = bit::is_set<4>(data.DISPCNT) ? 0xA000 : 0;
     auto addr = page + (240 * data.VCOUNT);
-    const auto pram = reinterpret_cast<u16*>(data.palette_ram);
+    const auto pram = reinterpret_cast<u16*>(data.pram);
 
     std::ranges::for_each(data.pixels, [&data, &addr, pram](auto& pixel){
         pixel = pram[data.vram[addr++]];
     });
 }
 
-// spinlock, could use atmoic, but volatile is fine
-static volatile bool is_done{false};
+// spinlock
+static std::atomic_bool is_done{false};
 
 auto setup_render_thread(Gba& gba) -> void
 {
@@ -1090,20 +1091,71 @@ auto setup_render_thread(Gba& gba) -> void
     // vram memcpy is kinda slow, so i optimised this into blocks
     // in emerald, this on avg is 1-4 dirty blocks per frame
     // so, 256kib - 1024kib per frame, very small (as fast as possible really).
-    for (auto i = 0; i < Gba::dirty_vram_size; i++)
+#if 1
+    const auto dirty_func = [](const auto size, const auto shift, auto& any, auto& dirty_array, auto& dst, const auto& src)
     {
-        if (gba.dirty_vram[i])
+        if (any)
         {
-            gba.dirty_vram[i] = false;
-            const auto slot = i * (1 << Gba::dirty_vram_shift);
+            any = false;
+            for (size_t i = 0; i < size; i++)
+            {
+                if (dirty_array[i])
+                {
+                    dirty_array[i] = false;
+                    const auto slot = i * (shift);
+                    std::memcpy(dst + slot, src + slot, shift);
+                }
+            }
+        }
+    };
 
-            std::memcpy(render_data.vram + slot, gba.mem.vram + slot, Gba::dirty_vram_size);
+    dirty_func(Gba::dirty_vram_size, Gba::dirty_vram_shift, gba.dirty_vram_any, gba.dirty_vram, render_data.vram, gba.mem.vram);
+    dirty_func(Gba::dirty_pram_size, Gba::dirty_pram_shift, gba.dirty_pram_any, gba.dirty_pram, render_data.pram, gba.mem.pram);
+    dirty_func(Gba::dirty_oam_size, Gba::dirty_oam_shift, gba.dirty_oam_any, gba.dirty_oam, render_data.oam, gba.mem.oam);
+#else
+    if (gba.dirty_vram_any)
+    {
+        gba.dirty_vram_any = false;
+        for (size_t i = 0; i < Gba::dirty_vram_size; i++)
+        {
+            if (gba.dirty_vram[i])
+            {
+                gba.dirty_vram[i] = false;
+                const auto slot = i * (Gba::dirty_vram_shift);
+                std::memcpy(render_data.vram + slot, gba.mem.vram + slot, Gba::dirty_vram_shift);
+            }
         }
     }
 
-    // can optimise these as well
-    std::ranges::copy(gba.mem.palette_ram, render_data.palette_ram);
-    std::ranges::copy(gba.mem.oam, render_data.oam);
+    if (gba.dirty_pram_any)
+    {
+        gba.dirty_pram_any = false;
+        for (size_t i = 0; i < Gba::dirty_pram_size; i++)
+        {
+            if (gba.dirty_pram[i])
+            {
+                gba.dirty_pram[i] = false;
+                const auto slot = i * (Gba::dirty_pram_shift);
+                std::memcpy(render_data.pram + slot, gba.mem.pram + slot, Gba::dirty_pram_shift);
+            }
+        }
+    }
+
+    if (gba.dirty_oam_any)
+    {
+        gba.dirty_oam_any = false;
+        for (size_t i = 0; i < Gba::dirty_oam_size; i++)
+        {
+            if (gba.dirty_oam[i])
+            {
+                gba.dirty_oam[i] = false;
+                const auto slot = i * (Gba::dirty_oam_shift);
+                std::memcpy(render_data.oam + slot, gba.mem.oam + slot, Gba::dirty_oam_shift);
+            }
+        }
+    }
+#endif
+
     render_data.pixels = gba.ppu.pixels[REG_VCOUNT];
 
     render_data.DISPCNT = REG_DISPCNT;

@@ -91,10 +91,23 @@ struct Gba
 
     // only memcpy vram if one of the blocks are dirty
     // (these vars are placed here because i dont want to mess up my savestates atm).
-    static constexpr inline auto dirty_vram_shift = 8; // 256 per block
-    static constexpr inline auto dirty_vram_size = 1024 * 96 >> dirty_vram_shift; // 384 entries
+    // the divisors were chosen to have the size be as close to 64 (cache line size).
+    static constexpr inline auto dirty_vram_shift = 2048;
+    static constexpr inline auto dirty_vram_size = sizeof(mem::Mem::vram) / dirty_vram_shift;
+
+    static constexpr inline auto dirty_pram_shift = 16;
+    static constexpr inline auto dirty_pram_size = sizeof(mem::Mem::pram) / dirty_pram_shift;
+
+    static constexpr inline auto dirty_oam_shift = 16;
+    static constexpr inline auto dirty_oam_size = sizeof(mem::Mem::oam) / dirty_oam_shift;
+
+    bool dirty_vram_any{false};
+    bool dirty_pram_any{false};
+    bool dirty_oam_any{false};
 
     bool dirty_vram[dirty_vram_size]{false};
+    bool dirty_pram[dirty_pram_size]{false};
+    bool dirty_oam[dirty_oam_size]{false};
 
     bool bit_crushing{false};
 

@@ -175,8 +175,14 @@ auto Gba::loadstate(const State& state) -> bool
     mem::setup_tables(*this);
     scheduler::on_loadstate(*this);
 
-    // mark all vram dirty
+    // mark all vram, pram, oam dirty
+    this->dirty_vram_any = true;
+    this->dirty_pram_any = true;
+    this->dirty_oam_any = true;
+
     std::ranges::fill(this->dirty_vram, true);
+    std::ranges::fill(this->dirty_pram, true);
+    std::ranges::fill(this->dirty_oam, true);
 
     return true;
 }
