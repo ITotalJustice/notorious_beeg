@@ -460,7 +460,7 @@ static auto render_obj(Gba& gba, Line& line) -> void
     // in tile modes, this allows for 1024 tiles in total.
     // in bitmap modes, this allows for 512 tiles in total.
     const auto ovram = reinterpret_cast<u8*>(gba.mem.vram + 4 * CHARBLOCK_SIZE);
-    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram + 512);
+    const auto pram = reinterpret_cast<u16*>(gba.mem.pram + 512);
     const auto oam = reinterpret_cast<u64*>(gba.mem.oam);
     const auto vcount = REG_VCOUNT;
 
@@ -594,7 +594,7 @@ static auto render_line_bg(Gba& gba, Line& line, BGxCNT cnt, u16 xscroll, u16 ys
     //
     const auto y = (yscroll + vcount) % 256;
     // pal_mem
-    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram);
+    const auto pram = reinterpret_cast<u16*>(gba.mem.pram);
     // tile_mem (where the tiles/tilesets are)
     const auto charblock = reinterpret_cast<u8*>(gba.mem.vram + cnt.CBB * CHARBLOCK_SIZE);
     // se_mem (where the tilemaps are)
@@ -795,7 +795,7 @@ static auto render_line_bg(Gba& gba, Window window, Blend blend, WinBlend winble
 
 static auto render_backdrop(Gba& gba)
 {
-    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram);
+    const auto pram = reinterpret_cast<u16*>(gba.mem.pram);
     std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], pram[0]);
 }
 
@@ -1029,7 +1029,7 @@ static auto render_mode4(Gba& gba) noexcept -> void
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
     auto addr = page + (240 * REG_VCOUNT);
     auto& pixels = gba.ppu.pixels[REG_VCOUNT];
-    const auto pram = reinterpret_cast<u16*>(gba.mem.palette_ram);
+    const auto pram = reinterpret_cast<u16*>(gba.mem.pram);
 
     std::ranges::for_each(pixels, [&gba, &addr, pram](auto& pixel){
         pixel = pram[gba.mem.vram[addr++]];
