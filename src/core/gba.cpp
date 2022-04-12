@@ -69,15 +69,15 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
             break;
     }
 
-    std::ranges::copy(new_rom, this->rom);
+    constexpr auto SIZE_32MiB = 1024*1024*32;
 
-    constexpr auto SIZE_16MiB = 1024*1024*16;
-    if (new_rom.size() <= SIZE_16MiB)
+    // pre-calc the OOB rom read values, which is addr >> 1
+    for (auto i = 0; i < SIZE_32MiB; i++)
     {
-        // hack for mirroring, mirror to bank[0x9]
-        // needed for minish cap
-        std::ranges::copy(new_rom, this->rom + SIZE_16MiB);
+        this->rom[i] = i >> 1;
     }
+
+    std::ranges::copy(new_rom, this->rom);
 
     this->reset();
 

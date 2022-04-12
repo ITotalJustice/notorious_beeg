@@ -25,6 +25,7 @@ gba emulator witten in c++23.
 - added object windowing
 - render obj in bitmap mode [#42](https://github.com/ITotalJustice/notorious_beeg/issues/42)
 - enable blending/windowing in bitmap modes
+- implement correct OOB rom reads, removing wrong rom mirroring that was added to "fix" minish cap. see [#12](https://github.com/ITotalJustice/notorious_beeg/issues/12)
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
