@@ -125,7 +125,6 @@ static auto on_cnt_write(Gba& gba, u16 cnt) -> void
 
     if (timer.enable)
     {
-        // assert(!C && "cascade not impl");
         // searching on emudev discord about timers mention that they
         // have a 2 cycle delay on startup (but not on overflow)
         add_timer_event<Number>(gba, timer, 2);
@@ -192,18 +191,10 @@ auto update_timer(Gba& gba, Timer& timer) -> void
 
 auto read_timer(Gba& gba, u8 num) -> u16
 {
-    #if 0
     auto& timer = gba.timer[num];
-    if (timer.enable == false)
-    {
-        return timer.counter;
-    }
-
-    const auto delta = (gba.scheduler.cycles - timer.event_time) / timer.freq;
-    return timer.counter + delta;
+    #if ENABLE_SCHEDULER == 0
+    return timer.counter;
     #else
-    auto& timer = gba.timer[num];
-
     if (!timer.enable)
     {
         return timer.reload;
@@ -223,11 +214,9 @@ auto read_timer(Gba& gba, u8 num) -> u16
 #if ENABLE_SCHEDULER == 0
 // returns true if overflowed
 template<u8 Number>
-auto tick(Gba& gba, u16& data, u8 cycles, bool cascade_overflow) -> bool
+static auto tick(Gba& gba, u16& data, u8 cycles)
 {
     auto& timer = gba.timer[Number];
-
-    bool overflowed = false;
 
     const auto func = [&]()
     {
@@ -239,26 +228,19 @@ auto tick(Gba& gba, u16& data, u8 cycles, bool cascade_overflow) -> bool
                 // std::printf("[timer0] overflow at %u\n", gba.scheduler.cycles);
             }
             data = timer.reload;
-            overflowed = true;
             on_overflow<Number>(gba);
-        }
-        else
-        {
-            // data++;
         }
     };
 
     // check if enabled, return early if disabled
     if (!timer.enable)
     {
-        return overflowed;
+        return;
     }
 
     if (timer.cascade)
     {
-        assert(0);
-        func();
-        return overflowed;
+        return;
     }
 
     timer.cycles += cycles;
@@ -273,17 +255,15 @@ auto tick(Gba& gba, u16& data, u8 cycles, bool cascade_overflow) -> bool
         timer.cycles = 0;
     }
 
-    return true;
+    return;
 }
 
 auto run(Gba& gba, u8 cycles) -> void
 {
-    // return;
-    bool overflowed = false;
-    overflowed = tick<0>(gba, REG_TM0D, cycles, overflowed);
-    overflowed = tick<1>(gba, REG_TM1D, cycles, overflowed);
-    overflowed = tick<2>(gba, REG_TM2D, cycles, overflowed);
-    overflowed = tick<3>(gba, REG_TM3D, cycles, overflowed);
+    tick<0>(gba, REG_TM0D, cycles);
+    tick<1>(gba, REG_TM1D, cycles);
+    tick<2>(gba, REG_TM2D, cycles);
+    tick<3>(gba, REG_TM3D, cycles);
 }
 #endif
 
