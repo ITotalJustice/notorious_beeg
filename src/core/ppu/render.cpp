@@ -1,6 +1,19 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
+// things left
+// - obj in obj window
+// - obj not in obj window
+// - bg affine
+// - obj affine
+// - obj mosaic
+// - obj blend alpha flag
+// - window wrapping
+
+// todo:
+// split obj rendering into 2 functions
+// - oam parse
+// - obj render
 #include "render.hpp"
 #include "gba.hpp"
 #include "bit.hpp"
@@ -20,26 +33,20 @@ constexpr auto CHARBLOCK_SIZE = 0x4000;
 constexpr auto SCREENBLOCK_SIZE = 0x800;
 
 constexpr auto BG_4BPP = 0;
-constexpr auto BG_8BPP = 1;
+[[maybe_unused]] constexpr auto BG_8BPP = 1;
 
 [[maybe_unused]] constexpr auto BG0_NUM = 0;
 [[maybe_unused]] constexpr auto BG1_NUM = 1;
 [[maybe_unused]] constexpr auto BG2_NUM = 2;
 [[maybe_unused]] constexpr auto BG3_NUM = 3;
-constexpr auto BG_BACKDROP_NUM = 4;
+constexpr auto OBJ_NUM = 4;
+constexpr auto BACKDROP_NUM = 5;
 
 [[maybe_unused]] constexpr auto PRIORITY_0 = 0;
 [[maybe_unused]] constexpr auto PRIORITY_1 = 1;
 [[maybe_unused]] constexpr auto PRIORITY_2 = 2;
 [[maybe_unused]] constexpr auto PRIORITY_3 = 3;
 constexpr auto PRIORITY_BACKDROP = 4;
-
-enum class Window
-{
-    None, // no clipping
-    Inside, // clip inside
-    Outside, // clip outside
-};
 
 enum class Blend
 {
@@ -49,11 +56,35 @@ enum class Blend
     Black, // fade to black
 };
 
-enum class WinBlend
+struct ObjLine
 {
-    None, // no clipped blend
-    Inside, // only blend inside
-    Outside, // only blend outside
+    ObjLine()
+    {
+        std::ranges::fill(priority, 0xFF);
+    };
+
+    u16 pixels[240];
+    u8 priority[240];
+    bool is_alpha[240]{false};
+    bool is_win[240]{false};
+    bool is_opaque[240]{false}; // pixel != 0
+};
+
+enum class RenderType
+{
+    Reg,
+    Affine
+};
+
+struct BgLine
+{
+    BgLine(RenderType type) : render_type{type} {}
+
+    const RenderType render_type;
+    u16 pixels[240];
+    bool is_opaque[240]{false}; // pixel != 0
+    u8 priority; // priority (0-3)
+    u8 num; // background num (0-3)
 };
 
 struct BGxCNT
@@ -76,31 +107,32 @@ struct BGxCNT
     u16 Sz : 2; // Background Size. Regular and affine backgrounds have different sizes available to them.
 };
 
+// contains control and scroll values
+struct BgMeta
+{
+    BGxCNT cnt;
+    u16 xscroll;
+    u16 yscroll;
+};
+
 struct WININ
 {
     constexpr WININ(auto v) :
-        bg0{static_cast<u8>(bit::is_set<0>(v))},
-        bg1{static_cast<u8>(bit::is_set<1>(v))},
-        bg2{static_cast<u8>(bit::is_set<2>(v))},
-        bg3{static_cast<u8>(bit::is_set<3>(v))},
-        obj{static_cast<u8>(bit::is_set<4>(v))},
-        blend{static_cast<u8>(bit::is_set<5>(v))}
-    {
-        in[0] = bg0;
-        in[1] = bg1;
-        in[2] = bg2;
-        in[3] = bg3;
-        in[4] = obj;
-        in[5] = blend;
-    }
+        bg0{bit::is_set<0>(v)},
+        bg1{bit::is_set<1>(v)},
+        bg2{bit::is_set<2>(v)},
+        bg3{bit::is_set<3>(v)},
+        obj{bit::is_set<4>(v)},
+        blend{bit::is_set<5>(v)},
+        in{bg0, bg1, bg2, bg3, obj, blend} {}
 
 private:
-    const u8 bg0 : 1; // BG0 in winX
-    const u8 bg1 : 1; // BG1 in winX
-    const u8 bg2 : 1; // BG2 in winX
-    const u8 bg3 : 1; // BG3 in winX
-    const u8 obj : 1; // Sprites in winX
-    const u8 blend : 1; // Blends in winX
+    const bool bg0 : 1; // BG0 in winX
+    const bool bg1 : 1; // BG1 in winX
+    const bool bg2 : 1; // BG2 in winX
+    const bool bg3 : 1; // BG3 in winX
+    const bool obj : 1; // Sprites in winX
+    const bool blend : 1; // Blends in winX
 
 public:
     bool in[6];
@@ -109,103 +141,129 @@ public:
 struct WINOUT
 {
     constexpr WINOUT(u16 v) :
-        bg0_out{static_cast<u8>(bit::is_set<0>(v))},
-        bg1_out{static_cast<u8>(bit::is_set<1>(v))},
-        bg2_out{static_cast<u8>(bit::is_set<2>(v))},
-        bg3_out{static_cast<u8>(bit::is_set<3>(v))},
-        obj_out{static_cast<u8>(bit::is_set<4>(v))},
-        blend_out{static_cast<u8>(bit::is_set<5>(v))},
-        bg0_in_obj_win{static_cast<u8>(bit::is_set<8>(v))},
-        bg1_in_obj_win{static_cast<u8>(bit::is_set<9>(v))},
-        bg2_in_obj_win{static_cast<u8>(bit::is_set<10>(v))},
-        bg3_in_obj_win{static_cast<u8>(bit::is_set<11>(v))},
-        obj_in_obj_win{static_cast<u8>(bit::is_set<12>(v))},
-        blend_in_obj_win{static_cast<u8>(bit::is_set<13>(v))}
-    {
-        out[0] = bg0_out;
-        out[1] = bg1_out;
-        out[2] = bg2_out;
-        out[3] = bg3_out;
-        out[4] = obj_out;
-        out[5] = blend_out;
-        obj[0] = bg0_in_obj_win;
-        obj[1] = bg1_in_obj_win;
-        obj[2] = bg2_in_obj_win;
-        obj[3] = bg3_in_obj_win;
-        obj[4] = obj_in_obj_win;
-        obj[5] = blend_in_obj_win;
-    }
+        bg0_out{bit::is_set<0>(v)},
+        bg1_out{bit::is_set<1>(v)},
+        bg2_out{bit::is_set<2>(v)},
+        bg3_out{bit::is_set<3>(v)},
+        obj_out{bit::is_set<4>(v)},
+        blend_out{bit::is_set<5>(v)},
+        bg0_obj_win{bit::is_set<8>(v)},
+        bg1_obj_win{bit::is_set<9>(v)},
+        bg2_obj_win{bit::is_set<10>(v)},
+        bg3_obj_win{bit::is_set<11>(v)},
+        obj_obj_win{bit::is_set<12>(v)},
+        blend_obj_win{bit::is_set<13>(v)},
+        out{bg0_out, bg1_out, bg2_out, bg3_out, obj_out, blend_out},
+        obj{bg0_obj_win, bg1_obj_win, bg2_obj_win, bg3_obj_win, obj_obj_win, blend_obj_win} {}
 
 private:
-    const u8 bg0_out : 1;
-    const u8 bg1_out : 1;
-    const u8 bg2_out : 1;
-    const u8 bg3_out : 1;
-    const u8 obj_out : 1;
-    const u8 blend_out : 1;
+    const bool bg0_out : 1;
+    const bool bg1_out : 1;
+    const bool bg2_out : 1;
+    const bool bg3_out : 1;
+    const bool obj_out : 1;
+    const bool blend_out : 1;
 
-    const u8 bg0_in_obj_win : 1;
-    const u8 bg1_in_obj_win : 1;
-    const u8 bg2_in_obj_win : 1;
-    const u8 bg3_in_obj_win : 1;
-    const u8 obj_in_obj_win : 1;
-    const u8 blend_in_obj_win : 1;
+    const bool bg0_obj_win : 1;
+    const bool bg1_obj_win : 1;
+    const bool bg2_obj_win : 1;
+    const bool bg3_obj_win : 1;
+    const bool obj_obj_win : 1;
+    const bool blend_obj_win : 1;
 
 public:
     bool out[6];
     bool obj[6];
 };
 
+constexpr auto WIN0_PRIORITY = 0;
+constexpr auto WIN1_PRIORITY = 1;
+constexpr auto WIN_OBJ_PRIORITY = 2;
+
+struct WindowBounds
+{
+    WindowBounds()
+    {
+        for (auto&a : inside)
+        {
+            std::ranges::fill(a, true);
+        }
+
+        std::ranges::fill(priority, 0xFF);
+    }
+
+    // builds the obj window, call this rendering obj (and bg)
+    auto build(Gba& gba) -> void;
+
+    // call this after rendering the obj
+    // this will apply any obj windowing (if any)
+    auto apply_obj_window(Gba& gba, const ObjLine& obj_line) -> void;
+
+    // returns true if the pixel can be drawn
+    auto in_bounds(auto bg_num, auto x) const { return inside[bg_num][x]; }
+    // returns true if this pixel can blend
+    auto can_blend(auto x) const { return in_bounds(5, x); }
+
+private:
+    // bg0, bg1, bg2, bg3, obj, blend
+    bool inside[6][240];
+    bool in_range[240]{false};
+    u8 priority[240];
+};
+
 struct BLDMOD
 {
     constexpr BLDMOD(u16 v) :
-        bg0_src{static_cast<u16>(bit::is_set<0>(v))},
-        bg1_src{static_cast<u16>(bit::is_set<1>(v))},
-        bg2_src{static_cast<u16>(bit::is_set<2>(v))},
-        bg3_src{static_cast<u16>(bit::is_set<3>(v))},
-        obj_src{static_cast<u16>(bit::is_set<4>(v))},
-        backdrop_src{static_cast<u16>(bit::is_set<5>(v))},
+        bg0_src{bit::is_set<0>(v)},
+        bg1_src{bit::is_set<1>(v)},
+        bg2_src{bit::is_set<2>(v)},
+        bg3_src{bit::is_set<3>(v)},
+        obj_src{bit::is_set<4>(v)},
+        backdrop_src{bit::is_set<5>(v)},
         mode{static_cast<u16>(bit::get_range<6, 7>(v))},
-        bg0_dst{static_cast<u16>(bit::is_set<8>(v))},
-        bg1_dst{static_cast<u16>(bit::is_set<9>(v))},
-        bg2_dst{static_cast<u16>(bit::is_set<10>(v))},
-        bg3_dst{static_cast<u16>(bit::is_set<11>(v))},
-        obj_dst{static_cast<u16>(bit::is_set<12>(v))},
-        backdrop_dst{static_cast<u16>(bit::is_set<13>(v))}
-    {
-        src[0] = bg0_src;
-        src[1] = bg1_src;
-        src[2] = bg2_src;
-        src[3] = bg3_src;
-        src[4] = obj_src;
-        src[5] = backdrop_src;
-        dst[0] = bg0_dst;
-        dst[1] = bg1_dst;
-        dst[2] = bg2_dst;
-        dst[3] = bg3_dst;
-        dst[4] = obj_dst;
-        dst[5] = backdrop_dst;
-    }
+        bg0_dst{bit::is_set<8>(v)},
+        bg1_dst{bit::is_set<9>(v)},
+        bg2_dst{bit::is_set<10>(v)},
+        bg3_dst{bit::is_set<11>(v)},
+        obj_dst{bit::is_set<12>(v)},
+        backdrop_dst{bit::is_set<13>(v)},
+        src{bg0_src, bg1_src, bg2_src, bg3_src, obj_src, backdrop_src},
+        dst{bg0_dst, bg1_dst, bg2_dst, bg3_dst, obj_dst, backdrop_dst} {}
 
     constexpr auto get_mode() const
     {
         return static_cast<Blend>(mode);
     }
 
+    constexpr auto is_alpha(u8 top_num, u8 bottom_num=0) const
+    {
+        switch (this->get_mode())
+        {
+            case Blend::None:
+            case Blend::Alpha: return src[top_num] && dst[bottom_num];
+            case Blend::White: return src[top_num];
+            case Blend::Black: return src[top_num];
+        }
+
+        std::unreachable();
+    }
+
 private:
-    const u16 bg0_src : 1; // Blend BG0 (source)
-    const u16 bg1_src : 1; // Blend Bg1 (source)
-    const u16 bg2_src : 1; // Blend BG2 (source)
-    const u16 bg3_src : 1; // Blend BG3 (source)
-    const u16 obj_src : 1; // Blend sprites (source)
-    const u16 backdrop_src : 1; // Blend backdrop (source)
+    const bool bg0_src : 1; // Blend BG0 (source)
+    const bool bg1_src : 1; // Blend Bg1 (source)
+    const bool bg2_src : 1; // Blend BG2 (source)
+    const bool bg3_src : 1; // Blend BG3 (source)
+    const bool obj_src : 1; // Blend sprites (source)
+    const bool backdrop_src : 1; // Blend backdrop (source)
+
     const u16 mode : 2; // Blend Mode
-    const u16 bg0_dst : 1; // Blend BG0 (target)
-    const u16 bg1_dst : 1; // Blend BG1 (target)
-    const u16 bg2_dst : 1; // Blend BG2 (target)
-    const u16 bg3_dst : 1; // Blend BG3 (target)
-    const u16 obj_dst : 1; // Blend sprites (target)
-    const u16 backdrop_dst : 1; // Blend backdrop (target)
+
+    const bool bg0_dst : 1; // Blend BG0 (target)
+    const bool bg1_dst : 1; // Blend BG1 (target)
+    const bool bg2_dst : 1; // Blend BG2 (target)
+    const bool bg3_dst : 1; // Blend BG3 (target)
+    const bool obj_dst : 1; // Blend sprites (target)
+    const bool backdrop_dst : 1; // Blend backdrop (target)
 
 public:
     bool src[6];
@@ -374,19 +432,6 @@ static auto get_bg_offset_affine(BGxCNT cnt, auto x) -> u16
     return result[Y][cnt.Sz] * next_block;
 }
 
-struct Line
-{
-    Line(std::span<u16> _pixels) : pixels{_pixels}
-    {
-        std::ranges::fill(priority, PRIORITY_BACKDROP);
-        std::ranges::fill(num, BG_BACKDROP_NUM);
-    }
-
-    std::span<u16> pixels;
-    u8 priority[240];
-    u8 num[240]; // bg number
-};
-
 struct Bgr
 {
     constexpr Bgr(u16 col) :
@@ -450,12 +495,13 @@ static constexpr auto blend_black(u16 col, u8 coeff) -> u16
     return fin_col.pack();
 }
 
-static auto render_obj(Gba& gba, Line& line) -> void
+static auto get_backdrop_colour(const Gba& gba) -> u16
 {
-    // keep track if a sprite has already been rendered.
-    u8 drawn[240];
-    std::ranges::fill(drawn, 0xFF);
+    return mem::read_array<u16>(gba.mem.pram, mem::PRAM_MASK, 0);
+}
 
+static auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
+{
     // ovram is the last 2 entries of the charblock in vram.
     // in tile modes, this allows for 1024 tiles in total.
     // in bitmap modes, this allows for 512 tiles in total.
@@ -479,12 +525,6 @@ static auto render_obj(Gba& gba, Line& line) -> void
         {
             // std::printf("skipping affine sprite\n");
             // continue;
-        }
-
-        // skip any non-normal sprites for now
-        if (obj.attr0.GM != 0b00)
-        {
-            continue;
         }
 
         // fetch the x/y size of the sprite
@@ -511,17 +551,14 @@ static auto render_obj(Gba& gba, Line& line) -> void
                     continue;
                 }
 
-                // skip obj already rendered over higher or equal prio
-                if (drawn[pixel_x] <= obj.attr2.Pr)
+                // check if we are allowed inside
+                if (!bounds.in_bounds(OBJ_NUM, pixel_x))
                 {
                     continue;
                 }
 
-                // bg over obj
-                // NOTE: this breaks metroid zero as the obj is supposed
-                // to blend with bg0. coeff for bg0 is 0, so obj is simply
-                // rendered over.
-                if (line.priority[pixel_x] < obj.attr2.Pr)
+                // skip obj already rendered over higher or equal prio
+                if (line.priority[pixel_x] <= obj.attr2.Pr)
                 {
                     continue;
                 }
@@ -575,54 +612,48 @@ static auto render_obj(Gba& gba, Line& line) -> void
                 // don't render transparent pixels
                 if (pixel != 0)
                 {
-                    drawn[pixel_x] = obj.attr2.Pr;
-                    line.pixels[pixel_x] = pram[pram_addr / 2];
+                    // this is object window
+                    if (obj.attr0.GM == 0b10) [[unlikely]]
+                    {
+                        line.is_win[pixel_x] = obj.attr0.GM == 0b10;
+                    }
+                    else
+                    {
+                        line.is_opaque[pixel_x] = true;
+                        line.priority[pixel_x] = obj.attr2.Pr;
+                        line.is_alpha[pixel_x] = obj.attr0.GM == 0b01;
+                        line.pixels[pixel_x] = pram[pram_addr / 2];
+                    }
                 }
             }
         }
     }
 }
 
-template<Window window, Blend blend, WinBlend winblend, u8 bpp>
-static auto render_line_bg(Gba& gba, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
+static auto render_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
 {
-    const auto coeff_src = bit::get_range<0, 4>(REG_COLEV);
-    const auto coeff_dst = bit::get_range<8, 12>(REG_COLEV);
-    const auto coeff_wb = bit::get_range<0, 4>(REG_COLEY);
-
     const auto vcount = REG_VCOUNT;
     //
-    const auto y = (yscroll + vcount) % 256;
+    const auto y = (meta.yscroll + vcount) % 256;
     // pal_mem
     const auto pram = reinterpret_cast<u16*>(gba.mem.pram);
     // tile_mem (where the tiles/tilesets are)
-    const auto charblock = reinterpret_cast<u8*>(gba.mem.vram + cnt.CBB * CHARBLOCK_SIZE);
+    const auto charblock = reinterpret_cast<u8*>(gba.mem.vram + meta.cnt.CBB * CHARBLOCK_SIZE);
     // se_mem (where the tilemaps are)
-    const auto screenblock = reinterpret_cast<u16*>(gba.mem.vram + (cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(cnt, yscroll + vcount) + ((y / 8) * 64));
+    const auto screenblock = reinterpret_cast<u16*>(gba.mem.vram + (meta.cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(meta.cnt, meta.yscroll + vcount) + ((y / 8) * 64));
+
+    line.priority = meta.cnt.Pr;
 
     for (auto x = 0; x < 240; x++)
     {
-        const auto in_range = (x >= winx_start && x < winx_end);
-
-        // only render if inside the window
-        if constexpr(window == Window::Inside)
+        // check if we are allowed inside
+        if (!bounds.in_bounds(line.num, x))
         {
-            if (!in_range)
-            {
-                continue;
-            }
-        }
-        // only render if outside the window
-        else if constexpr(window == Window::Outside)
-        {
-            if (in_range)
-            {
-                continue;
-            }
+            continue;
         }
 
-        const auto tx = (x + xscroll) % 256;
-        const auto se_number = (tx / 8) + (get_bg_offset<Index::X>(cnt, x + xscroll) / 2); // SE-number n = tx+ty·tw,
+        const auto tx = (x + meta.xscroll) % 256;
+        const auto se_number = (tx / 8) + (get_bg_offset<Index::X>(meta.cnt, x + meta.xscroll) / 2); // SE-number n = tx+ty·tw,
         const ScreenEntry se = screenblock[se_number];
 
         const auto tile_x = se.hflip ? 7 - (tx & 7) : tx & 7;
@@ -634,7 +665,7 @@ static auto render_line_bg(Gba& gba, Line& line, BGxCNT cnt, u16 xscroll, u16 ys
         auto pixel = 0;
 
         // todo: don't allow access to blocks 4,5
-        if constexpr(bpp == BG_4BPP)
+        if (meta.cnt.CM == BG_4BPP)
         {
             pixel = charblock[(se.tile_index * 32) + tile_offset/2];
 
@@ -654,367 +685,357 @@ static auto render_line_bg(Gba& gba, Line& line, BGxCNT cnt, u16 xscroll, u16 ys
 
         if (pixel != 0) // don't render transparent pixel
         {
-            // all branches involving constants will be optimised away
-            bool should_blend = blend != Blend::None;
-
-            if constexpr(winblend == WinBlend::Inside)
-            {
-                if (!in_range)
-                {
-                    should_blend = false;
-                }
-            }
-            else if constexpr(winblend == WinBlend::Outside)
-            {
-                if (in_range)
-                {
-                    should_blend = false;
-                }
-            }
-
-            const auto colour = pram[pram_addr / 2];
-            line.priority[x] = cnt.Pr;
-
-            // this is all optimised away if blending is disabled
-            if (blend != Blend::None && should_blend)
-            {
-                if constexpr(blend == Blend::Alpha)
-                {
-                    const auto dst = line.pixels[x];
-                    const auto src = colour;
-
-                    line.pixels[x] = blend_alpha(src, dst, coeff_src, coeff_dst);
-                }
-                else if (blend == Blend::White)
-                {
-                    line.pixels[x] = blend_white(colour, coeff_wb);
-                }
-                else if (blend == Blend::Black)
-                {
-                    line.pixels[x] = blend_black(colour, coeff_wb);
-                }
-            }
-            else
-            {
-                line.pixels[x] = colour;
-            }
+            line.is_opaque[x] = true;
+            line.pixels[x] = pram[pram_addr / 2];
         }
     }
 }
 
-// todo: create better name
-struct Set
+static auto is_obj_enabled(Gba& gba)
 {
-    BGxCNT cnt;
-    u16 xscroll;
-    u16 yscroll;
-    bool enable;
-    int num;
-};
-
-template<Window window, Blend blend, WinBlend winblend>
-static auto render_line_bg(Gba& gba, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
-{
-    if (cnt.CM == BG_4BPP)
-    {
-       render_line_bg<window, blend, winblend, BG_4BPP>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
-    }
-    else if (cnt.CM == BG_8BPP)
-    {
-        render_line_bg<window, blend, winblend, BG_8BPP>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
-    }
+    return bit::is_set<12>(REG_DISPCNT);
 }
 
-template<Window window, Blend blend>
-static auto render_line_bg(Gba& gba, WinBlend winblend, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
+auto WindowBounds::build(Gba& gba) -> void
 {
-    // if blending is disabled, winblend is also disabled
-    if constexpr(blend == Blend::None)
+    const auto win0_enabled = bit::is_set<13>(REG_DISPCNT);
+    const auto win1_enabled = bit::is_set<14>(REG_DISPCNT);
+
+    // exit early if neither windows are enabled
+    if (!win0_enabled && !win1_enabled)
     {
-        render_line_bg<window, blend, WinBlend::None>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
+        return;
     }
-    else
-    {
-        switch (winblend)
-        {
-            case WinBlend::None:
-                render_line_bg<window, blend, WinBlend::None>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
-                break;
 
-            case WinBlend::Inside:
-                render_line_bg<window, blend, WinBlend::Inside>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
-                break;
-
-            case WinBlend::Outside:
-                render_line_bg<window, blend, WinBlend::Outside>(gba, line, cnt, xscroll, yscroll, winx_start, winx_end);
-                break;
-        }
-    }
-}
-
-template<Window window>
-static auto render_line_bg(Gba& gba, Blend blend, WinBlend winblend, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
-{
-    switch (blend)
-    {
-        case Blend::None:
-            render_line_bg<window, Blend::None>(gba, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
-            break;
-
-        case Blend::Alpha:
-            render_line_bg<window, Blend::Alpha>(gba, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
-            break;
-
-        case Blend::White:
-            render_line_bg<window, Blend::White>(gba, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
-            break;
-
-        case Blend::Black:
-            render_line_bg<window, Blend::Black>(gba, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
-            break;
-    }
-}
-
-static auto render_line_bg(Gba& gba, Window window, Blend blend, WinBlend winblend, Line& line, BGxCNT cnt, u16 xscroll, u16 yscroll, u16 winx_start, u16 winx_end)
-{
-    switch (window)
-    {
-        case Window::None:
-            render_line_bg<Window::None>(gba, blend, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
-            break;
-
-        case Window::Inside:
-            render_line_bg<Window::Inside>(gba, blend, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
-            break;
-
-        case Window::Outside:
-            render_line_bg<Window::Outside>(gba, blend, winblend, line, cnt, xscroll, yscroll, winx_start, winx_end);
-            break;
-    }
-}
-
-static auto render_backdrop(Gba& gba)
-{
-    const auto pram = reinterpret_cast<u16*>(gba.mem.pram);
-    std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], pram[0]);
-}
-
-static constexpr auto sort_priority_set(auto& set)
-{
-    std::ranges::stable_sort(set, [](auto lhs, auto rhs){
-        return lhs.cnt.Pr > rhs.cnt.Pr;
-    });
-}
-
-static auto render_set(Gba& gba, std::span<Set> set, Line& line)
-{
-    // is the window enabled
-    const auto win0 = bit::is_set<13>(REG_DISPCNT);
-    const auto win1 = bit::is_set<14>(REG_DISPCNT);
-    // todo: what is an obj window?????????
-    // const auto win_obj = bit::is_set<15>(REG_DISPCNT);
-
-    // parse the window bits
-    WININ win_in[2] = { { REG_WININ }, { REG_WININ >> 8 } };
+    const WININ win0_in{ REG_WININ };
+    const WININ win1_in{ REG_WININ >> 8 };
     const WINOUT win_out{REG_WINOUT};
 
-    // window stuff, wrapping isn't handled yet
-    u16 x_start = 0; // leftmost (inclusive)
-    u16 x_end = 0; // rightmost (exclusive)
-    u16 y_start = 0; // top (inclusive)
-    u16 y_end = 0; // bottom (exclusive)
+    const auto win0_x_start = bit::get_range<8, 15>(REG_WIN0H);
+    const auto win0_x_end = bit::get_range<0, 7>(REG_WIN0H);
+    const auto win0_y_start = bit::get_range<8, 15>(REG_WIN0V);
+    const auto win0_y_end = bit::get_range<0, 7>(REG_WIN0V);
 
-    const BLDMOD bldmod{REG_BLDMOD};
+    const auto win1_x_start = bit::get_range<8, 15>(REG_WIN1H);
+    const auto win1_x_end = bit::get_range<0, 7>(REG_WIN1H);
+    const auto win1_y_start = bit::get_range<8, 15>(REG_WIN1V);
+    const auto win1_y_end = bit::get_range<0, 7>(REG_WIN1V);
+
+    assert(win0_x_start < win0_x_end && "wrapping not handled");
+    assert(win1_x_start < win1_x_end && "wrapping not handled");
+    assert(win0_y_start < win0_y_end && "wrapping not handled");
+    assert(win1_y_start < win1_y_end && "wrapping not handled");
+
+    const auto vcount = REG_VCOUNT;
+
+    const auto win0_in_range_y = vcount >= win0_y_start && vcount < win0_y_end;
+    const auto win1_in_range_y = vcount >= win1_y_start && vcount < win1_y_end;
+
+    for (auto x = 0; x < 240; x++)
+    {
+        if (win0_enabled)
+        {
+            const auto win0_in_range = win0_in_range_y && x >= win0_x_start && x < win0_x_end;
+
+            for (auto i = 0; i < 6; i++)
+            {
+                if (win0_in_range)
+                {
+                    this->inside[i][x] = win0_in.in[i];
+                    this->in_range[x] = true;
+                    this->priority[x] = WIN0_PRIORITY;
+                }
+                else
+                {
+                    this->inside[i][x] = !this->in_range[x] && win_out.out[i];
+                }
+            }
+        }
+
+        if (win1_enabled && this->priority[x] == 0xFF)
+        {
+            const auto win1_in_range = win1_in_range_y && x >= win1_x_start && x < win1_x_end;
+
+            for (auto i = 0; i < 6; i++)
+            {
+                if (win1_in_range)
+                {
+                    this->inside[i][x] = win1_in.in[i];
+                    this->in_range[x] = true;
+                    this->priority[x] = WIN1_PRIORITY;
+                }
+                else
+                {
+                    this->inside[i][x] = !this->in_range[x] && win_out.out[i];
+                }
+            }
+        }
+    }
+}
+
+auto WindowBounds::apply_obj_window(Gba& gba, const ObjLine& obj_line) -> void
+{
+    const auto win_obj_enabled = bit::is_set<15>(REG_DISPCNT);
+    const WINOUT win_out{REG_WINOUT};
+
+    // exit early if obj window is not enabled
+    if (!win_obj_enabled)
+    {
+        return;
+    }
+
+    for (auto x = 0; x < 240; x++)
+    {
+        if (win_obj_enabled && this->priority[x] == 0xFF)
+        {
+            for (auto i = 0; i < 6; i++)
+            {
+                if (obj_line.is_win[x])
+                {
+                    this->inside[i][x] = win_out.obj[i];
+                    this->in_range[x] = true;
+                    this->priority[x] = WIN_OBJ_PRIORITY;
+                }
+                else
+                {
+                    this->inside[i][x] = !this->in_range[x] && win_out.out[i];
+                }
+            }
+        }
+    }
+}
+
+static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, std::span<BgLine> bg_lines, ObjLine& obj_line) -> void
+{
+    struct Layers
+    {
+        constexpr Layers(u16 backdrop_colour)
+        {
+            std::ranges::fill(pixel, backdrop_colour);
+            std::ranges::fill(prio, PRIORITY_BACKDROP);
+            std::ranges::fill(num, BACKDROP_NUM);
+        }
+
+        constexpr auto add(u16 new_pixel, u8 new_prio, u8 new_num, bool new_is_alpha)
+        {
+            // if the new pixel has a lower priority than the current
+            // top layer pixel, overwrite it.
+            if (new_prio < prio[0])
+            {
+                // save previous top layer as bottom layer
+                pixel[1] = pixel[0];
+                prio[1] = prio[0];
+                num[1] = num[0];
+                is_alpha[1] = is_alpha[0];
+
+                pixel[0] = new_pixel;
+                prio[0] = new_prio;
+                num[0] = new_num;
+                is_alpha[0] = new_is_alpha;
+            }
+            // otherwise, check if new pixel has a lower prio
+            // than the current bottom layer.
+            else if (new_prio < prio[1])
+            {
+                pixel[1] = new_pixel;
+                prio[1] = new_prio;
+                num[1] = new_num;
+                is_alpha[1] = new_is_alpha;
+            }
+        }
+
+        auto get_pixel() const { return pixel[0]; }
+        auto get_prio() const { return prio[0]; }
+        auto get_num() const { return num[0]; }
+
+        u16 pixel[2];
+        u8 prio[2];
+        u8 num[2];
+        bool is_alpha[2]{}; // only useful for obj
+    };
+
+    const auto backdrop_colour = get_backdrop_colour(gba);
+    const auto obj_enabled = is_obj_enabled(gba);
+
+    const auto bldmod = BLDMOD{REG_BLDMOD};
     const auto blend_mode = bldmod.get_mode();
 
-    const WININ* winin = nullptr;
-    bool window_enabled = false;
+    const auto coeff_src = bit::get_range<0, 4>(REG_COLEV);
+    const auto coeff_dst = bit::get_range<8, 12>(REG_COLEV);
+    const auto coeff_wb = bit::get_range<0, 4>(REG_COLEY);
 
-    if (win1)
+    for (auto x = 0; x < 240; x++)
     {
-        x_start = bit::get_range<8, 15>(REG_WIN1H);
-        x_end = bit::get_range<0, 7>(REG_WIN1H);
-        y_start = bit::get_range<8, 15>(REG_WIN1V);
-        y_end = bit::get_range<0, 7>(REG_WIN1V);
+        Layers layers{backdrop_colour};
 
-        window_enabled = true;
-        winin = &win_in[1];
+        if (obj_enabled)
+        {
+            if (obj_line.is_opaque[x]) // is the pixel visible
+            {
+                layers.add(
+                    obj_line.pixels[x],
+                    obj_line.priority[x],
+                    OBJ_NUM,
+                    obj_line.is_alpha[x]
+                );
+            }
+        }
+
+        for (u8 bg = 0; bg < bg_lines.size(); bg++)
+        {
+            if (bg_lines[bg].is_opaque[x])
+            {
+                layers.add(
+                    bg_lines[bg].pixels[x], // pixel
+                    bg_lines[bg].priority, // priority
+                    bg_lines[bg].num, // bg_num
+                    true // is_alpha
+                );
+            }
+        }
+
+        // todo: obj can blend if alpha flag set regardless of blend mode
+        if (layers.is_alpha[0] && bounds.can_blend(x))
+        {
+            switch (blend_mode)
+            {
+                case Blend::None:
+                    break;
+
+                case Blend::Alpha:
+                    if (bldmod.is_alpha(layers.num[0], layers.num[1]))
+                    {
+                        layers.pixel[0] = blend_alpha(layers.pixel[0], layers.pixel[1], coeff_src, coeff_dst);
+                    }
+                    break;
+
+                case Blend::White:
+                    if (bldmod.is_alpha(layers.num[0]))
+                    {
+                        layers.pixel[0] = blend_white(layers.pixel[0], coeff_wb);
+                    }
+                    break;
+
+                case Blend::Black:
+                    if (bldmod.is_alpha(layers.num[0]))
+                    {
+                        layers.pixel[0] = blend_black(layers.pixel[0], coeff_wb);
+                    }
+                    break;
+            }
+        }
+
+        pixels[x] = layers.get_pixel();
     }
-    if (win0)
-    {
-        x_start = bit::get_range<8, 15>(REG_WIN0H);
-        x_end = bit::get_range<0, 7>(REG_WIN0H);
-        y_start = bit::get_range<8, 15>(REG_WIN0V);
-        y_end = bit::get_range<0, 7>(REG_WIN0V);
+}
 
-        window_enabled = true;
-        winin = &win_in[0];
+static auto is_bg_enabled(Gba& gba, u8 bg_num)
+{
+    assert(bg_num <= 3);
+
+    return bit::is_set(REG_DISPCNT, 8 + bg_num);
+}
+
+static auto get_bg_meta(Gba& gba, u8 bg_num) -> BgMeta
+{
+    assert(bg_num <= 3);
+
+    switch (bg_num)
+    {
+        case 0: return { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS };
+        case 1: return { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS };
+        case 2: return { REG_BG2CNT, REG_BG2HOFS, REG_BG2VOFS };
+        case 3: return { REG_BG3CNT, REG_BG3HOFS, REG_BG3VOFS };
     }
 
-    const auto in_range = REG_VCOUNT >= y_start && REG_VCOUNT < y_end;
+    std::unreachable();
+}
 
-    for (std::size_t i = 0; i < set.size(); i++)
+enum Layers
+{
+    BG0 = 1 << 0,
+    BG1 = 1 << 1,
+    BG2 = 1 << 2,
+    BG3 = 1 << 3,
+    OBJ = 1 << 4,
+
+    ALL = BG0 | BG1 | BG2 | BG3 | OBJ,
+};
+
+static auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layers layers = Layers::ALL, bool apply_window = true, bool apply_merge = true) -> void
+{
+    // setup inital windowing (using win0 and win1)
+    WindowBounds bounds{};
+
+    if (apply_window)
     {
-        auto& p = set[i];
+        bounds.build(gba);
+    }
 
-        // not enabled, skip
-        if (p.enable == false)
+    ObjLine obj_line{};
+
+    // only render obj if enabled
+    if (is_obj_enabled(gba) && layers & Layers::OBJ)
+    {
+        assert(bit::is_set<6>(REG_DISPCNT) && "don't handle 8bpp obj yet");
+        render_obj(gba, bounds, obj_line);
+
+        // update bounds with any obj window
+        if (apply_window)
         {
-            continue;
+            bounds.apply_obj_window(gba, obj_line);
         }
+    }
 
-        // the below code is just a really bad truth table.
-        // eventually, it will be an array of function pointers.
-        Blend blend = Blend::None;
-        Window window = Window::None;
-        WinBlend winblend = WinBlend::None;
+    for (std::size_t i = 0; i < bg_lines.size(); i++)
+    {
+        bg_lines[i].num = i;
 
-        if (window_enabled)
+        // only render bg if enabled
+        if (is_bg_enabled(gba, i) && layers & (1 << i))
         {
-            // check is this bg is allowed at all
-            if (winin->in[p.num] == 0 && win_out.out[p.num] == 0)
-            {
-                continue;
-            }
+            const auto meta = get_bg_meta(gba, i);
 
-            // check if clipping is enabled
-            // if bg is enabled in/out, then we dont check for clipping
-            if (winin->in[p.num] == 0 || win_out.out[p.num] == 0)
+            switch (bg_lines[i].render_type)
             {
-                // first check if we are in_range
-                if (in_range)
-                {
-                    // have to make sure that we can render inside the window
-                    if (winin->in[p.num])
-                    {
-                        window = Window::Inside; // clip x
-                    }
-                    // othewise, clip outside
-                    else
-                    {
-                        window = Window::Outside; // clip x
-                    }
-                }
-                else
-                {
-                    // check if we are allowed outisde the window
-                    if (win_out.out[p.num])
-                    {
-                        // window = Window::Inside; // clip x
-                    }
-                    else
-                    {
-                        continue; // skip this bg
-                    }
-                }
+                case RenderType::Reg:
+                    render_line_bg(gba, bg_lines[i], bounds, meta);
+                    break;
+
+                case RenderType::Affine:
+                    // todo:
+                    break;
             }
         }
+    }
 
-        // handle blending
-        if (blend_mode != Blend::None)
-        {
-            // check is this is a src target
-            if (bldmod.src[p.num])
-            {
-                blend = blend_mode;
-            }
-        }
-
-        // windowed blending!
-        if (window_enabled && blend != Blend::None)
-        {
-            // blending may be allowed inside and outside
-            // check that we are going to have clipped blending
-            if (winin->in[5] == 0 || win_out.out[5] == 0)
-            {
-                if (in_range)
-                {
-                    // check if we are allowed to blend inside
-                    if (winin->in[5])
-                    {
-                        winblend = WinBlend::Inside; // clip x blend
-                    }
-                    // otherwise, blend outside (clipped)
-                    else
-                    {
-                        winblend = WinBlend::Outside; // clip x blend
-                    }
-                }
-                else
-                {
-                    // check if we are allowed to blend outside
-                    if (win_out.out[5])
-                    {
-                        // winblend = WinBlend::Outside; // clip x blend
-                    }
-                    // otherwise, disable blending
-                    else
-                    {
-                        blend = Blend::None; // disable blending
-                    }
-                }
-            }
-        }
-
-        render_line_bg(gba, window, blend, winblend, line, p.cnt, p.xscroll, p.yscroll, x_start, x_end);
+    // merge all backgrounds and objects, applying blending if needed
+    if (apply_merge)
+    {
+        merge(gba, bounds, gba.ppu.pixels[REG_VCOUNT], bg_lines, obj_line);
     }
 }
 
 // 4 regular
 static auto render_mode0(Gba& gba) -> void
 {
-    Line line{gba.ppu.pixels[REG_VCOUNT]};
-
-    Set set[4] =
-    {
-        { REG_BG3CNT, REG_BG3HOFS, REG_BG3VOFS, bit::is_set<11>(REG_DISPCNT), 3 },
-        { REG_BG2CNT, REG_BG2HOFS, REG_BG2VOFS, bit::is_set<10>(REG_DISPCNT), 2 },
-        { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS, bit::is_set<9>(REG_DISPCNT), 1 },
-        { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS, bit::is_set<8>(REG_DISPCNT), 0 }
-    };
-
-    render_backdrop(gba);
-    sort_priority_set(set);
-    render_set(gba, set, line);
-
-    if (bit::is_set<12>(REG_DISPCNT))
-    {
-        assert(bit::is_set<6>(REG_DISPCNT));
-        render_obj(gba, line);
-    }
+    BgLine bg_lines[4]{ RenderType::Reg, RenderType::Reg, RenderType::Reg, RenderType::Reg };
+    tile_render(gba, bg_lines);
 }
 
 // 2 regular, 1 affine
 static auto render_mode1(Gba& gba) -> void
 {
-    Line line{gba.ppu.pixels[REG_VCOUNT]};
-
-    Set set[2] =
-    {
-        { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS, bit::is_set<9>(REG_DISPCNT), 1 },
-        { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS, bit::is_set<8>(REG_DISPCNT), 0 }
-    };
-
-    render_backdrop(gba);
-    sort_priority_set(set);
-    render_set(gba, set, line);
-
-    // todo: affine
-    if (bit::is_set<12>(REG_DISPCNT))
-    {
-        assert(bit::is_set<6>(REG_DISPCNT));
-        render_obj(gba, line);
-    }
+    BgLine bg_lines[3]{ RenderType::Reg, RenderType::Reg, RenderType::Affine };
+    tile_render(gba, bg_lines);
 }
 
 // 4 affine
 static auto render_mode2(Gba& gba) -> void
 {
-    render_backdrop(gba);
+    BgLine bg_lines[4]{ RenderType::Affine, RenderType::Affine, RenderType::Affine, RenderType::Affine };
+    tile_render(gba, bg_lines);
     assert(0);
-
-    // todo: affine*4
-    // todo: obj
 }
 
 static auto render_mode3(Gba& gba) noexcept -> void
@@ -1062,37 +1083,37 @@ auto render(Gba& gba) -> void
     }
 }
 
+// todo: re-write this so that more internal info can be
+// shown in the front end.
 auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
 {
-    Line line{pixels};
+    const auto meta = get_bg_meta(gba, layer);
 
     if (mode == 0)
     {
-        const Set set[4] =
+        BgLine bg_lines[4]{ RenderType::Reg, RenderType::Reg, RenderType::Reg, RenderType::Reg };
+        for (auto& a : bg_lines)
         {
-            { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS, bit::is_set<8>(REG_DISPCNT), 0 },
-            { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS, bit::is_set<9>(REG_DISPCNT), 1 },
-            { REG_BG2CNT, REG_BG2HOFS, REG_BG2VOFS, bit::is_set<10>(REG_DISPCNT), 2 },
-            { REG_BG3CNT, REG_BG3HOFS, REG_BG3VOFS, bit::is_set<11>(REG_DISPCNT), 3 },
-        };
+            std::ranges::fill(a.pixels, 0);
+        }
 
-        render_line_bg<Window::None, Blend::None, WinBlend::None>(gba, line, set[layer].cnt, set[layer].xscroll, set[layer].yscroll, 0, 0);
-        return set[layer].cnt.Pr;
+        tile_render(gba, bg_lines, (Layers)(1 << layer), false, false);
+        std::ranges::copy(bg_lines[layer].pixels, pixels.begin());
     }
 
     if (mode == 1)
     {
-        const Set set[2] =
+        BgLine bg_lines[3]{ RenderType::Reg, RenderType::Reg, RenderType::Affine };
+        for (auto& a : bg_lines)
         {
-            { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS, bit::is_set<8>(REG_DISPCNT), 0 },
-            { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS, bit::is_set<9>(REG_DISPCNT), 1 },
-        };
+            std::ranges::fill(a.pixels, 0);
+        }
 
-        render_line_bg<Window::None, Blend::None, WinBlend::None>(gba, line, set[layer].cnt, set[layer].xscroll, set[layer].yscroll, 0, 0);
-        return set[layer].cnt.Pr;
+        tile_render(gba, bg_lines, (Layers)(1 << layer), false, false);
+        std::ranges::copy(bg_lines[layer].pixels, pixels.begin());
     }
 
-    return 0;
+    return meta.cnt.Pr;
 }
 
 } // namespace gba::ppu

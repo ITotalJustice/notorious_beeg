@@ -22,30 +22,6 @@
 
 namespace gba::mem {
 
-// General Internal Memory
-constexpr auto BIOS_MASK        = 0x00003FFF;
-constexpr auto EWRAM_MASK       = 0x0003FFFF;
-constexpr auto IWRAM_MASK       = 0x00007FFF;
-constexpr auto IO_MASK          = 0x3FF;
-// Internal Display Memory
-constexpr auto PRAM_MASK = 0x000003FF;
-constexpr auto VRAM_MASK        = 0x0001FFFF;
-constexpr auto OAM_MASK         = 0x000003FF;
-// External Memory (Game Pak)
-constexpr auto ROM_MASK         = 0x01FFFFFF;
-
-// General Internal Memory
-[[maybe_unused]] constexpr auto BIOS_SIZE        = BIOS_MASK + 1;
-[[maybe_unused]] constexpr auto EWRAM_SIZE       = EWRAM_MASK + 1;
-[[maybe_unused]] constexpr auto IWRAM_SIZE       = IWRAM_MASK + 1;
-[[maybe_unused]] constexpr auto IO_SIZE          = IO_MASK + 1;
-// Internal Display Memory
-[[maybe_unused]] constexpr auto PRAM_SIZE = PRAM_MASK + 1;
-[[maybe_unused]] constexpr auto VRAM_SIZE        = 0x00017FFF + 1;
-[[maybe_unused]] constexpr auto OAM_SIZE         = OAM_MASK + 1;
-// External Memory (Game Pak)
-[[maybe_unused]] constexpr auto ROM_SIZE         = ROM_MASK + 1;
-
 #define MEM gba.mem
 
 static constexpr auto mirror_address(u32 addr) -> u32

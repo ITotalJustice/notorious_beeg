@@ -18,6 +18,11 @@ gba emulator witten in c++23.
 - fix 8-bit io writes. fixes [#18](https://github.com/ITotalJustice/notorious_beeg/issues/18).
 - add io viewer.
 - fix `get_bg_offset()` being used incorrectly by always using X index.
+- added background blending [#28](https://github.com/ITotalJustice/notorious_beeg/issues/28)
+- added sprite priority [#29](https://github.com/ITotalJustice/notorious_beeg/issues/29)
+- added sprite blending [#30](https://github.com/ITotalJustice/notorious_beeg/issues/30)
+- added win0/win1 [#31](https://github.com/ITotalJustice/notorious_beeg/issues/31)
+- added object windowing
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
