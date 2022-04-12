@@ -37,8 +37,14 @@ static constexpr scheduler::callback CALLBACKS[4] =
 };
 
 template<u8 Number>
-static auto add_timer_event(Gba& gba, auto& timer, auto offset) -> void
+static auto add_timer_event(Gba& gba, Timer& timer, auto offset) -> void
 {
+    // don't add timer if cascade is enabled (and not timer0)
+    if (Number != 0 && timer.cascade)
+    {
+        return;
+    }
+
     const auto value = (0x10000 - timer.counter) * timer.freq;
     assert(value >= 1);
     assert(timer.counter <= 0xFFFF);
@@ -56,6 +62,24 @@ static auto on_overflow(Gba& gba) -> void
     if constexpr(Number == 0 || Number == 1)
     {
         apu::on_timer_overflow(gba, Number);
+    }
+
+    // tick cascade timer when the timer above overflows
+    // eg, if timer2 overflows, cascade timer1 would be ticked
+    // because of this, timer0 cascade is ignored due to
+    // there not being a timer above it!
+    if constexpr(Number != 3)
+    {
+        auto& cascade_timer = gba.timer[Number+1];
+
+        if (cascade_timer.cascade)
+        {
+            cascade_timer.counter++;
+            if (cascade_timer.counter == 0)
+            {
+                on_overflow<Number+1>(gba);
+            }
+        }
     }
 
     // check if we should fire an irq
@@ -101,7 +125,7 @@ static auto on_cnt_write(Gba& gba, u16 cnt) -> void
 
     if (timer.enable)
     {
-        assert(!C && "cascade not impl");
+        // assert(!C && "cascade not impl");
         // searching on emudev discord about timers mention that they
         // have a 2 cycle delay on startup (but not on overflow)
         add_timer_event<Number>(gba, timer, 2);
@@ -179,8 +203,20 @@ auto read_timer(Gba& gba, u8 num) -> u16
     return timer.counter + delta;
     #else
     auto& timer = gba.timer[num];
-    update_timer(gba, timer);
-    return timer.counter;
+
+    if (!timer.enable)
+    {
+        return timer.reload;
+    }
+    else if (timer.cascade)
+    {
+        return timer.counter;
+    }
+    else
+    {
+        update_timer(gba, timer);
+        return timer.counter;
+    }
     #endif
 }
 
