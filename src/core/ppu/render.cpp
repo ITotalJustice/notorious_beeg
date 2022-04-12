@@ -73,18 +73,24 @@ struct ObjLine
 enum class RenderType
 {
     Reg,
-    Affine
+    Affine,
+    Bitmap3,
+    Bitmap4,
+    // Bitmap5,
 };
 
 struct BgLine
 {
-    BgLine(RenderType type) : render_type{type} {}
+    BgLine(u8 _num, RenderType type) :
+        num{_num},
+        render_type{type} {}
 
+    const u8 num; // background num (0-3)
     const RenderType render_type;
+
     u16 pixels[240];
     bool is_opaque[240]{false}; // pixel != 0
     u8 priority; // priority (0-3)
-    u8 num; // background num (0-3)
 };
 
 struct BGxCNT
@@ -630,7 +636,7 @@ static auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> v
     }
 }
 
-static auto render_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
+static auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
 {
     const auto vcount = REG_VCOUNT;
     //
@@ -641,8 +647,6 @@ static auto render_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, c
     const auto charblock = reinterpret_cast<u8*>(gba.mem.vram + meta.cnt.CBB * CHARBLOCK_SIZE);
     // se_mem (where the tilemaps are)
     const auto screenblock = reinterpret_cast<u16*>(gba.mem.vram + (meta.cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(meta.cnt, meta.yscroll + vcount) + ((y / 8) * 64));
-
-    line.priority = meta.cnt.Pr;
 
     for (auto x = 0; x < 240; x++)
     {
@@ -691,6 +695,49 @@ static auto render_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, c
     }
 }
 
+static auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
+{
+    const auto vram = reinterpret_cast<const u16*>(gba.mem.vram + (240 * REG_VCOUNT * 2));
+
+    for (auto x = 0; x < 240; x++)
+    {
+        // check if we are allowed inside
+        if (!bounds.in_bounds(line.num, x))
+        {
+            continue;
+        }
+
+        // i don't think mode3 can have transparent tiles?
+        const auto pixel = vram[x];
+        line.is_opaque[x] = true;
+        line.pixels[x] = pixel;
+    }
+}
+
+static auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
+{
+    const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
+    const auto pram = reinterpret_cast<const u16*>(gba.mem.pram);
+    const auto vram = gba.mem.vram + page + (240 * REG_VCOUNT);
+
+    for (auto x = 0; x < 240; x++)
+    {
+        // check if we are allowed inside
+        if (!bounds.in_bounds(line.num, x))
+        {
+            continue;
+        }
+
+        const auto pixel = vram[x];
+
+        if (pixel != 0) // don't render transparent pixel
+        {
+            line.is_opaque[x] = true;
+            line.pixels[x] = pram[pixel];
+        }
+    }
+}
+
 static auto is_obj_enabled(Gba& gba)
 {
     return bit::is_set<12>(REG_DISPCNT);
@@ -721,10 +768,10 @@ auto WindowBounds::build(Gba& gba) -> void
     const auto win1_y_start = bit::get_range<8, 15>(REG_WIN1V);
     const auto win1_y_end = bit::get_range<0, 7>(REG_WIN1V);
 
-    assert(win0_x_start < win0_x_end && "wrapping not handled");
-    assert(win1_x_start < win1_x_end && "wrapping not handled");
-    assert(win0_y_start < win0_y_end && "wrapping not handled");
-    assert(win1_y_start < win1_y_end && "wrapping not handled");
+    assert(win0_x_start <= win0_x_end && "wrapping not handled");
+    assert(win1_x_start <= win1_x_end && "wrapping not handled");
+    assert(win0_y_start <= win0_y_end && "wrapping not handled");
+    assert(win1_y_start <= win1_y_end && "wrapping not handled");
 
     const auto vcount = REG_VCOUNT;
 
@@ -977,7 +1024,7 @@ static auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layers layers = La
     // only render obj if enabled
     if (is_obj_enabled(gba) && layers & Layers::OBJ)
     {
-        assert(bit::is_set<6>(REG_DISPCNT) && "don't handle 8bpp obj yet");
+        assert(bit::is_set<6>(REG_DISPCNT) && "don't handle 2D mapping yet");
         render_obj(gba, bounds, obj_line);
 
         // update bounds with any obj window
@@ -989,21 +1036,30 @@ static auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layers layers = La
 
     for (std::size_t i = 0; i < bg_lines.size(); i++)
     {
-        bg_lines[i].num = i;
+        auto& line = bg_lines[i];
 
         // only render bg if enabled
-        if (is_bg_enabled(gba, i) && layers & (1 << i))
+        if (is_bg_enabled(gba, line.num) && layers & (1 << line.num))
         {
-            const auto meta = get_bg_meta(gba, i);
+            const auto meta = get_bg_meta(gba, line.num);
+            line.priority = meta.cnt.Pr;
 
-            switch (bg_lines[i].render_type)
+            switch (line.render_type)
             {
                 case RenderType::Reg:
-                    render_line_bg(gba, bg_lines[i], bounds, meta);
+                    render_tile_line_bg(gba, line, bounds, meta);
                     break;
 
                 case RenderType::Affine:
                     // todo:
+                    break;
+
+                case RenderType::Bitmap3:
+                    render_bitmap3_line_bg(gba, line, bounds, meta);
+                    break;
+
+                case RenderType::Bitmap4:
+                    render_bitmap4_line_bg(gba, line, bounds, meta);
                     break;
             }
         }
@@ -1019,42 +1075,35 @@ static auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layers layers = La
 // 4 regular
 static auto render_mode0(Gba& gba) -> void
 {
-    BgLine bg_lines[4]{ RenderType::Reg, RenderType::Reg, RenderType::Reg, RenderType::Reg };
+    BgLine bg_lines[4]{ {0, RenderType::Reg}, {1, RenderType::Reg}, {2, RenderType::Reg}, {3, RenderType::Reg} };
     tile_render(gba, bg_lines);
 }
 
 // 2 regular, 1 affine
 static auto render_mode1(Gba& gba) -> void
 {
-    BgLine bg_lines[3]{ RenderType::Reg, RenderType::Reg, RenderType::Affine };
+    BgLine bg_lines[3]{ {0, RenderType::Reg}, {1, RenderType::Reg}, {2, RenderType::Affine} };
     tile_render(gba, bg_lines);
 }
 
 // 4 affine
-static auto render_mode2(Gba& gba) -> void
-{
-    BgLine bg_lines[4]{ RenderType::Affine, RenderType::Affine, RenderType::Affine, RenderType::Affine };
-    tile_render(gba, bg_lines);
-    assert(0);
-}
+// static auto render_mode2(Gba& gba) -> void
+// {
+//     BgLine bg_lines[4]{ {0, RenderType::Affine}, {1, RenderType::Affine}, {2, RenderType::Affine}, {3, RenderType::Affine} };
+//     tile_render(gba, bg_lines);
+//     assert(!"unsupported mode");
+// }
 
 static auto render_mode3(Gba& gba) noexcept -> void
 {
-    auto& pixels = gba.ppu.pixels[REG_VCOUNT];
-    const auto vram = reinterpret_cast<u16*>(gba.mem.vram);
-    std::memcpy(pixels, vram + 240 * REG_VCOUNT, sizeof(pixels));
+    BgLine bg_lines[1]{ {2, RenderType::Bitmap3} };
+    tile_render(gba, bg_lines);
 }
 
 static auto render_mode4(Gba& gba) noexcept -> void
 {
-    const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
-    auto addr = page + (240 * REG_VCOUNT);
-    auto& pixels = gba.ppu.pixels[REG_VCOUNT];
-    const auto pram = reinterpret_cast<u16*>(gba.mem.pram);
-
-    std::ranges::for_each(pixels, [&gba, &addr, pram](auto& pixel){
-        pixel = pram[gba.mem.vram[addr++]];
-    });
+    BgLine bg_lines[1]{ {2, RenderType::Bitmap4} };
+    tile_render(gba, bg_lines);
 }
 
 auto render(Gba& gba) -> void
@@ -1072,10 +1121,10 @@ auto render(Gba& gba) -> void
     {
         case 0: render_mode0(gba); break;
         case 1: render_mode1(gba); break;
-        case 2: render_mode2(gba); break;
+        // case 2: render_mode2(gba); break;
         case 3: render_mode3(gba); break;
         case 4: render_mode4(gba); break;
-        // case 5: // only unhandled mode atm
+        // case 5: render_mode5(gba); break;
 
         default:
             std::printf("unhandled ppu mode: %u\n", mode);
@@ -1088,29 +1137,50 @@ auto render(Gba& gba) -> void
 auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
 {
     const auto meta = get_bg_meta(gba, layer);
+    // for now, ignore the mode the frontend wants
+    mode = get_mode(gba);
 
-    if (mode == 0)
+    const auto func = [&gba, &pixels, &layer](std::span<BgLine> lines, bool bitmap_mode)
     {
-        BgLine bg_lines[4]{ RenderType::Reg, RenderType::Reg, RenderType::Reg, RenderType::Reg };
-        for (auto& a : bg_lines)
+        if ((!bitmap_mode && layer < lines.size()) || (bitmap_mode && layer == 2))
         {
-            std::ranges::fill(a.pixels, 0);
+            for (auto& a : lines)
+            {
+                std::ranges::fill(a.pixels, 0);
+            }
+
+            const auto index = bitmap_mode ? 0 : layer;
+
+            tile_render(gba, lines, (Layers)(1 << layer), false, false);
+            std::ranges::copy(lines[index].pixels, pixels.begin());
         }
+    };
 
-        tile_render(gba, bg_lines, (Layers)(1 << layer), false, false);
-        std::ranges::copy(bg_lines[layer].pixels, pixels.begin());
-    }
-
-    if (mode == 1)
+    switch (mode)
     {
-        BgLine bg_lines[3]{ RenderType::Reg, RenderType::Reg, RenderType::Affine };
-        for (auto& a : bg_lines)
-        {
-            std::ranges::fill(a.pixels, 0);
-        }
+        case 0: {
+            BgLine bg_lines[4]{ {0, RenderType::Reg}, {1, RenderType::Reg}, {2, RenderType::Reg}, {3, RenderType::Reg} };
+            func(bg_lines, false);
+        } break;
 
-        tile_render(gba, bg_lines, (Layers)(1 << layer), false, false);
-        std::ranges::copy(bg_lines[layer].pixels, pixels.begin());
+        case 1: {
+            BgLine bg_lines[3]{ {0, RenderType::Reg}, {1, RenderType::Reg}, {2, RenderType::Affine} };
+            func(bg_lines, false);
+        } break;
+
+        case 2: {
+
+        } break;
+
+        case 3: {
+            BgLine bg_lines[1]{ {2, RenderType::Bitmap3} };
+            func(bg_lines, true);
+        } break;
+
+        case 4: {
+            BgLine bg_lines[1]{ {2, RenderType::Bitmap4} };
+            func(bg_lines, true);
+        } break;
     }
 
     return meta.cnt.Pr;

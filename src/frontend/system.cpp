@@ -119,7 +119,7 @@ auto draw_grid(int size, int count, float thicc, int x, int y)
 
 auto on_hblank_callback(void* user, uint16_t line) -> void
 {
-    if (!System::debug_mode)
+    if constexpr (!System::debug_mode)
     {
         return;
     }
@@ -131,24 +131,18 @@ auto on_hblank_callback(void* user, uint16_t line) -> void
 
     auto sys = static_cast<System*>(user);
 
-    // on line 0, memset the layers
-    if (line == 0)
-    {
-        for (auto& layer : sys->layers)
-        {
-            std::memset(layer.pixels, 0, sizeof(layer.pixels));
-        }
-    }
-
     for (auto i = 0; i < 4; i++)
     {
-        sys->layers[i].priority = sys->gameboy_advance.render_mode(sys->layers[i].pixels[line], 0, i);
+        if (sys->layers[i].enabled)
+        {
+            sys->layers[i].priority = sys->gameboy_advance.render_mode(sys->layers[i].pixels[line], 0, i);
+        }
     }
 }
 
 auto System::render_layers() -> void
 {
-    if (!debug_mode)
+    if constexpr (!debug_mode)
     {
         return;
     }
