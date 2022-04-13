@@ -24,6 +24,25 @@ static constexpr arm7tdmi::Interrupt INTERRUPTS[4] =
     arm7tdmi::Interrupt::DMA3,
 };
 
+constexpr auto INTERNAL_MEMORY_RANGE = 0x07FFFFFF;
+constexpr auto ANY_MEMORY_RANGE = 0x0FFFFFFF;
+
+static constexpr u32 SRC_MASK[4] =
+{
+    INTERNAL_MEMORY_RANGE,
+    ANY_MEMORY_RANGE,
+    ANY_MEMORY_RANGE,
+    ANY_MEMORY_RANGE,
+};
+
+static constexpr u32 DST_MASK[4] =
+{
+    INTERNAL_MEMORY_RANGE,
+    INTERNAL_MEMORY_RANGE,
+    INTERNAL_MEMORY_RANGE,
+    ANY_MEMORY_RANGE,
+};
+
 struct [[nodiscard]] Registers
 {
     u32 dmasad;
@@ -56,6 +75,9 @@ static auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
     {
         for (int i = 0; i < 4; i++)
         {
+            dma.src_addr &= SRC_MASK[channel_num];
+            dma.dst_addr &= DST_MASK[channel_num];
+
             const auto value = mem::read32(gba, dma.src_addr);
             gba.scheduler.tick(1); // for fifo write
             apu::on_fifo_write32(gba, value, channel_num-1);
@@ -91,8 +113,12 @@ static auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
             case SizeType::half:
                 while (dma.len--)
                 {
+                    dma.src_addr &= SRC_MASK[channel_num];
+                    dma.dst_addr &= DST_MASK[channel_num];
+
                     const auto value = mem::read16(gba, dma.src_addr);
                     mem::write16(gba, dma.dst_addr, value);
+
                     dma.src_addr += dma.src_increment;
                     dma.dst_addr += dma.dst_increment;
                 }
@@ -101,8 +127,12 @@ static auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
             case SizeType::word:
                 while (dma.len--)
                 {
+                    dma.src_addr &= SRC_MASK[channel_num];
+                    dma.dst_addr &= DST_MASK[channel_num];
+
                     const auto value = mem::read32(gba, dma.src_addr);
                     mem::write32(gba, dma.dst_addr, value);
+
                     dma.src_addr += dma.src_increment;
                     dma.dst_addr += dma.dst_increment;
                 }
@@ -220,8 +250,8 @@ auto on_cnt_write(Gba& gba, u8 channel_num) -> void
     const auto I = bit::is_set<14>(cnt_h); // irq
     const auto N = bit::is_set<15>(cnt_h); // enable flag
 
-    const auto src = bit::get_range<0, 28>(sad); // can be 27 bit, handled below
-    const auto dst = bit::get_range<0, 27>(dad); // can be 28 bit, handled below
+    const auto src = sad; // address is masked on r/w
+    const auto dst = dad; // address is masked on r/w
     const auto len = cnt_l;
 
     // std::printf("[dma%u] src: 0x%08X dst: 0x%08X len: 0x%04X B: %u A: %u R: %u S: %u M: %u I: %u N: %u\n", channel_num, src, dst, len, (u8)B, (u8)A, R, (u8)S, (u8)M, I, N);
@@ -251,19 +281,6 @@ auto on_cnt_write(Gba& gba, u8 channel_num) -> void
         dma.dst_addr = dst;
         dma.src_addr = src;
         dma.len = len;
-
-        // handle special setup
-        switch (channel_num)
-        {
-            case 0:
-                dma.src_addr = bit::get_range<0, 27>(sad);
-                break;
-
-            case 3:
-                dma.dst_addr = bit::get_range<0, 28>(dad);
-                assert(dma.mode != Mode::special && "dma3 special mode");
-                break;
-        }
 
         // handle len=0, set len to max
         if (dma.len == 0)
@@ -319,6 +336,8 @@ auto on_cnt_write(Gba& gba, u8 channel_num) -> void
         {
             // already handled
             case IncrementType::inc:
+             // same as increment, only that it reloads dst if R is set.
+            case IncrementType::special:
                 break;
 
             // goes down
@@ -329,14 +348,6 @@ auto on_cnt_write(Gba& gba, u8 channel_num) -> void
             // don't increment
             case IncrementType::unchanged:
                 inc = 0;
-                break;
-
-            // same as increment, only that it reloads dst if R is set.
-            case IncrementType::special:
-                if (!is_dst)
-                {
-                    assert(!"special dma set for src!");
-                }
                 break;
         }
     };
@@ -354,7 +365,6 @@ auto on_cnt_write(Gba& gba, u8 channel_num) -> void
         #else
         start_dma(gba, dma, channel_num);
         #endif
-        // assert(R == false && "[dma] unhandled: repeat bit set with immediate");
     }
 }
 

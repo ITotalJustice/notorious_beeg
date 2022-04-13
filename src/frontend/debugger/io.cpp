@@ -29,9 +29,10 @@ constexpr auto set(const T value, u32 new_v) -> T {
     static_assert(start <= end, "range is inverted! remember its lo, hi");
     static_assert(end < (sizeof(T) * 8));
 
+    constexpr auto mask = bit::get_mask<start, end, T>() >> start;
     const auto unset_v = unset<start, end>(value);
 
-    return unset_v | (new_v << start);
+    return unset_v | ((new_v & mask) << start);
 }
 
 static_assert(unset<6, 7, int>(0xC0) == 0, "fail");
@@ -72,14 +73,14 @@ static auto io_list(gba::Gba& gba, auto& reg, const char* name, std::span<const 
     // some lists might only be 1 bit
     if (start == end)
     {
-        sprintf(label, "[0x%X] %s\n", start, name);
+        std::sprintf(label, "[0x%X] %s\n", start, name);
     }
     else
     {
-        sprintf(label, "[0x%X-0x%X] %s\n", start, end, name);
+        std::sprintf(label, "[0x%X-0x%X] %s\n", start, end, name);
     }
 
-    sprintf(label2, "##%s", label);
+    std::sprintf(label2, "##%s", label);
     ImGui::Text("%s", label);
 
     const int old = bit::get_range<start, end>(reg);
@@ -134,22 +135,44 @@ static auto io_button(gba::Gba& gba, auto& reg, const char* name) -> void
     }
 }
 
-template<int start, int end, typename T>
+template<int start, int end, bool sign = false, typename T>
 static auto io_int(gba::Gba& gba, T& reg, const char* name) -> void
 {
     char label[128]{};
     char label2[128]{};
 
-    std::sprintf(label, "[0x%X-0x%X] %s", start, end, name);
+    // some lists might only be 1 bit
+    if (start == end)
+    {
+        std::sprintf(label, "[0x%X] %s\n", start, name);
+    }
+    else
+    {
+        std::sprintf(label, "[0x%X-0x%X] %s\n", start, end, name);
+    }
+
     std::sprintf(label2, "##%s", label);
 
     ImGui::Text("%s", label);
 
-    constexpr auto max = bit::get_mask<start, end, T>() >> start;
-    const int old = bit::get_range<start, end>(reg);
+    auto max = 0;
+    auto min = 0;
+    auto old = bit::get_range<start, end>(reg);
+
+    if (sign)
+    {
+        max = bit::get_mask<start, end-1, T>() >> start;
+        min = -max - 1; // eg, min: -128, max: +127
+        old = bit::sign_extend<(end-start)+1>(old);
+    }
+    else
+    {
+        max = bit::get_mask<start, end, T>() >> start;
+    }
+
     int value = old;
 
-    ImGui::SliderInt(label2, &value, 0, max);
+    ImGui::SliderInt(label2, &value, min, max);
 
     // update if the value changed
     if (value != old)
@@ -320,6 +343,82 @@ static auto io_bg3vofs(gba::Gba& gba) -> void
     io_bgXHVofs(gba, gba::mem::IO_BG3VOFS, REG_BG3VOFS);
 }
 
+static auto io_bg23pabcd(gba::Gba& gba, auto addr, auto& reg) -> void
+{
+    io_title(addr, reg);
+
+    io_int<0x0, 0x7>(gba, reg, "Fraction"); ImGui::Separator();
+    io_int<0x8, 0xF, true>(gba, reg, "Integer"); ImGui::Separator();
+}
+
+static auto io_bg23xy(gba::Gba& gba, auto addr, auto& reg) -> void
+{
+    io_title(addr, reg);
+
+    io_int<0x0, 0x7>(gba, reg, "Fraction"); ImGui::Separator();
+    io_int<0x8, 27, true>(gba, reg, "Integer"); ImGui::Separator();
+}
+
+static auto IO_BG2PA(gba::Gba& gba) -> void
+{
+    io_bg23pabcd(gba, gba::mem::IO_BG2PA, REG_BG2PA);
+}
+
+static auto IO_BG2PB(gba::Gba& gba) -> void
+{
+    io_bg23pabcd(gba, gba::mem::IO_BG2PB, REG_BG2PB);
+}
+
+static auto IO_BG2PC(gba::Gba& gba) -> void
+{
+    io_bg23pabcd(gba, gba::mem::IO_BG2PC, REG_BG2PC);
+}
+
+static auto IO_BG2PD(gba::Gba& gba) -> void
+{
+    io_bg23pabcd(gba, gba::mem::IO_BG2PD, REG_BG2PD);
+}
+
+static auto IO_BG2X(gba::Gba& gba) -> void
+{
+    io_bg23xy(gba, gba::mem::IO_BG2X, REG_BG2X);
+}
+
+static auto IO_BG2Y(gba::Gba& gba) -> void
+{
+    io_bg23xy(gba, gba::mem::IO_BG2Y, REG_BG2Y);
+}
+
+static auto IO_BG3PA(gba::Gba& gba) -> void
+{
+    io_bg23pabcd(gba, gba::mem::IO_BG3PA, REG_BG3PA);
+}
+
+static auto IO_BG3PB(gba::Gba& gba) -> void
+{
+    io_bg23pabcd(gba, gba::mem::IO_BG3PB, REG_BG3PB);
+}
+
+static auto IO_BG3PC(gba::Gba& gba) -> void
+{
+    io_bg23pabcd(gba, gba::mem::IO_BG3PC, REG_BG3PC);
+}
+
+static auto IO_BG3PD(gba::Gba& gba) -> void
+{
+    io_bg23pabcd(gba, gba::mem::IO_BG3PD, REG_BG3PD);
+}
+
+static auto IO_BG3X(gba::Gba& gba) -> void
+{
+    io_bg23xy(gba, gba::mem::IO_BG3X, REG_BG3X);
+}
+
+static auto IO_BG3Y(gba::Gba& gba) -> void
+{
+    io_bg23xy(gba, gba::mem::IO_BG3Y, REG_BG3Y);
+}
+
 static auto io_winXh(gba::Gba& gba, auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
@@ -333,7 +432,7 @@ static auto io_winXv(gba::Gba& gba, auto addr, auto& reg) -> void
     io_title(addr, reg);
 
     io_int<0x0, 0x7>(gba, reg, "Y: Bottom"); ImGui::Separator();
-    io_int<0x8, 0xF>(gba, reg, "X: Top");
+    io_int<0x8, 0xF>(gba, reg, "Y: Top");
 }
 
 static auto io_win0h(gba::Gba& gba) -> void
@@ -445,6 +544,137 @@ static auto io_coley(gba::Gba& gba) -> void
     io_int<0x0, 0x4>(gba, REG_COLEY, "lighten/darken value");
 }
 
+static auto IO_DMA0SAD(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_DMA0SAD, REG_DMA0SAD);
+    io_int<0x0, 26>(gba, REG_DMA0SAD, "27-bit source address");
+}
+
+static auto IO_DMA1SAD(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_DMA1SAD, REG_DMA1SAD);
+    io_int<0x0, 27>(gba, REG_DMA1SAD, "28-bit source address");
+}
+
+static auto IO_DMA2SAD(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_DMA2SAD, REG_DMA2SAD);
+    io_int<0x0, 27>(gba, REG_DMA2SAD, "28-bit source address");
+}
+
+static auto IO_DMA3SAD(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_DMA3SAD, REG_DMA3SAD);
+    io_int<0x0, 27>(gba, REG_DMA3SAD, "28-bit source address");
+}
+
+static auto IO_DMA0DAD(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_DMA0DAD, REG_DMA0DAD);
+    io_int<0x0, 26>(gba, REG_DMA0DAD, "27-bit source address");
+}
+
+static auto IO_DMA1DAD(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_DMA1DAD, REG_DMA1DAD);
+    io_int<0x0, 26>(gba, REG_DMA1DAD, "27-bit source address");
+}
+
+static auto IO_DMA2DAD(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_DMA2DAD, REG_DMA2DAD);
+    io_int<0x0, 26>(gba, REG_DMA2DAD, "27-bit source address");
+}
+
+static auto IO_DMA3DAD(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_DMA3DAD, REG_DMA3DAD);
+    io_int<0x0, 27>(gba, REG_DMA3DAD, "27-bit source address");
+}
+
+static auto IO_DMAXCNT(gba::Gba& gba, auto addr, auto& reg) -> void
+{
+    io_title(addr, reg);
+
+    static const char* dst_inc[] = { "Increment", "Decrement", "Unchanged", "Increment/Reload" };
+    io_list<0x5, 0x6>(gba, reg, "Dst Inc Mode", dst_inc);
+    ImGui::Separator();
+
+    static const char* src_inc[] = { "Increment", "Decrement", "Unchanged", "Illegal" };
+    io_list<0x7, 0x8>(gba, reg, "Src Inc Mode", src_inc);
+    ImGui::Separator();
+
+    io_button<0x9>(gba, reg, "Repeat");
+    ImGui::Separator();
+
+    static const char* sizes[] = { "16-bit", "32-bit" };
+    io_list<0xA, 0xA>(gba, reg, "Size", sizes);
+    ImGui::Separator();
+
+    io_button<0xB>(gba, reg, "Unknown");
+    ImGui::Separator();
+
+    static const char* mode[] = { "Immediate", "Vblank (vdma)", "Hblank (hdma)", "Special" };
+    io_list<0xC, 0xD>(gba, reg, "Start Mode", mode);
+    ImGui::Separator();
+
+    io_button<0xE>(gba, reg, "IRQ");
+    io_button<0xF>(gba, reg, "Enable");
+}
+
+static auto IO_DMA0CNT_H(gba::Gba& gba) -> void
+{
+    IO_DMAXCNT(gba, gba::mem::IO_DMA0CNT_H, REG_DMA0CNT_H);
+}
+
+static auto IO_DMA1CNT_H(gba::Gba& gba) -> void
+{
+    IO_DMAXCNT(gba, gba::mem::IO_DMA1CNT_H, REG_DMA1CNT_H);
+}
+
+static auto IO_DMA2CNT_H(gba::Gba& gba) -> void
+{
+    IO_DMAXCNT(gba, gba::mem::IO_DMA2CNT_H, REG_DMA2CNT_H);
+}
+
+static auto IO_DMA3CNT_H(gba::Gba& gba) -> void
+{
+    IO_DMAXCNT(gba, gba::mem::IO_DMA3CNT_H, REG_DMA3CNT_H);
+}
+
+static auto IO_TMXCNT(gba::Gba& gba, auto addr, auto& reg) -> void
+{
+    io_title(addr, reg);
+
+    static const char* freq[] = { "1-clk (16.78MHz)", "64-clk (262187.5KHz)", "256-clk (65546.875KHz)", "1024-clk (16386.71875KHz)" };
+    io_list<0x0, 0x1>(gba, reg, "Frequency", freq);
+    ImGui::Separator();
+
+    io_button<0x2>(gba, reg, "Cascade");
+    io_button<0x6>(gba, reg, "IRQ");
+    io_button<0x7>(gba, reg, "Enable");
+}
+
+static auto IO_TM0CNT(gba::Gba& gba) -> void
+{
+    IO_TMXCNT(gba, gba::mem::IO_TM0CNT, REG_TM0CNT);
+}
+
+static auto IO_TM1CNT(gba::Gba& gba) -> void
+{
+    IO_TMXCNT(gba, gba::mem::IO_TM1CNT, REG_TM1CNT);
+}
+
+static auto IO_TM2CNT(gba::Gba& gba) -> void
+{
+    IO_TMXCNT(gba, gba::mem::IO_TM2CNT, REG_TM2CNT);
+}
+
+static auto IO_TM3CNT(gba::Gba& gba) -> void
+{
+    IO_TMXCNT(gba, gba::mem::IO_TM3CNT, REG_TM3CNT);
+}
+
 static auto io_key(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_KEY, REG_KEY);
@@ -528,6 +758,18 @@ static const std::array IO_NAMES =
     IoRegEntry{ "BG2VOFS", io_bg2vofs },
     IoRegEntry{ "BG3HOFS", io_bg3vofs },
     IoRegEntry{ "BG3VOFS", io_bg3hofs },
+    IoRegEntry{ "BG2PA", IO_BG2PA },
+    IoRegEntry{ "BG2PB", IO_BG2PB },
+    IoRegEntry{ "BG2PC", IO_BG2PC },
+    IoRegEntry{ "BG2PD", IO_BG2PD },
+    IoRegEntry{ "BG2X", IO_BG2X },
+    IoRegEntry{ "BG2Y", IO_BG2Y },
+    IoRegEntry{ "BG3PA", IO_BG3PA },
+    IoRegEntry{ "BG3PB", IO_BG3PB },
+    IoRegEntry{ "BG3PC", IO_BG3PC },
+    IoRegEntry{ "BG3PD", IO_BG3PD },
+    IoRegEntry{ "BG3X", IO_BG3X },
+    IoRegEntry{ "BG3Y", IO_BG3Y },
     IoRegEntry{ "WIN0H", io_win0h },
     IoRegEntry{ "WIN1H", io_win1h },
     IoRegEntry{ "WIN0V", io_win0v },
@@ -564,14 +806,14 @@ static const std::array IO_NAMES =
     IoRegEntry{ "FIFO_A_H", unimpl_io_view },
     IoRegEntry{ "FIFO_B_L", unimpl_io_view },
     IoRegEntry{ "FIFO_B_H", unimpl_io_view },
-    IoRegEntry{ "DMA0SAD", unimpl_io_view },
-    IoRegEntry{ "DMA1SAD", unimpl_io_view },
-    IoRegEntry{ "DMA2SAD", unimpl_io_view },
-    IoRegEntry{ "DMA3SAD", unimpl_io_view },
-    IoRegEntry{ "DMA0DAD", unimpl_io_view },
-    IoRegEntry{ "DMA1DAD", unimpl_io_view },
-    IoRegEntry{ "DMA2DAD", unimpl_io_view },
-    IoRegEntry{ "DMA3DAD", unimpl_io_view },
+    IoRegEntry{ "DMA0SAD", IO_DMA0SAD },
+    IoRegEntry{ "DMA1SAD", IO_DMA1SAD },
+    IoRegEntry{ "DMA2SAD", IO_DMA2SAD },
+    IoRegEntry{ "DMA3SAD", IO_DMA3SAD },
+    IoRegEntry{ "DMA0DAD", IO_DMA0DAD },
+    IoRegEntry{ "DMA1DAD", IO_DMA1DAD },
+    IoRegEntry{ "DMA2DAD", IO_DMA2DAD },
+    IoRegEntry{ "DMA3DAD", IO_DMA3DAD },
     IoRegEntry{ "DMA0CNT", unimpl_io_view },
     IoRegEntry{ "DMA1CNT", unimpl_io_view },
     IoRegEntry{ "DMA2CNT", unimpl_io_view },
@@ -580,18 +822,18 @@ static const std::array IO_NAMES =
     IoRegEntry{ "DMA1CNT_L", unimpl_io_view },
     IoRegEntry{ "DMA2CNT_L", unimpl_io_view },
     IoRegEntry{ "DMA3CNT_L", unimpl_io_view },
-    IoRegEntry{ "DMA0CNT_H", unimpl_io_view },
-    IoRegEntry{ "DMA1CNT_H", unimpl_io_view },
-    IoRegEntry{ "DMA2CNT_H", unimpl_io_view },
-    IoRegEntry{ "DMA3CNT_H", unimpl_io_view },
+    IoRegEntry{ "DMA0CNT_H", IO_DMA0CNT_H },
+    IoRegEntry{ "DMA1CNT_H", IO_DMA1CNT_H },
+    IoRegEntry{ "DMA2CNT_H", IO_DMA2CNT_H },
+    IoRegEntry{ "DMA3CNT_H", IO_DMA3CNT_H },
     IoRegEntry{ "TM0D", unimpl_io_view },
     IoRegEntry{ "TM1D", unimpl_io_view },
     IoRegEntry{ "TM2D", unimpl_io_view },
     IoRegEntry{ "TM3D", unimpl_io_view },
-    IoRegEntry{ "TM0CNT", unimpl_io_view },
-    IoRegEntry{ "TM1CNT", unimpl_io_view },
-    IoRegEntry{ "TM2CNT", unimpl_io_view },
-    IoRegEntry{ "TM3CNT", unimpl_io_view },
+    IoRegEntry{ "TM0CNT", IO_TM0CNT },
+    IoRegEntry{ "TM1CNT", IO_TM1CNT },
+    IoRegEntry{ "TM2CNT", IO_TM2CNT },
+    IoRegEntry{ "TM3CNT", IO_TM3CNT },
     IoRegEntry{ "KEY", io_key },
     IoRegEntry{ "IE", io_ie },
     IoRegEntry{ "IF", io_if },

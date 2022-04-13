@@ -172,6 +172,18 @@ static constexpr auto read_io16(Gba& gba, u32 addr) -> u16
         case IO_BG2VOFS:
         case IO_BG3HOFS:
         case IO_BG3VOFS:
+        case IO_BG2PA:
+        case IO_BG2PB:
+        case IO_BG2PC:
+        case IO_BG2PD:
+        case IO_BG2X:
+        case IO_BG2Y:
+        case IO_BG3PA:
+        case IO_BG3PB:
+        case IO_BG3PC:
+        case IO_BG3PD:
+        case IO_BG3X:
+        case IO_BG3Y:
         case IO_WIN0H:
         case IO_WIN1H:
         case IO_WIN0V:
