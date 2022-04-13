@@ -317,15 +317,26 @@ auto on_cnt_write(Gba& gba, u8 channel_num) -> void
     {
         switch (type)
         {
-            case IncrementType::inc: break;
-            case IncrementType::dec: inc *= -1; break;
-            case IncrementType::unchanged: inc = 0; break;
+            // already handled
+            case IncrementType::inc:
+                break;
+
+            // goes down
+            case IncrementType::dec:
+                inc *= -1;
+                break;
+
+            // don't increment
+            case IncrementType::unchanged:
+                inc = 0;
+                break;
+
+            // same as increment, only that it reloads dst if R is set.
             case IncrementType::special:
                 if (!is_dst)
                 {
                     assert(!"special dma set for src!");
                 }
-                inc = 0;
                 break;
         }
     };
@@ -343,7 +354,7 @@ auto on_cnt_write(Gba& gba, u8 channel_num) -> void
         #else
         start_dma(gba, dma, channel_num);
         #endif
-        assert(R == false && "[dma] unhandled: repeat bit set with immediate");
+        // assert(R == false && "[dma] unhandled: repeat bit set with immediate");
     }
 }
 
