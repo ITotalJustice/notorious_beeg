@@ -69,7 +69,7 @@ auto setup_tables(Gba& gba) -> void
     std::ranges::fill(MEM.wmap_16, WriteArray{});
     std::ranges::fill(MEM.wmap_32, WriteArray{});
 
-    MEM.rmap_16[0x0] = {gba.mem.bios, BIOS_MASK};
+    // MEM.rmap_16[0x0] = {gba.mem.bios, BIOS_MASK};
     MEM.rmap_16[0x2] = {gba.mem.ewram, EWRAM_MASK};
     MEM.rmap_16[0x3] = {gba.mem.iwram, IWRAM_MASK};
     MEM.rmap_16[0x5] = {gba.mem.pram, PRAM_MASK};
@@ -116,11 +116,37 @@ auto reset(Gba& gba) -> void
     setup_tables(gba);
 }
 
+// todo: make this part of struct when ready to break savestates
+static u32 bios_openbus_value = 0x0;
+
 template<typename T>
-static constexpr auto empty_read([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr) -> T
+static constexpr auto openbus(Gba& gba, u32 addr) -> T
 {
-    // std::printf("empty read: 0x%08X\n", addr);
-    return 0x0;
+    std::printf("openbus read: 0x%08X v1: 0x%08X v2: 0x%08X\n", addr, gba.cpu.pipeline[0], gba.cpu.pipeline[1]);
+
+    if (addr <= 0x00003FFF)
+    {
+        return bios_openbus_value;
+    }
+
+    // the below isn't actually how you do open bus, but it'll do for now
+    switch (arm7tdmi::get_state(gba))
+    {
+        case arm7tdmi::State::ARM:
+            return gba.cpu.pipeline[1];
+
+        case arm7tdmi::State::THUMB:
+            if (addr & 1)
+            {
+                return (gba.cpu.pipeline[1] << 16) | gba.cpu.pipeline[0];
+            }
+            else
+            {
+                return (gba.cpu.pipeline[0] << 16) | gba.cpu.pipeline[1];
+            }
+    }
+
+    std::unreachable();
 }
 
 template<typename T>
@@ -152,18 +178,22 @@ static constexpr auto read_io16(Gba& gba, u32 addr) -> u16
         case IO_FIFO_A_H:
         case IO_FIFO_B_L:
         case IO_FIFO_B_H:
-        case IO_DMA0SAD:
-        case IO_DMA1SAD:
-        case IO_DMA2SAD:
-        case IO_DMA3SAD:
-        case IO_DMA0DAD:
-        case IO_DMA1DAD:
-        case IO_DMA2DAD:
-        case IO_DMA3DAD:
-        case IO_DMA0CNT_L:
-        case IO_DMA1CNT_L:
-        case IO_DMA2CNT_L:
-        case IO_DMA3CNT_L:
+        case IO_DMA0SAD_LO:
+        case IO_DMA0SAD_HI:
+        case IO_DMA1SAD_LO:
+        case IO_DMA1SAD_HI:
+        case IO_DMA2SAD_LO:
+        case IO_DMA2SAD_HI:
+        case IO_DMA3SAD_LO:
+        case IO_DMA3SAD_HI:
+        case IO_DMA0DAD_LO:
+        case IO_DMA0DAD_HI:
+        case IO_DMA1DAD_LO:
+        case IO_DMA1DAD_HI:
+        case IO_DMA2DAD_LO:
+        case IO_DMA2DAD_HI:
+        case IO_DMA3DAD_LO:
+        case IO_DMA3DAD_HI:
         case IO_BG0HOFS:
         case IO_BG0VOFS:
         case IO_BG1HOFS:
@@ -176,22 +206,198 @@ static constexpr auto read_io16(Gba& gba, u32 addr) -> u16
         case IO_BG2PB:
         case IO_BG2PC:
         case IO_BG2PD:
-        case IO_BG2X:
-        case IO_BG2Y:
+        case IO_BG2X_LO:
+        case IO_BG2X_HI:
+        case IO_BG2Y_LO:
+        case IO_BG2Y_HI:
         case IO_BG3PA:
         case IO_BG3PB:
         case IO_BG3PC:
         case IO_BG3PD:
-        case IO_BG3X:
-        case IO_BG3Y:
+        case IO_BG3X_LO:
+        case IO_BG3X_HI:
+        case IO_BG3Y_LO:
+        case IO_BG3Y_HI:
         case IO_WIN0H:
         case IO_WIN1H:
         case IO_WIN0V:
         case IO_WIN1V:
         case IO_MOSAIC:
-        case IO_COLEV:
         case IO_COLEY:
-            return empty_read<u16>(gba, addr);
+
+        // INVALID
+        case 0x400004E:
+        case 0x4000056:
+        case 0x4000058:
+        case 0x400005A:
+        case 0x400005C:
+        case 0x400005E:
+        case 0x400008C:
+        case 0x400008E:
+        case 0x40000A8:
+        case 0x40000AA:
+        case 0x40000AC:
+        case 0x40000AE:
+        case 0x40000E0:
+        case 0x40000E2:
+        case 0x40000E4:
+        case 0x40000E6:
+        case 0x40000E8:
+        case 0x40000EA:
+        case 0x40000EC:
+        case 0x40000EE:
+        case 0x40000F0:
+        case 0x40000F2:
+        case 0x40000F4:
+        case 0x40000F6:
+        case 0x40000F8:
+        case 0x40000FA:
+        case 0x40000FC:
+        case 0x40000FE:
+        case 0x400100C:
+            return openbus<u16>(gba, addr);
+
+        case IO_SOUND1CNT_L: {
+            constexpr auto mask = bit::get_mask<0, 6, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUND1CNT_H: {
+            constexpr auto mask = bit::get_mask<6, 15, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUND1CNT_X: {
+            constexpr auto mask = bit::get_mask<14, 14, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUND2CNT_L: {
+            constexpr auto mask = bit::get_mask<6, 15, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUND2CNT_H: {
+            constexpr auto mask = bit::get_mask<14, 14, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUND3CNT_L: {
+            constexpr auto mask = bit::get_mask<5, 7, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUND3CNT_H: {
+            constexpr auto mask = bit::get_mask<13, 15, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUND3CNT_X: {
+            constexpr auto mask = bit::get_mask<14, 14, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUND4CNT_L: {
+            constexpr auto mask = bit::get_mask<8, 15, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUND4CNT_H: {
+            constexpr auto mask =
+                bit::get_mask<0, 7, u16>() |
+                bit::get_mask<14, 14, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUNDCNT_L: {
+            constexpr auto mask =
+                bit::get_mask<0, 2, u16>() |
+                bit::get_mask<4, 6, u16>() |
+                bit::get_mask<8, 11, u16>() |
+                bit::get_mask<12, 15, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUNDCNT_H: {
+            constexpr auto mask =
+                bit::get_mask<0, 1, u16>() |
+                bit::get_mask<2, 2, u16>() |
+                bit::get_mask<3, 3, u16>() |
+                bit::get_mask<8, 8, u16>() |
+                bit::get_mask<9, 9, u16>() |
+                bit::get_mask<10, 10, u16>() |
+                bit::get_mask<12, 12, u16>() |
+                bit::get_mask<13, 13, u16>() |
+                bit::get_mask<14, 14, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_SOUNDCNT_X: {
+            constexpr auto mask =
+                bit::get_mask<0, 0, u16>() |
+                bit::get_mask<1, 1, u16>() |
+                bit::get_mask<2, 2, u16>() |
+                bit::get_mask<3, 3, u16>() |
+                bit::get_mask<7, 7, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_DMA0CNT_H:
+        case IO_DMA1CNT_H:
+        case IO_DMA2CNT_H: {
+            constexpr auto mask =
+                bit::get_mask<5, 10, u16>() |
+                bit::get_mask<12, 15, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_DMA3CNT_H: {
+            constexpr auto mask = bit::get_mask<5, 15, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_BLDMOD: {
+            constexpr auto mask = bit::get_mask<0, 13, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_COLEV: {
+            constexpr auto mask =
+                bit::get_mask<0, 4, u16>() |
+                bit::get_mask<8, 12, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_WININ:
+        case IO_WINOUT: {
+            constexpr auto mask =
+                bit::get_mask<0, 5, u16>() |
+                bit::get_mask<8, 13, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        case IO_BG0CNT:
+        case IO_BG1CNT: {
+            constexpr auto mask =
+                bit::get_mask<0, 12, u16>() |
+                bit::get_mask<14, 15, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
+        // these are registers with w only bits
+        // these don't return openbus, instead return 0x0000
+        case 0x4000066:
+        case 0x400006E:
+        case 0x4000076:
+        case 0x400007A:
+        case 0x400007E:
+        case 0x4000086:
+        case 0x400008A:
+        case IO_DMA0CNT_L:
+        case IO_DMA1CNT_L:
+        case IO_DMA2CNT_L:
+        case IO_DMA3CNT_L:
+            return 0x0000;
 
         default:
             //printf("unhandled io read addr: 0x%08X\n", addr);
@@ -243,6 +449,11 @@ static constexpr auto write_io16(Gba& gba, u32 addr, u16 value) -> void
         case IO_DISPSTAT:
             REG_DISPSTAT = (REG_DISPSTAT & 0x7) | (value & ~0x7);
             return;
+
+        case IO_SOUNDCNT_X:
+            REG_SOUNDCNT_X = (REG_SOUNDCNT_X & 0xF) | (value & ~0xF);
+            apu::write_legacy(gba, addr, value);
+            return;
     }
 
     write_array<u16>(MEM.io, IO_MASK, addr, value);
@@ -260,8 +471,7 @@ static constexpr auto write_io16(Gba& gba, u32 addr, u16 value) -> void
         case IO_SOUND3CNT_X:
         case IO_SOUND4CNT_L:
         case IO_SOUND4CNT_H:
-        case IO_SOUNDCNT_L:
-        case IO_SOUNDCNT_X:
+        // case IO_SOUNDCNT_X:
         case IO_WAVE_RAM0_L:
         case IO_WAVE_RAM0_H:
         case IO_WAVE_RAM1_L:
@@ -278,23 +488,19 @@ static constexpr auto write_io16(Gba& gba, u32 addr, u16 value) -> void
         case IO_TM2CNT: timer::on_cnt2_write(gba, REG_TM2CNT); break;
         case IO_TM3CNT: timer::on_cnt3_write(gba, REG_TM3CNT); break;
 
-        case IO_DMA0CNT: break;
-        case IO_DMA0CNT + 2:
+        case IO_DMA0CNT_H:
             dma::on_cnt_write(gba, 0);
             break;
 
-        case IO_DMA1CNT: break;
-        case IO_DMA1CNT + 2:
+        case IO_DMA1CNT_H:
             dma::on_cnt_write(gba, 1);
             break;
 
-        case IO_DMA2CNT: break;
-        case IO_DMA2CNT + 2:
+        case IO_DMA2CNT_H:
             dma::on_cnt_write(gba, 2);
             break;
 
-        case IO_DMA3CNT: break;
-        case IO_DMA3CNT + 2:
+        case IO_DMA3CNT_H:
             dma::on_cnt_write(gba, 3);
             break;
 
@@ -433,7 +639,6 @@ static constexpr auto write_io8(Gba& gba, u32 addr, u8 value) -> void
         case IO_WAVE_RAM3_L + 1:
         case IO_WAVE_RAM3_H + 0:
         case IO_WAVE_RAM3_H + 1:
-            // printf("8bit apu write: 0x%08X\n", addr);
             write_array<u8>(MEM.io, IO_MASK, addr, value);
             apu::write_legacy8(gba, addr, value);
             return;
@@ -522,6 +727,23 @@ constexpr void write_io_region(Gba& gba, u32 addr, T value)
     }
 }
 
+template<typename T> [[nodiscard]]
+static constexpr auto read_bios_region(Gba& gba, u32 addr) -> T
+{
+    // this isn't perfect, i don't think the bios should be able
+    // to read from itself, though the official bios likely doesn't
+    // unofficial bios might do however
+    if (arm7tdmi::get_pc(gba) < BIOS_SIZE) [[likely]]
+    {
+        bios_openbus_value = read_array<T>(gba.mem.bios, BIOS_MASK, addr);
+        return bios_openbus_value;
+    }
+    else
+    {
+        return openbus<T>(gba, addr);
+    }
+}
+
 // unused, handled in array writes
 template<typename T>
 static constexpr auto write_ewram_region(Gba& gba, u32 addr, T value) -> void
@@ -560,7 +782,7 @@ static constexpr auto read_vram_region(Gba& gba, u32 addr) -> T
     {
         if (is_vram_dma_overflow_bug(gba, addr)) [[unlikely]]
         {
-            return 0;
+            return openbus<T>(gba, addr);
         }
         addr -= 0x8000;
     }
@@ -742,19 +964,19 @@ using WriteFunction = void(*)(Gba& gba, u32 addr, T value);
 template<typename T>
 static constexpr ReadFunction<T> READ_FUNCTION[0x10] =
 {
-    /*[0x0] =*/ empty_read,
-    /*[0x1] =*/ empty_read,
-    /*[0x2] =*/ empty_read,
-    /*[0x3] =*/ empty_read,
+    /*[0x0] =*/ read_bios_region<T>,
+    /*[0x1] =*/ openbus,
+    /*[0x2] =*/ openbus, // todo: add this
+    /*[0x3] =*/ openbus, // todo: add this
     /*[0x4] =*/ read_io_region<T>,
-    /*[0x5] =*/ empty_read,
+    /*[0x5] =*/ openbus,
     /*[0x6] =*/ read_vram_region<T>,
-    /*[0x7] =*/ empty_read,
-    /*[0x8] =*/ empty_read,
-    /*[0x9] =*/ empty_read,
-    /*[0xA] =*/ empty_read,
-    /*[0xB] =*/ empty_read,
-    /*[0xC] =*/ empty_read,
+    /*[0x7] =*/ openbus,
+    /*[0x8] =*/ openbus, // todo: add this
+    /*[0x9] =*/ openbus, // todo: add this
+    /*[0xA] =*/ openbus, // todo: add this
+    /*[0xB] =*/ openbus, // todo: add this
+    /*[0xC] =*/ openbus, // todo: add this
     /*[0xD] =*/ read_eeprom_region<T>,
     /*[0xE] =*/ read_sram_region<T>,
     /*[0xF] =*/ read_sram_region<T>,

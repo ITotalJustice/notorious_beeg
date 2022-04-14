@@ -373,6 +373,8 @@ auto System::on_key_event(const SDL_KeyboardEvent& e) -> void
     {
         case SDL_SCANCODE_X:      this->emu_set_button(gba::A, down);      break;
         case SDL_SCANCODE_Z:      this->emu_set_button(gba::B, down);      break;
+        case SDL_SCANCODE_A:      this->emu_set_button(gba::L, down);      break;
+        case SDL_SCANCODE_S:      this->emu_set_button(gba::R, down);      break;
         case SDL_SCANCODE_RETURN: this->emu_set_button(gba::START, down);  break;
         case SDL_SCANCODE_SPACE:  this->emu_set_button(gba::SELECT, down); break;
         case SDL_SCANCODE_UP:     this->emu_set_button(gba::UP, down);     break;

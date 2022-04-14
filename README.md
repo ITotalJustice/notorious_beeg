@@ -29,6 +29,9 @@ gba emulator witten in c++23.
 - implement timer cascade. fixes [#2](https://github.com/ITotalJustice/notorious_beeg/issues/2)
 - fix dma dst not being incremented if increment type == 3. fixes [#48](https://github.com/ITotalJustice/notorious_beeg/issues/48)
 - mask dma addresses so they cannot go OOB.
+- impl basic bios open bus. fixes [#41](https://github.com/ITotalJustice/notorious_beeg/issues/41)
+- fix invalid io reads. fixes [#50](https://github.com/ITotalJustice/notorious_beeg/issues/50)
+- fix LR buttons being reversed.
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)

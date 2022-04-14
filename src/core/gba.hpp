@@ -27,8 +27,8 @@ enum Button : u16
     LEFT    = 1 << 5,
     UP      = 1 << 6,
     DOWN    = 1 << 7,
-    L       = 1 << 8,
-    R       = 1 << 9,
+    R       = 1 << 8,
+    L       = 1 << 9,
 
     DIRECTIONAL = UP | DOWN | LEFT | RIGHT,
     // causes a reset if these buttons are pressed all at once

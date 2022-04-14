@@ -147,7 +147,6 @@ static auto master_volume(Gba& gba)
 {
     constexpr s8 vols[4] = { 4, 2, 1, 1 };
     const auto index = bit::get_range<0, 1>(REG_SOUNDCNT_H);
-    assert(index != 3 && "invalid master volume");
 
     return vols[index];
 }
