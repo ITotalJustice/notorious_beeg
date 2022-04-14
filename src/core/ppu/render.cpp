@@ -515,6 +515,7 @@ static auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> v
     const auto pram = reinterpret_cast<u16*>(gba.mem.pram + 512);
     const auto oam = reinterpret_cast<u64*>(gba.mem.oam);
     const auto vcount = REG_VCOUNT;
+    const auto is_1D_layout = bit::is_set<6>(REG_DISPCNT);
 
     // 1024 entries in oam, each entry is 64bytes, 1024/64=128
     for (auto i = 0; i < 128; i++)
@@ -541,6 +542,8 @@ static auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> v
         const auto mosY = obj.is_yflip() ? (ySize - 1) - (vcount - sprite_y) : vcount - sprite_y;
         // fine_y
         const auto yMod = mosY % 8;
+        // for which row the obj will be on (based on layout)
+        const auto row_mult = is_1D_layout ? xSize / 8 : 32;
 
         // check if the sprite is to be drawn on this ;ine
         if (vcount >= sprite_y && vcount < sprite_y + ySize)
@@ -578,7 +581,7 @@ static auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> v
 
                 // thank you Kellen for the below code, i wouldn't have firgured it out otherwise.
                 auto tileRowAddress = obj.attr2.TID * 32;
-                tileRowAddress += (((mosY / 8 * xSize / 8)) + mosX / 8) * 32;
+                tileRowAddress += (((mosY / 8 * row_mult)) + mosX / 8) * 32;
                 tileRowAddress += yMod * 4;
 
                 // if the adddress is out of bounds, break early
@@ -1024,7 +1027,6 @@ static auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layers layers = La
     // only render obj if enabled
     if (is_obj_enabled(gba) && layers & Layers::OBJ)
     {
-        assert(bit::is_set<6>(REG_DISPCNT) && "don't handle 2D mapping yet");
         render_obj(gba, bounds, obj_line);
 
         // update bounds with any obj window
