@@ -66,10 +66,23 @@ if (GBA_DEV)
     target_add_linker_flags(GBA sanitizer_flags PUBLIC)
 endif()
 
+include(CheckCXXSourceCompiles)
+
+check_cxx_source_compiles(
+    "#include <utility>
+    void a() { std::unreachable(); }
+    int main() { return 0; }"
+    HAVE_STD_UNREACHABLE
+)
+
 target_compile_definitions(GBA PRIVATE
     GBA_DEBUG=$<BOOL:${GBA_DEBUG}>
     SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
     ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
+)
+
+target_compile_definitions(GBA PUBLIC
+    HAVE_STD_UNREACHABLE=$<BOOL:${HAVE_STD_UNREACHABLE}>
 )
 
 # enable LTO (only in release builds)

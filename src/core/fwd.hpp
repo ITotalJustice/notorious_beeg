@@ -5,6 +5,7 @@
 
 #include <cstdint>
 
+#if HAVE_STD_UNREACHABLE == 0
 namespace std
 {
 [[noreturn]] inline void unreachable()
@@ -19,6 +20,7 @@ namespace std
 #endif
 }
 }
+#endif
 
 #if 0
     #include <cstdio>
