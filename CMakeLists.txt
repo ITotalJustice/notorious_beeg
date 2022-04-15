@@ -4,7 +4,7 @@ project(notorious_beeg
     VERSION 0.0.1
     DESCRIPTION "GBA emulator written in c++23"
     HOMEPAGE_URL "https://github.com/ITotalJustice/notorious_beeg"
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 message("SYSTEM: ${CMAKE_SYSTEM_NAME}")
