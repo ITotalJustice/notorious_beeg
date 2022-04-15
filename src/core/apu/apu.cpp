@@ -524,7 +524,7 @@ auto SquareBase<Number>::get_freq() const -> u32
 template<u8 Number>
 auto SquareBase<Number>::is_dac_enabled() -> bool
 {
-    return env.starting_vol > 0 || env.mode > 0;
+    return env.starting_vol != 0 || env.mode != 0;
 }
 
 template<typename T>
@@ -686,7 +686,7 @@ auto Noise::get_freq() const -> u32
 
 auto Noise::is_dac_enabled() -> bool
 {
-    return env.starting_vol > 0 || env.mode > 0;
+    return env.starting_vol != 0 || env.mode != 0;
 }
 
 template<typename T>

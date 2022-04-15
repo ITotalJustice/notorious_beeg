@@ -15,6 +15,7 @@
 #include <vector>
 #include <string>
 #include <filesystem>
+#include <minizip/unzip.h>
 
 #include <imgui.h>
 #include <imgui_impl_sdl.h>
@@ -66,23 +67,72 @@ auto dumpfile(std::string path, std::span<const std::uint8_t> data) -> bool
     return false;
 }
 
+// basic rom loading from zip, will flesh this out more soon
+auto loadzip(std::string path) -> std::vector<std::uint8_t>
+{
+    std::vector<std::uint8_t> data;
+    auto zf = unzOpen(path.c_str());
+
+    if (zf)
+    {
+        unz_global_info global_info;
+        if (UNZ_OK == unzGetGlobalInfo(zf, &global_info))
+        {
+            bool found = false;
+
+            for (auto i = 0; !found && i < global_info.number_entry; i++)
+            {
+                if (UNZ_OK == unzOpenCurrentFile(zf))
+                {
+                    unz_file_info file_info;
+                    char name[0x304];
+
+                    if (UNZ_OK == unzGetCurrentFileInfo(zf, &file_info, name, sizeof(name), nullptr, 0, nullptr, 0))
+                    {
+                        if (std::string_view{ name }.ends_with(".gba"))
+                        {
+                            data.resize(file_info.uncompressed_size);
+                            unzReadCurrentFile(zf, data.data(), data.size());
+                            found = true;
+                        }
+                    }
+
+                    unzCloseCurrentFile(zf);
+                }
+            }
+        }
+
+        unzClose(zf);
+    }
+
+    return data;
+}
+
 auto loadfile(std::string path) -> std::vector<std::uint8_t>
 {
-    std::ifstream fs{path.c_str(), std::ios_base::binary};
+    if (path.ends_with(".zip"))
+    {
+        // load zip
+        return loadzip(path);
+    }
+    else
+    {
+        std::ifstream fs{ path.c_str(), std::ios_base::binary };
 
-    if (fs.good()) {
-        fs.seekg(0, std::ios_base::end);
-        const auto size = fs.tellg();
-        fs.seekg(0, std::ios_base::beg);
+        if (fs.good()) {
+            fs.seekg(0, std::ios_base::end);
+            const auto size = fs.tellg();
+            fs.seekg(0, std::ios_base::beg);
 
-        std::vector<std::uint8_t> data;
-        data.resize(size);
+            std::vector<std::uint8_t> data;
+            data.resize(size);
 
-        fs.read(reinterpret_cast<char*>(data.data()), data.size());
+            fs.read(reinterpret_cast<char*>(data.data()), data.size());
 
-        if (fs.good())
-        {
-            return data;
+            if (fs.good())
+            {
+                return data;
+            }
         }
     }
 
@@ -91,7 +141,7 @@ auto loadfile(std::string path) -> std::vector<std::uint8_t>
 
 auto replace_extension(std::filesystem::path path, std::string new_ext = "") -> std::string
 {
-    return path.replace_extension(new_ext);
+    return path.replace_extension(new_ext).string();
 }
 
 auto create_save_path(const std::string& path) -> std::string

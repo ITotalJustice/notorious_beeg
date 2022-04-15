@@ -61,7 +61,7 @@ struct ObjLine
     ObjLine()
     {
         std::ranges::fill(priority, 0xFF);
-    };
+    }
 
     u16 pixels[240];
     u8 priority[240];
@@ -441,9 +441,9 @@ static auto get_bg_offset_affine(BGxCNT cnt, auto x) -> u16
 struct Bgr
 {
     constexpr Bgr(u16 col) :
-        r{(u8)bit::get_range<0, 4>(col)},
-        g{(u8)bit::get_range<5, 9>(col)},
-        b{(u8)bit::get_range<10, 14>(col)} {}
+        r{static_cast<u8>(bit::get_range<0, 4>(col))},
+        g{static_cast<u8>(bit::get_range<5, 9>(col))},
+        b{static_cast<u8>(bit::get_range<10, 14>(col))} {}
 
     [[nodiscard]] constexpr auto pack() const -> u16
     {
@@ -698,7 +698,7 @@ static auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& boun
     }
 }
 
-static auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
+static auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
 {
     const auto vram = reinterpret_cast<const u16*>(gba.mem.vram + (240 * REG_VCOUNT * 2));
 
@@ -717,7 +717,7 @@ static auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& b
     }
 }
 
-static auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
+static auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
 {
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
     const auto pram = reinterpret_cast<const u16*>(gba.mem.pram);

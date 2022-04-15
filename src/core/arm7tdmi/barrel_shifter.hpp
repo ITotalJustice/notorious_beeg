@@ -10,19 +10,19 @@ namespace gba::arm7tdmi::barrel {
 
 // All shifts are mask 31 (&31) as to not cause UB when shifting by more
 // bits than possible.
-[[using gnu : always_inline]] [[nodiscard]]
+[[nodiscard]]
 constexpr u32 shift_logical_left(u32 v, u8 shift)
 {
     return v << shift;
 }
 
-[[using gnu : always_inline]] [[nodiscard]]
+[[nodiscard]]
 constexpr u32 shift_logical_right(u32 v, u8 shift)
 {
     return v >> shift;
 }
 
-[[using gnu : always_inline]] [[nodiscard]]
+[[nodiscard]]
 constexpr u32 shift_arithmetic_right(u32 v, u8 shift)
 {
     // signed bit should always be preserved, so casting works...
@@ -34,7 +34,7 @@ constexpr u32 shift_arithmetic_right(u32 v, u8 shift)
     return static_cast<u32>(static_cast<int32_t>(v) >> shift);
 }
 
-[[using gnu : always_inline]] [[nodiscard]]
+[[nodiscard]]
 constexpr u32 shift_rotate_right(u32 v, u8 shift)
 {
     return std::rotr(v, shift);

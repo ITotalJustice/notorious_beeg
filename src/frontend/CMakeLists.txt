@@ -53,10 +53,13 @@ add_executable(main
 )
 
 find_package(SDL2 CONFIG REQUIRED)
+find_package(minizip CONFIG REQUIRED)
+
 target_link_libraries(main PRIVATE GBA)
 target_link_libraries(main PRIVATE SDL2::SDL2)
 target_link_libraries(main PRIVATE SDL2::SDL2main)
 target_link_libraries(main PRIVATE imgui imgui_club)
+target_link_libraries(main PRIVATE minizip::minizip)
 
 # target_add_common_cflags(main PRIVATE)
 target_apply_lto_in_release(imgui)

@@ -330,7 +330,7 @@ auto on_cnt_write(Gba& gba, u8 channel_num) -> void
     }
 
     // update increment based on type
-    const auto func = [](IncrementType type, auto& inc, bool is_dst)
+    const auto func = [](IncrementType type, auto& inc)
     {
         switch (type)
         {
@@ -352,8 +352,8 @@ auto on_cnt_write(Gba& gba, u8 channel_num) -> void
         }
     };
 
-    func(dma.src_increment_type, dma.src_increment, false);
-    func(dma.dst_increment_type, dma.dst_increment, true);
+    func(dma.src_increment_type, dma.src_increment);
+    func(dma.dst_increment_type, dma.dst_increment);
 
     // check if we should start transfer now
     if (dma.mode == Mode::immediate)

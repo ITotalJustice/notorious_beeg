@@ -131,9 +131,6 @@ static auto Sqrt(Gba& gba) -> bool
 // 0xB
 auto CpuSet(Gba& gba) -> bool
 {
-    // this currently breaks emerald intro, likely timing
-    return false;
-
     auto r0 = arm7tdmi::get_reg(gba, 0);
     auto r1 = arm7tdmi::get_reg(gba, 1);
     auto r2 = arm7tdmi::get_reg(gba, 2);

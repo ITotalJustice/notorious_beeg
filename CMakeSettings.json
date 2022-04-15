@@ -23,11 +23,6 @@
       "inheritEnvironments": [ "msvc_x64_x64" ],
       "variables": [
         {
-          "name": "ENABLE_SCHEDULER",
-          "value": "true",
-          "type": "BOOL"
-        },
-        {
           "name": "SINGLE_FILE",
           "value": "True",
           "type": "BOOL"
@@ -56,11 +51,6 @@
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "clang_cl_x64_x64" ],
       "variables": [
-        {
-          "name": "ENABLE_SCHEDULER",
-          "value": "true",
-          "type": "BOOL"
-        },
         {
           "name": "SINGLE_FILE",
           "value": "True",
@@ -91,11 +81,6 @@
       "inheritEnvironments": [ "msvc_x86" ],
       "variables": [
         {
-          "name": "ENABLE_SCHEDULER",
-          "value": "true",
-          "type": "BOOL"
-        },
-        {
           "name": "SINGLE_FILE",
           "value": "True",
           "type": "BOOL"
@@ -124,11 +109,6 @@
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "clang_cl_x86" ],
       "variables": [
-        {
-          "name": "ENABLE_SCHEDULER",
-          "value": "true",
-          "type": "BOOL"
-        },
         {
           "name": "SINGLE_FILE",
           "value": "True",

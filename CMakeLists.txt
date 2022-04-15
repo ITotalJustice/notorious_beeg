@@ -10,14 +10,8 @@ project(notorious_beeg
 message("SYSTEM: ${CMAKE_SYSTEM_NAME}")
 message("COMPILER: ${CMAKE_CXX_COMPILER_ID}")
 
-# adding the below breaks clangd atm because cmake
-# adds the flag "-std=c++23" which is unsupported yet by clang
-if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++2b")
-else()
-    set(CMAKE_CXX_STANDARD 23)
-    set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif()
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 list(APPEND cmake_supported_compiler_features
     AppleClang
