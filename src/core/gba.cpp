@@ -114,21 +114,21 @@ auto Gba::setkeys(u16 buttons, bool down) -> void
     }
 
     // this can be better optimised at some point
-    if (down && (buttons & DIRECTIONAL))
+    if (down && ((buttons & DIRECTIONAL) != 0))
     {
-        if (buttons & RIGHT)
+        if ((buttons & RIGHT) != 0)
         {
             REG_KEY |= LEFT;
         }
-        if (buttons & LEFT)
+        if ((buttons & LEFT) != 0)
         {
             REG_KEY |= RIGHT;
         }
-        if (buttons & UP)
+        if ((buttons & UP) != 0)
         {
             REG_KEY |= DOWN;
         }
-        if (buttons & DOWN)
+        if ((buttons & DOWN) != 0)
         {
             REG_KEY |= UP;
         }

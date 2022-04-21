@@ -68,9 +68,9 @@ struct Base
 
     auto enable(Gba& gba) -> void;
     auto disable(Gba& gba) -> void;
-    auto is_enabled(Gba& gba) const -> bool;
-    auto left_enabled(Gba& gba) const -> bool;
-    auto right_enabled(Gba& gba) const -> bool;
+    [[nodiscard]] auto is_enabled(Gba& gba) const -> bool;
+    [[nodiscard]] auto left_enabled(Gba& gba) const -> bool;
+    [[nodiscard]] auto right_enabled(Gba& gba) const -> bool;
     // virtual auto sample() const -> s8 = 0;
     // virtual auto get_freq() const -> u32 = 0;
     // virtual auto trigger(Gba& gba) -> void = 0;
@@ -86,9 +86,9 @@ struct SquareBase : Base<Number>
     u8 freq_msb;
     u8 duty_index;
 
-    auto sample(Gba& gba) const -> s8;
-    auto get_freq() const -> u32;
-    auto is_dac_enabled() -> bool;
+    [[nodiscard]] auto sample(Gba& gba) const -> s8;
+    [[nodiscard]] auto get_freq() const -> u32;
+    [[nodiscard]] auto is_dac_enabled() const -> bool;
 };
 
 struct Square0 : SquareBase<0>
@@ -119,9 +119,9 @@ struct Wave : Base<2>
 
     auto advance_position_counter(Gba& gba) -> void;
 
-    auto sample(Gba& gba) const -> s8;
-    auto get_freq() const -> u32;
-    auto is_dac_enabled() -> bool;
+    [[nodiscard]] auto sample(Gba& gba) const -> s8;
+    [[nodiscard]] auto get_freq() const -> u32;
+    [[nodiscard]] auto is_dac_enabled() const -> bool;
 };
 
 struct Noise : Base<3>
@@ -136,9 +136,9 @@ struct Noise : Base<3>
 
     auto clock_lfsr(Gba& gba) -> void;
 
-    auto sample(Gba& gba) const -> s8;
-    auto get_freq() const -> u32;
-    auto is_dac_enabled() -> bool;
+    [[nodiscard]] auto sample(Gba& gba) const -> s8;
+    [[nodiscard]] auto get_freq() const -> u32;
+    [[nodiscard]] auto is_dac_enabled() const -> bool;
 };
 
 struct Fifo
@@ -158,11 +158,11 @@ struct Fifo
 
     auto update_current_sample(Gba& gba, u8 num) -> void;
 
-    auto sample() -> s8;
+    [[nodiscard]] auto sample() const -> s8;
     auto reset() -> void;
-    auto size() const -> u8;
+    [[nodiscard]] auto size() const -> u8;
     auto push(u8 value) -> void;
-    auto pop() -> s8;
+    [[nodiscard]] auto pop() -> s8;
 };
 
 struct Apu

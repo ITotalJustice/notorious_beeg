@@ -206,9 +206,9 @@ struct WindowBounds
     auto apply_obj_window(Gba& gba, const ObjLine& obj_line) -> void;
 
     // returns true if the pixel can be drawn
-    auto in_bounds(auto bg_num, auto x) const { return inside[bg_num][x]; }
+    [[nodiscard]] auto in_bounds(auto bg_num, auto x) const { return inside[bg_num][x]; }
     // returns true if this pixel can blend
-    auto can_blend(auto x) const { return in_bounds(5, x); }
+    [[nodiscard]] auto can_blend(auto x) const { return in_bounds(5, x); }
 
 private:
     // bg0, bg1, bg2, bg3, obj, blend
@@ -236,12 +236,12 @@ struct BLDMOD
         src{bg0_src, bg1_src, bg2_src, bg3_src, obj_src, backdrop_src},
         dst{bg0_dst, bg1_dst, bg2_dst, bg3_dst, obj_dst, backdrop_dst} {}
 
-    constexpr auto get_mode() const
+    [[nodiscard]] constexpr auto get_mode() const
     {
         return static_cast<Blend>(mode);
     }
 
-    constexpr auto is_alpha(u8 top_num, u8 bottom_num=0) const
+    [[nodiscard]] constexpr auto is_alpha(u8 top_num, u8 bottom_num=0) const
     {
         switch (this->get_mode())
         {
@@ -359,7 +359,7 @@ struct OBJ_Attr
         // flipping is only used in normal mode
         if (attr0.OM == 0b00)
         {
-            return attr1.VF == true;
+            return static_cast<bool>(attr1.VF);
         }
         return false;
     }
@@ -369,7 +369,7 @@ struct OBJ_Attr
         // flipping is only used in normal mode
         if (attr0.OM == 0b00)
         {
-            return attr1.HF == true;
+            return static_cast<bool>(attr1.HF);
         }
         return false;
     }
@@ -392,8 +392,8 @@ struct OBJ_Attr
 
 enum class Index : bool
 {
-    X = 0,
-    Y = 1
+    X = false,
+    Y = true
 };
 
 template<Index index> [[nodiscard]] // 1=Y, 0=X
@@ -511,9 +511,9 @@ static auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> v
     // ovram is the last 2 entries of the charblock in vram.
     // in tile modes, this allows for 1024 tiles in total.
     // in bitmap modes, this allows for 512 tiles in total.
-    const auto ovram = reinterpret_cast<u8*>(gba.mem.vram + 4 * CHARBLOCK_SIZE);
-    const auto pram = reinterpret_cast<u16*>(gba.mem.pram + 512);
-    const auto oam = reinterpret_cast<u64*>(gba.mem.oam);
+    const auto ovram = reinterpret_cast<const u8*>(gba.mem.vram + 4 * CHARBLOCK_SIZE);
+    const auto pram = reinterpret_cast<const u16*>(gba.mem.pram + 512);
+    const auto oam = reinterpret_cast<const u64*>(gba.mem.oam);
     const auto vcount = REG_VCOUNT;
     const auto is_1D_layout = bit::is_set<6>(REG_DISPCNT);
 
@@ -645,11 +645,11 @@ static auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& boun
     //
     const auto y = (meta.yscroll + vcount) % 256;
     // pal_mem
-    const auto pram = reinterpret_cast<u16*>(gba.mem.pram);
+    const auto pram = reinterpret_cast<const u16*>(gba.mem.pram);
     // tile_mem (where the tiles/tilesets are)
-    const auto charblock = reinterpret_cast<u8*>(gba.mem.vram + meta.cnt.CBB * CHARBLOCK_SIZE);
+    const auto charblock = reinterpret_cast<const u8*>(gba.mem.vram + meta.cnt.CBB * CHARBLOCK_SIZE);
     // se_mem (where the tilemaps are)
-    const auto screenblock = reinterpret_cast<u16*>(gba.mem.vram + (meta.cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(meta.cnt, meta.yscroll + vcount) + ((y / 8) * 64));
+    const auto screenblock = reinterpret_cast<const u16*>(gba.mem.vram + (meta.cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(meta.cnt, meta.yscroll + vcount) + ((y / 8) * 64));
 
     for (auto x = 0; x < 240; x++)
     {
@@ -894,9 +894,9 @@ static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, s
             }
         }
 
-        auto get_pixel() const { return pixel[0]; }
-        auto get_prio() const { return prio[0]; }
-        auto get_num() const { return num[0]; }
+        [[nodiscard]] auto get_pixel() const { return pixel[0]; }
+        [[nodiscard]] auto get_prio() const { return prio[0]; }
+        [[nodiscard]] auto get_num() const { return num[0]; }
 
         u16 pixel[2];
         u8 prio[2];
@@ -931,14 +931,14 @@ static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, s
             }
         }
 
-        for (u8 bg = 0; bg < bg_lines.size(); bg++)
+        for (auto & bg_line : bg_lines)
         {
-            if (bg_lines[bg].is_opaque[x])
+            if (bg_line.is_opaque[x])
             {
                 layers.add(
-                    bg_lines[bg].pixels[x], // pixel
-                    bg_lines[bg].priority, // priority
-                    bg_lines[bg].num, // bg_num
+                    bg_line.pixels[x], // pixel
+                    bg_line.priority, // priority
+                    bg_line.num, // bg_num
                     true // is_alpha
                 );
             }
@@ -1036,10 +1036,8 @@ static auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layers layers = La
         }
     }
 
-    for (std::size_t i = 0; i < bg_lines.size(); i++)
+    for (auto & line : bg_lines)
     {
-        auto& line = bg_lines[i];
-
         // only render bg if enabled
         if (is_bg_enabled(gba, line.num) && layers & (1 << line.num))
         {

@@ -195,7 +195,7 @@ static_assert(
     bit::set_range<0, 1, u8>(0) == 0x03 &&
     bit::set_range<0, 1, u8>(0x10) == 0x13 &&
     bit::set_range<8, 15, u16>(0x69) == 0xFF69 &&
-    bit::set_range<1, 9, u16>(0) == 0x3FE &&
+    bit::set_range<1, 9, u16>(0) == 0x3FE,
     "bit::set_range is broken!"
 );
 

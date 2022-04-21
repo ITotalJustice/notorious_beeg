@@ -16,7 +16,7 @@ struct Sram
 
     auto init(Gba& gba) -> void;
     auto load_data(std::span<const u8> new_data) -> bool;
-    auto get_data() const -> std::span<const u8>;
+    [[nodiscard]] auto get_data() const -> std::span<const u8>;
 
     auto read(Gba& gba, u32 addr) -> u8;
     auto write(Gba& gba, u32 addr, u8 value) -> void;

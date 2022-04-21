@@ -12,6 +12,7 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <utility>
 #include <vector>
 #include <string>
 #include <filesystem>
@@ -26,31 +27,28 @@ namespace sys {
 
 auto audio_callback(void* user, Uint8* data, int len) -> void
 {
-    auto sys = static_cast<System*>(user);
-
-    std::scoped_lock lock{sys->audio_mutex};
+    std::scoped_lock lock{System::audio_mutex};
 
     // this shouldn't be needed, however it causes less pops on startup
-    if (SDL_AudioStreamAvailable(sys->audio_stream) < len * 2)
+    if (SDL_AudioStreamAvailable(System::audio_stream) < len * 2)
     {
-        std::memset(data, sys->aspec_got.silence, len);
+        std::memset(data, System::aspec_got.silence, len);
         return;
     }
 
-    SDL_AudioStreamGet(sys->audio_stream, data, len);
+    SDL_AudioStreamGet(System::audio_stream, data, len);
 }
 
 auto push_sample_callback(void* user, std::int16_t left, std::int16_t right) -> void
 {
 #if SPEED_TEST == 0
-    auto sys = static_cast<System*>(user);
-    std::scoped_lock lock{sys->audio_mutex};
+    std::scoped_lock lock{System::audio_mutex};
     const int16_t samples[2] = {left, right};
-    SDL_AudioStreamPut(sys->audio_stream, samples, sizeof(samples));
+    SDL_AudioStreamPut(System::audio_stream, samples, sizeof(samples));
 #endif
 }
 
-auto dumpfile(std::string path, std::span<const std::uint8_t> data) -> bool
+auto dumpfile(const std::string& path, std::span<const std::uint8_t> data) -> bool
 {
     std::ofstream fs{path.c_str(), std::ios_base::binary};
 
@@ -68,12 +66,12 @@ auto dumpfile(std::string path, std::span<const std::uint8_t> data) -> bool
 }
 
 // basic rom loading from zip, will flesh this out more soon
-auto loadzip(std::string path) -> std::vector<std::uint8_t>
+auto loadzip(const std::string& path) -> std::vector<std::uint8_t>
 {
     std::vector<std::uint8_t> data;
     auto zf = unzOpen(path.c_str());
 
-    if (zf)
+    if (zf != nullptr)
     {
         unz_global_info global_info;
         if (UNZ_OK == unzGetGlobalInfo(zf, &global_info))
@@ -108,7 +106,7 @@ auto loadzip(std::string path) -> std::vector<std::uint8_t>
     return data;
 }
 
-auto loadfile(std::string path) -> std::vector<std::uint8_t>
+auto loadfile(const std::string& path) -> std::vector<std::uint8_t>
 {
     if (path.ends_with(".zip"))
     {
@@ -139,7 +137,7 @@ auto loadfile(std::string path) -> std::vector<std::uint8_t>
     return {};
 }
 
-auto replace_extension(std::filesystem::path path, std::string new_ext = "") -> std::string
+auto replace_extension(std::filesystem::path path, const std::string& new_ext = "") -> std::string
 {
     return path.replace_extension(new_ext).string();
 }
@@ -158,7 +156,10 @@ auto create_state_path(const std::string& path, int slot = 0) -> std::string
 // debugging gfx, never used in release builds.
 auto draw_grid(int size, int count, float thicc, int x, int y)
 {
-    if (count == 0) return;
+    if (count == 0)
+    {
+        return;
+    }
 
     for (int i = 1, j = size / count; i < count; i++)
     {
@@ -179,13 +180,11 @@ auto on_hblank_callback(void* user, uint16_t line) -> void
         return;
     }
 
-    auto sys = static_cast<System*>(user);
-
     for (auto i = 0; i < 4; i++)
     {
-        if (sys->layers[i].enabled)
+        if (System::layers[i].enabled)
         {
-            sys->layers[i].priority = sys->gameboy_advance.render_mode(sys->layers[i].pixels[line], 0, i);
+            System::layers[i].priority = System::gameboy_advance.render_mode(System::layers[i].pixels[line], 0, i);
         }
     }
 }
@@ -199,7 +198,7 @@ auto System::render_layers() -> void
 
     for (auto layer = 0; layer < 4; layer++)
     {
-        if (this->layers[layer].enabled == false)
+        if (!System::layers[layer].enabled)
         {
             continue;
         }
@@ -210,7 +209,7 @@ auto System::render_layers() -> void
         SDL_LockTexture(texture_bg_layer[layer], nullptr, &pixels, &pitch);
             SDL_ConvertPixels(
                 width, height, // w,h
-                SDL_PIXELFORMAT_BGR555, this->layers[layer].pixels, width * sizeof(uint16_t), // src
+                SDL_PIXELFORMAT_BGR555, System::layers[layer].pixels, width * sizeof(uint16_t), // src
                 SDL_PIXELFORMAT_BGR555, pixels, pitch // dst
             );
         SDL_UnlockTexture(texture_bg_layer[layer]);
@@ -219,14 +218,14 @@ auto System::render_layers() -> void
         ImGui::SetNextWindowSize(ImVec2(240, 160));
         ImGui::SetNextWindowSizeConstraints(ImVec2(240, 160), ImVec2(240, 160));
 
-        const auto s = "bg layer: " + std::to_string(layer) + " priority: " + std::to_string(this->layers[layer].priority);
-        ImGui::Begin(s.c_str(), &this->layers[layer].enabled, flags);
+        const auto s = "bg layer: " + std::to_string(layer) + " priority: " + std::to_string(System::layers[layer].priority);
+        ImGui::Begin(s.c_str(), &System::layers[layer].enabled, flags);
         {
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0F);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0F);
 
             ImGui::SetCursorPos({0, 0});
 
@@ -237,7 +236,7 @@ auto System::render_layers() -> void
             if (show_grid)
             {
                 // 240/8 = 30
-                draw_grid(240, 30, 1.0f, p.x, p.y);
+                draw_grid(240, 30, 1.0F, p.x, p.y);
             }
         }
         ImGui::End();
@@ -247,7 +246,7 @@ auto System::render_layers() -> void
 System::~System()
 {
     // save game on exit
-    this->closerom();
+    System::closerom();
 
     // Cleanup
     ImGui_ImplSDLRenderer_Shutdown();
@@ -260,32 +259,32 @@ System::~System()
         SDL_DestroyTexture(text);
     }
 
-    if (audio_device) SDL_CloseAudioDevice(audio_device);
-    if (audio_stream) SDL_FreeAudioStream(audio_stream);
-    if (texture) SDL_DestroyTexture(texture);
-    if (renderer) SDL_DestroyRenderer(renderer);
-    if (window) SDL_DestroyWindow(window);
+    if (audio_device != 0) { SDL_CloseAudioDevice(audio_device); }
+    if (audio_stream != nullptr) { SDL_FreeAudioStream(audio_stream); }
+    if (texture != nullptr) { SDL_DestroyTexture(texture); }
+    if (renderer != nullptr) { SDL_DestroyRenderer(renderer); }
+    if (window != nullptr) { SDL_DestroyWindow(window); }
     SDL_Quit();
 }
 
 auto System::closerom() -> void
 {
-    if (this->has_rom)
+    if (System::has_rom)
     {
-        this->savegame(this->rom_path);
-        this->has_rom = false;
+        System::savegame(System::rom_path);
+        System::has_rom = false;
     }
 
-    this->emu_run = false;
+    System::emu_run = false;
 }
 
-auto System::loadrom(std::string path) -> bool
+auto System::loadrom(const std::string& path) -> bool
 {
     // close any previous loaded rom
-    this->closerom();
+    System::closerom();
 
-    this->rom_path = path;
-    const auto rom_data = loadfile(this->rom_path);
+    System::rom_path = path;
+    const auto rom_data = loadfile(System::rom_path);
     if (rom_data.empty())
     {
         return false;
@@ -296,14 +295,14 @@ auto System::loadrom(std::string path) -> bool
         return false;
     }
 
-    this->emu_run = true;
-    this->has_rom = true;
-    this->loadsave(this->rom_path);
+    System::emu_run = true;
+    System::has_rom = true;
+    System::loadsave(System::rom_path);
 
     return true;
 }
 
-auto System::loadsave(std::string path) -> bool
+auto System::loadsave(const std::string& path) -> bool
 {
     const auto save_path = create_save_path(path);
     const auto save_data = loadfile(save_path);
@@ -316,7 +315,7 @@ auto System::loadsave(std::string path) -> bool
     return false;
 }
 
-auto System::savegame(std::string path) const -> bool
+auto System::savegame(const std::string& path) -> bool
 {
     const auto save_path = create_save_path(path);
     const auto save_data = gameboy_advance.getsave();
@@ -329,26 +328,26 @@ auto System::savegame(std::string path) const -> bool
     return false;
 }
 
-auto System::loadstate(std::string path) -> bool
+auto System::loadstate(const std::string& path) -> bool
 {
-    const auto state_path = create_state_path(path, this->state_slot);
+    const auto state_path = create_state_path(path, System::state_slot);
     const auto state_data = loadfile(state_path);
     if (!state_data.empty() && state_data.size() == sizeof(gba::State))
     {
         std::printf("loadstate from: %s\n", state_path.c_str());
         auto state = std::make_unique<gba::State>();
         std::memcpy(state.get(), state_data.data(), state_data.size());
-        return this->gameboy_advance.loadstate(*state);
+        return System::gameboy_advance.loadstate(*state);
     }
     return false;
 }
 
-auto System::savestate(std::string path) const -> bool
+auto System::savestate(const std::string& path) -> bool
 {
     auto state = std::make_unique<gba::State>();
-    if (this->gameboy_advance.savestate(*state))
+    if (System::gameboy_advance.savestate(*state))
     {
-        const auto state_path = create_state_path(path, this->state_slot);
+        const auto state_path = create_state_path(path, System::state_slot);
         std::printf("savestate to: %s\n", state_path.c_str());
         return dumpfile(state_path, {reinterpret_cast<std::uint8_t*>(state.get()), sizeof(gba::State)});
     }
@@ -382,15 +381,15 @@ auto System::on_key_event(const SDL_KeyboardEvent& e) -> void
             switch (e.keysym.scancode)
             {
                 case SDL_SCANCODE_I:
-                    this->viewer_io ^= 1;
+                    System::viewer_io ^= 1;
                     break;
 
                 case SDL_SCANCODE_L:
-                    this->toggle_master_layer_enable();
+                    System::toggle_master_layer_enable();
                     break;
 
                 case SDL_SCANCODE_A:
-                    this->gameboy_advance.bit_crushing ^= 1;
+                    System::gameboy_advance.bit_crushing ^= 1;
                     break;
 
                 default: break; // silence enum warning
@@ -401,15 +400,15 @@ auto System::on_key_event(const SDL_KeyboardEvent& e) -> void
             switch (e.keysym.scancode)
             {
                 case SDL_SCANCODE_P:
-                    this->emu_run ^= 1;
+                    System::emu_run ^= 1;
                     break;
 
                 case SDL_SCANCODE_S:
-                    this->savestate(this->rom_path);
+                    System::savestate(System::rom_path);
                     break;
 
                 case SDL_SCANCODE_L:
-                    this->loadstate(this->rom_path);
+                    System::loadstate(System::rom_path);
                     break;
 
                 default: break; // silence enum warning
@@ -421,16 +420,16 @@ auto System::on_key_event(const SDL_KeyboardEvent& e) -> void
 
     switch (e.keysym.scancode)
     {
-        case SDL_SCANCODE_X:      this->emu_set_button(gba::A, down);      break;
-        case SDL_SCANCODE_Z:      this->emu_set_button(gba::B, down);      break;
-        case SDL_SCANCODE_A:      this->emu_set_button(gba::L, down);      break;
-        case SDL_SCANCODE_S:      this->emu_set_button(gba::R, down);      break;
-        case SDL_SCANCODE_RETURN: this->emu_set_button(gba::START, down);  break;
-        case SDL_SCANCODE_SPACE:  this->emu_set_button(gba::SELECT, down); break;
-        case SDL_SCANCODE_UP:     this->emu_set_button(gba::UP, down);     break;
-        case SDL_SCANCODE_DOWN:   this->emu_set_button(gba::DOWN, down);   break;
-        case SDL_SCANCODE_LEFT:   this->emu_set_button(gba::LEFT, down);   break;
-        case SDL_SCANCODE_RIGHT:  this->emu_set_button(gba::RIGHT, down);  break;
+        case SDL_SCANCODE_X:      System::emu_set_button(gba::A, down);      break;
+        case SDL_SCANCODE_Z:      System::emu_set_button(gba::B, down);      break;
+        case SDL_SCANCODE_A:      System::emu_set_button(gba::L, down);      break;
+        case SDL_SCANCODE_S:      System::emu_set_button(gba::R, down);      break;
+        case SDL_SCANCODE_RETURN: System::emu_set_button(gba::START, down);  break;
+        case SDL_SCANCODE_SPACE:  System::emu_set_button(gba::SELECT, down); break;
+        case SDL_SCANCODE_UP:     System::emu_set_button(gba::UP, down);     break;
+        case SDL_SCANCODE_DOWN:   System::emu_set_button(gba::DOWN, down);   break;
+        case SDL_SCANCODE_LEFT:   System::emu_set_button(gba::LEFT, down);   break;
+        case SDL_SCANCODE_RIGHT:  System::emu_set_button(gba::RIGHT, down);  break;
 
     #ifndef EMSCRIPTEN
         case SDL_SCANCODE_ESCAPE:
@@ -459,7 +458,7 @@ auto System::on_window_event(const SDL_WindowEvent& e) -> void
             break;
 
         case SDL_WINDOWEVENT_SIZE_CHANGED:
-            this->resize_emu_screen();
+            System::resize_emu_screen();
             break;
 
         case SDL_WINDOWEVENT_MINIMIZED:
@@ -480,7 +479,7 @@ auto System::on_dropfile_event(SDL_DropEvent& e) -> void
 {
     if (e.file != nullptr)
     {
-        this->loadrom(e.file);
+        System::loadrom(e.file);
         SDL_free(e.file);
     }
 }
@@ -497,7 +496,7 @@ auto System::init(int argc, char** argv) -> bool
         return false;
     }
 
-    if (!this->loadrom(argv[1]))
+    if (!System::loadrom(argv[1]))
     {
         return false;
     }
@@ -518,14 +517,14 @@ auto System::init(int argc, char** argv) -> bool
     }
 
     // set audio callback and user data
-    this->gameboy_advance.set_userdata(this);
-    this->gameboy_advance.set_audio_callback(push_sample_callback);
-    this->gameboy_advance.set_hblank_callback(on_hblank_callback);
+    // System::gameboy_advance.set_userdata(this);
+    System::gameboy_advance.set_audio_callback(push_sample_callback);
+    System::gameboy_advance.set_hblank_callback(on_hblank_callback);
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER);
-    this->window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    this->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
+    System::window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    System::renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    System::texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
     #if SPEED_TEST == 0
     SDL_RenderSetVSync(renderer, 1);
     #endif
@@ -543,7 +542,7 @@ auto System::init(int argc, char** argv) -> bool
     #endif
 
     auto icon = SDL_CreateRGBSurfaceFrom(const_cast<uint32_t*>(app_icon_data), 32, 32, 32, 4*32, rmask, gmask, bmask, amask);
-    if (icon)
+    if (icon != nullptr)
     {
         SDL_SetWindowIcon(window, icon);
         SDL_FreeSurface(icon);
@@ -557,7 +556,7 @@ auto System::init(int argc, char** argv) -> bool
     aspec_wnt.padding = 0;
     aspec_wnt.size = 0;
     aspec_wnt.callback = audio_callback;
-    aspec_wnt.userdata = this;
+    // aspec_wnt.userdata = this;
 
     // allow all apsec to be changed if needed.
     // will be coverted and resampled by audiostream.
@@ -609,7 +608,7 @@ auto System::init(int argc, char** argv) -> bool
 auto System::run_events() -> void
 {
     SDL_Event e{};
-    while (SDL_PollEvent(&e))
+    while (SDL_PollEvent(&e) != 0)
     {
         ImGui_ImplSDL2_ProcessEvent(&e);
         switch (e.type)
@@ -699,8 +698,8 @@ auto System::run_emu() -> void
 
 auto System::toggle_master_layer_enable() -> void
 {
-    this->layer_enable_master ^= 1;
-    for (auto& layer : this->layers)
+    System::layer_enable_master ^= 1;
+    for (auto& layer : System::layers)
     {
         layer.enabled = layer_enable_master;
     }
@@ -729,11 +728,11 @@ auto System::menubar_tab_file() -> void
 
     if (ImGui::MenuItem("Save State", "Ctrl+S", false, has_rom))
     {
-        this->savestate(this->rom_path);
+        System::savestate(System::rom_path);
     }
     if (ImGui::MenuItem("Load State", "Ctrl+L", false, has_rom))
     {
-        this->loadstate(this->rom_path);
+        System::loadstate(System::rom_path);
     }
 
     ImGui::Separator();
@@ -764,7 +763,7 @@ auto System::menubar_tab_emulation() -> void
     ImGui::MenuItem("Play", "Ctrl+P", &emu_run);
     if (ImGui::MenuItem("Stop"))
     {
-        this->closerom();
+        System::closerom();
     }
     if (ImGui::MenuItem("Reset"))
     {
@@ -797,7 +796,7 @@ auto System::menubar_tab_view() -> void
 {
     if (ImGui::MenuItem("Fullscreen", "Ctrl+F", is_fullscreen()))
     {
-        this->toggle_fullscreen();
+        System::toggle_fullscreen();
     }
 
     if (ImGui::BeginMenu("Scale"))
@@ -819,7 +818,7 @@ auto System::menubar_tab_view() -> void
 
     if (ImGui::MenuItem("Enable Layers", "Ctrl+Shift+L", &layer_enable_master, debug_mode))
     {
-        this->toggle_master_layer_enable();
+        System::toggle_master_layer_enable();
     }
 
     if (ImGui::BeginMenu("Show Layer", debug_mode))
@@ -860,32 +859,32 @@ auto System::menubar() -> void
 
         if (ImGui::BeginMenu("File"))
         {
-            this->menubar_tab_file();
+            System::menubar_tab_file();
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Emulation", has_rom))
         {
-            this->menubar_tab_emulation();
+            System::menubar_tab_emulation();
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Options"))
         {
-            this->menubar_tab_options();
+            System::menubar_tab_options();
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Tools"))
         {
-            this->menubar_tab_tools();
+            System::menubar_tab_tools();
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("View"))
         {
-            this->menubar_tab_view();
+            System::menubar_tab_view();
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Help"))
         {
-            this->menubar_tab_help();
+            System::menubar_tab_help();
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
@@ -905,7 +904,7 @@ auto mem_viewer_entry(const char* name, std::span<uint8_t> data) -> void
 
 auto System::im_debug_window() -> void
 {
-    if (show_debug_window == false)
+    if (!show_debug_window)
     {
         return;
     }
@@ -979,11 +978,11 @@ auto System::emu_render() -> void
     ImGui::Begin("emu window", nullptr, flags);
     {
         inside_emu_window = ImGui::IsWindowFocused();
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0F);
 
         ImGui::SetCursorPos(ImVec2(0, 0));
 
@@ -994,7 +993,7 @@ auto System::emu_render() -> void
         if (show_grid)
         {
             // 240/8 = 30
-            draw_grid(emu_rect.w, 30, 1.0f, p.x, p.y);
+            draw_grid(emu_rect.w, 30, 1.0F, p.x, p.y);
         }
     }
     ImGui::End();
@@ -1021,12 +1020,12 @@ auto System::run_render() -> void
         }
     }
 
-    this->emu_update_texture();
-    this->emu_render();
+    System::emu_update_texture();
+    System::emu_render();
 
-    this->menubar(); // this should be child to emu screen
-    this->im_debug_window();
-    this->render_layers();
+    System::menubar(); // this should be child to emu screen
+    System::im_debug_window();
+    System::render_layers();
 
     resize_to_menubar();
 
@@ -1042,8 +1041,8 @@ auto System::run() -> void
 {
     while (running)
     {
-        this->run_events();
-        this->run_emu();
+        System::run_events();
+        System::run_emu();
 
         #if SPEED_TEST == 1
         const auto current_time = std::chrono::high_resolution_clock::now();
@@ -1057,19 +1056,19 @@ auto System::run() -> void
         }
         #endif
 
-        this->run_render();
+        System::run_render();
     }
 }
 
 auto System::is_fullscreen() -> bool
 {
     const auto flags = SDL_GetWindowFlags(window);
-    return flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP);
+    return (flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;
 }
 
 auto System::toggle_fullscreen() -> void
 {
-    if (this->is_fullscreen())
+    if (System::is_fullscreen())
     {
         SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
     }
@@ -1088,16 +1087,18 @@ auto System::resize_to_menubar() -> void
 
     should_resize = false;
 
-    int w, h;
+    int w;
+    int h;
     SDL_GetRendererOutputSize(renderer, &w, &h);
     SDL_SetWindowSize(window, w, h + menubar_height);
 
-    this->resize_emu_screen();
+    System::resize_emu_screen();
 }
 
 auto System::resize_emu_screen() -> void
 {
-    int w, h;
+    int w;
+    int h;
     SDL_GetRendererOutputSize(renderer, &w, &h);
 
     // update rect

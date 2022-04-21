@@ -54,14 +54,14 @@ public:
 
     auto init(Gba& gba, Type new_type) -> void;
     auto load_data(std::span<const u8> new_data) -> bool;
-    auto get_data() const -> std::span<const u8>;
+    [[nodiscard]] auto get_data() const -> std::span<const u8>;
 
     auto read(Gba& gba, u32 addr) -> u8;
     auto write(Gba& gba, u32 addr, u8 value) -> void;
 
 private:
-    auto get_manufacturer_id() const -> u8;
-    auto get_device_id() const -> u8;
+    [[nodiscard]] auto get_manufacturer_id() const -> u8;
+    [[nodiscard]] auto get_device_id() const -> u8;
 };
 
 } // namespace gba::backup::flash

@@ -11,19 +11,19 @@ namespace gba::arm7tdmi::barrel {
 // All shifts are mask 31 (&31) as to not cause UB when shifting by more
 // bits than possible.
 [[nodiscard]]
-constexpr u32 shift_logical_left(u32 v, u8 shift)
+constexpr auto shift_logical_left(u32 v, u8 shift) -> u32
 {
     return v << shift;
 }
 
 [[nodiscard]]
-constexpr u32 shift_logical_right(u32 v, u8 shift)
+constexpr auto shift_logical_right(u32 v, u8 shift) -> u32
 {
     return v >> shift;
 }
 
 [[nodiscard]]
-constexpr u32 shift_arithmetic_right(u32 v, u8 shift)
+constexpr auto shift_arithmetic_right(u32 v, u8 shift) -> u32
 {
     // signed bit should always be preserved, so casting works...
     static_assert(
@@ -35,7 +35,7 @@ constexpr u32 shift_arithmetic_right(u32 v, u8 shift)
 }
 
 [[nodiscard]]
-constexpr u32 shift_rotate_right(u32 v, u8 shift)
+constexpr auto shift_rotate_right(u32 v, u8 shift) -> u32
 {
     return std::rotr(v, shift);
 }
@@ -54,7 +54,7 @@ struct [[nodiscard]] shift_result
 constexpr auto shift_rrx(u32 v, const bool old_carry) -> shift_result
 {
     // ror imm #0 is a special RRX shift, which is >> 1 with the carry being shifted in
-    return { (v >> 1) | (old_carry << 31), bit::is_set<0>(v) };
+    return { (v >> 1) | (static_cast<int>(old_carry) << 31), bit::is_set<0>(v) };
 }
 
 // sepcial case for when shifting by imm and shift_value == 0

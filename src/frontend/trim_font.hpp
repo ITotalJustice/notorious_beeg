@@ -31,8 +31,8 @@ For more information, please refer to <http://unlicense.org/>
 
 // File: '../trim.ttf' (15492 bytes)
 // Exported using binary_to_compressed_c.cpp
-static const unsigned int trim_font_compressed_size = 12084;
-static const unsigned int trim_font_compressed_data[12084/4] =
+static constexpr unsigned int trim_font_compressed_size = 12084;
+static constexpr unsigned int trim_font_compressed_data[12084/4] =
 {
     0x0000bc57, 0x00000000, 0x843c0000, 0x00000400, 0x00010033, 0x000a0000, 0x00030080, 0x2f534f20, 0x4bf34432, 0x2011822a, 0x080382ac, 0x6d63602c,
     0x1ec27061, 0x00005091, 0x0000183b, 0x6c676a01, 0x52826679, 0x0000c8c2, 0x00003802, 0x6568c033, 0x1c0c6461, 0x0000f92d, 0x2f828437, 0x82683621,

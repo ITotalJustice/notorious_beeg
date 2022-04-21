@@ -16,7 +16,7 @@ static auto add_offset_to_stack_pointer(Gba& gba, u16 opcode) -> void
 {
     auto SWord7 = bit::get_range<0, 6>(opcode) << 2;
 
-    if constexpr (S)
+    if constexpr(S)
     {
         SWord7 *= -1;
     }

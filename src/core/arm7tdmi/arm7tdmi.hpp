@@ -37,8 +37,8 @@ constexpr auto COND_AL = 0xE; // ignored (AL = always)
 
 enum class State : bool
 {
-    ARM   = 0,
-    THUMB = 1,
+    ARM   = false,
+    THUMB = true,
 };
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#REG_IE

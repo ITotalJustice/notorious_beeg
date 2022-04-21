@@ -36,7 +36,7 @@ static auto block_data_transfer_empty_rlist(Gba& gba, u32 opcode) -> void
             set_reg(gba, Rn, final_addr);
         }
         P ^= 1;
-        W = 0;
+        W = false;
     }
 
     const auto pre = P ? 4 : 0;
@@ -123,7 +123,7 @@ static auto block_data_transfer(Gba& gba, u32 opcode) -> void
             set_reg(gba, Rn, final_addr);
         }
         P ^= 1;
-        W = 0;
+        W = false;
     }
 
     // these are used to avoid having a huge if else tree

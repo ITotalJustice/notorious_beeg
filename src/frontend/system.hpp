@@ -17,21 +17,21 @@ struct System
 {
     ~System();
 
-    auto init(int argc, char** argv) -> bool;
-    auto run() -> void;
-    auto on_key_event(const SDL_KeyboardEvent& e) -> void;
-    auto on_display_event(const SDL_DisplayEvent& e) -> void;
-    auto on_window_event(const SDL_WindowEvent& e) -> void;
-    auto on_dropfile_event(SDL_DropEvent& e) -> void;
+    static auto init(int argc, char** argv) -> bool;
+    static auto run() -> void;
+    static auto on_key_event(const SDL_KeyboardEvent& e) -> void;
+    static auto on_display_event(const SDL_DisplayEvent& e) -> void;
+    static auto on_window_event(const SDL_WindowEvent& e) -> void;
+    static auto on_dropfile_event(SDL_DropEvent& e) -> void;
 
-    auto loadrom(std::string path) -> bool;
-    auto closerom() -> void;
+    static auto loadrom(const std::string& path) -> bool;
+    static auto closerom() -> void;
 
-    auto loadsave(std::string path) -> bool;
-    auto savegame(std::string path) const -> bool;
+    static auto loadsave(const std::string& path) -> bool;
+    static auto savegame(const std::string& path) -> bool;
 
-    auto loadstate(std::string path) -> bool;
-    auto savestate(std::string path) const -> bool;
+    static auto loadstate(const std::string& path) -> bool;
+    static auto savestate(const std::string& path) -> bool;
 
     static inline gba::Gba gameboy_advance{};
     static inline SDL_Window* window{};
@@ -97,37 +97,37 @@ private:
     static inline bool show_grid{false};
 
 private:
-    auto run_events() -> void;
-    auto run_emu() -> void;
-    auto run_render() -> void;
+    static auto run_events() -> void;
+    static auto run_emu() -> void;
+    static auto run_render() -> void;
 
 // misc
 private:
-    auto is_fullscreen() -> bool;
-    auto toggle_fullscreen() -> void;
-    auto resize_to_menubar() -> void;
-    auto resize_emu_screen() -> void;
+    static auto is_fullscreen() -> bool;
+    static auto toggle_fullscreen() -> void;
+    static auto resize_to_menubar() -> void;
+    static auto resize_emu_screen() -> void;
 
 // emu stuff
 private:
-    auto emu_update_texture() -> void;
-    auto emu_render() -> void;
-    auto emu_set_button(gba::Button button, bool down) -> void;
+    static auto emu_update_texture() -> void;
+    static auto emu_render() -> void;
+    static auto emu_set_button(gba::Button button, bool down) -> void;
 
 // imgui stuff
 private:
-    auto menubar_tab_file() -> void;
-    auto menubar_tab_emulation() -> void;
-    auto menubar_tab_options() -> void;
-    auto menubar_tab_tools() -> void;
-    auto menubar_tab_view() -> void;
-    auto menubar_tab_help() -> void;
-    auto menubar() -> void;
+    static auto menubar_tab_file() -> void;
+    static auto menubar_tab_emulation() -> void;
+    static auto menubar_tab_options() -> void;
+    static auto menubar_tab_tools() -> void;
+    static auto menubar_tab_view() -> void;
+    static auto menubar_tab_help() -> void;
+    static auto menubar() -> void;
 
 // debug stuff
 private:
-    auto im_debug_window() -> void;
-    auto render_layers() -> void;
-    auto toggle_master_layer_enable() -> void;
+    static auto im_debug_window() -> void;
+    static auto render_layers() -> void;
+    static auto toggle_master_layer_enable() -> void;
 };
 } // namespace sys

@@ -690,7 +690,7 @@ static constexpr auto write_io8(Gba& gba, u32 addr, u8 value) -> void
 }
 
 template<typename T> [[nodiscard]]
-constexpr T read_io_region(Gba& gba, u32 addr)
+constexpr auto read_io_region(Gba& gba, u32 addr) -> T
 {
     addr = align_address<T>(addr);
 
@@ -763,7 +763,7 @@ template<typename T>
 static constexpr auto write_oam_region(Gba& gba, u32 addr, T value) -> void
 {
     // only non-byte writes are allowed
-    if constexpr(std::is_same<T, u8>() == false)
+    if constexpr(!std::is_same<T, u8>())
     {
         write_array<T>(MEM.oam, OAM_MASK, addr, value);
     }

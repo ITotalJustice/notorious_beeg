@@ -51,7 +51,7 @@ public:
     auto set_width(Width new_width) -> void;
 
     auto load_data(std::span<const u8> new_data) -> bool;
-    auto get_data() const -> std::span<const u8>;
+    [[nodiscard]] auto get_data() const -> std::span<const u8>;
 
     auto read(Gba& gba, std::uint32_t addr) -> u8;
     auto write(Gba& gba, std::uint32_t addr, u8 value) -> void;

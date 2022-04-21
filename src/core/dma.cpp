@@ -71,7 +71,7 @@ static auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
     // const auto src = dma.src_addr;
     const auto dst = dma.dst_addr;
 
-    if constexpr(Special == true)
+    if constexpr(Special)
     {
         for (int i = 0; i < 4; i++)
         {

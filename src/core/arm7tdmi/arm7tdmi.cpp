@@ -369,7 +369,7 @@ auto software_interrupt(Gba& gba, u8 comment_field) -> void
 
         change_mode(gba, get_mode(gba), MODE_SUPERVISOR);
         disable_interrupts(gba); // not sure about this
-        CPU.cpsr.T = 0; // we need to be in arm
+        CPU.cpsr.T = false; // we need to be in arm
         CPU.spsr = cpsr; // stave cpsr so it can be restored later
         set_lr(gba, lr); //
         set_pc(gba, pc); // jump to SVC handler

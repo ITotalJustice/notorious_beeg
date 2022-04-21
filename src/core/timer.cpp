@@ -177,7 +177,7 @@ auto on_timer3_event(Gba& gba) -> void
 
 auto update_timer(Gba& gba, Timer& timer) -> void
 {
-    if (timer.enable == false)
+    if (!timer.enable)
     {
         return;
     }

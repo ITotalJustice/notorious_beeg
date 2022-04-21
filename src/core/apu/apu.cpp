@@ -58,7 +58,7 @@ static constexpr u8 PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
 #define BIT_CRUSH_SAMPLE 0
 
 #if UNSIGNED_DMG_CHANNELS
-static constexpr bool SQUARE_DUTY_CYCLES[4][8] =
+static constexpr u8 SQUARE_DUTY_CYCLES[4][8] =
 {
     /*[0] = */{ 0, 0, 0, 0, 0, 0, 0, 1 },
     /*[1] = */{ 1, 0, 0, 0, 0, 0, 0, 1 },
@@ -85,7 +85,7 @@ static auto is_next_frame_sequencer_step_not_len(const Gba& gba) -> bool;
 static auto is_next_frame_sequencer_step_vol(const Gba& gba) -> bool;
 
 template<typename T>
-static auto& get_channel_from_type(Gba& gba)
+static auto get_channel_from_type(Gba& gba) -> auto&
 {
     if constexpr(std::is_same<T, Square0>())
     {
@@ -320,7 +320,7 @@ static auto env::clock([[maybe_unused]] Gba& gba, auto& channel)
 {
     auto& env = channel.env;
 
-    if (env.disable == false)
+    if (!env.disable)
     {
         env.timer--;
 
@@ -367,13 +367,13 @@ static auto env::write(Gba& gba, auto& channel, u8 value)
 {
     auto& env = channel.env;
 
-    const u8 starting_vol = bit::get_range<4, 7>(value);
-    const bool mode = bit::is_set<3>(value);
-    const u8 period = bit::get_range<0, 2>(value);
+    const auto starting_vol = bit::get_range<4, 7>(value);
+    const auto mode = bit::is_set<3>(value);
+    const auto period = bit::get_range<0, 2>(value);
 
     if (channel.is_enabled(gba))
     {
-        if (env.period == 0 && env.disable == false)
+        if (env.period == 0 && !env.disable)
         {
             env.volume += 1;
         }
@@ -394,7 +394,7 @@ static auto env::write(Gba& gba, auto& channel, u8 value)
     env.mode = mode;
     env.period = period;
 
-    if (channel.is_dac_enabled() == false)
+    if (!channel.is_dac_enabled())
     {
         channel.disable(gba);
     }
@@ -522,7 +522,7 @@ auto SquareBase<Number>::get_freq() const -> u32
 }
 
 template<u8 Number>
-auto SquareBase<Number>::is_dac_enabled() -> bool
+auto SquareBase<Number>::is_dac_enabled() const -> bool
 {
     return env.starting_vol != 0 || env.mode != 0;
 }
@@ -618,7 +618,7 @@ static constexpr auto trigger(Gba& gba, T& channel)
         }
     }
 
-    if (channel.is_dac_enabled() == false) [[unlikely]]
+    if (!channel.is_dac_enabled()) [[unlikely]]
     {
         channel.disable(gba);
     }
@@ -644,7 +644,7 @@ auto Wave::sample(Gba& gba) const -> s8
     const auto sample = (position_counter & 1) ? sample_buffer & 0xF : sample_buffer >> 4;
 
     // if = 0, use the above table
-    if (force_volume == 0)
+    if (!force_volume)
     {
         return (sample >> CH3_SHIFT[vol_code]);
     }
@@ -660,7 +660,7 @@ auto Wave::get_freq() const -> u32
     return (2048 - ((static_cast<u32>(freq_msb) << 8) | static_cast<u32>(freq_lsb))) * 8;
 }
 
-auto Wave::is_dac_enabled() -> bool
+auto Wave::is_dac_enabled() const -> bool
 {
     return dac_power;
 }
@@ -684,7 +684,7 @@ auto Noise::get_freq() const -> u32
     return (NOISE_DIVISOR[divisor_code] << clock_shift) * 8;
 }
 
-auto Noise::is_dac_enabled() -> bool
+auto Noise::is_dac_enabled() const -> bool
 {
     return env.starting_vol != 0 || env.mode != 0;
 }
@@ -714,7 +714,7 @@ static constexpr auto on_nrx0_write(Gba& gba, T& channel, u8 value)
         channel.bank_select = bit::is_set<6>(value);
         channel.dac_power = bit::is_set<7>(value);
 
-        if (channel.is_dac_enabled() == false)
+        if (!channel.is_dac_enabled())
         {
             channel.disable(gba);
         }
@@ -773,7 +773,7 @@ static constexpr auto on_nrx4_write(Gba& gba, T& channel, u8 value)
 {
     len::on_nrx4_edge_case_write(gba, channel, value);
 
-    if constexpr(std::is_same<T, Noise>() == false)
+    if constexpr(!std::is_same<T, Noise>())
     {
         channel.freq_msb = bit::get_range<0, 2>(value);
     }
@@ -930,7 +930,7 @@ void on_nr52_write(Gba& gba, u8 value)
 
     if (APU.enabled)
     {
-        if (master_enable == 0)
+        if (!master_enable)
         {
             gba_log("\tapu disabled\n");
             apu_on_disabled(gba);
@@ -1011,7 +1011,7 @@ void clock_env(Gba& gba)
     env::clock(gba, APU.noise);
 }
 
-bool is_apu_enabled(Gba& gba)
+auto is_apu_enabled(Gba& gba) -> bool
 {
     assert(APU.enabled == bit::is_set<7>(REG_SOUNDCNT_X) && "apu enabled missmatch");
     return APU.enabled;
@@ -1122,7 +1122,7 @@ void Wave::advance_position_counter([[maybe_unused]] Gba& gba)
     }
 }
 
-auto Fifo::sample() -> s8
+auto Fifo::sample() const -> s8
 {
     constexpr u8 VOL_SHIFT[2] = { 1, 0 };
     return this->current_sample >> VOL_SHIFT[this->volume_code];
@@ -1130,7 +1130,7 @@ auto Fifo::sample() -> s8
 
 auto sample(Gba& gba)
 {
-    if (!gba.audio_callback) [[unlikely]]
+    if (gba.audio_callback == nullptr) [[unlikely]]
     {
         return;
     }
@@ -1190,12 +1190,13 @@ auto sample(Gba& gba)
 
     // audio is clamped to 11-bit
     // it's actually 10-bit on gba, but it clips HARD when doing that
-    constexpr s16 min = -1024, max = 1023;
+    constexpr s16 min = -1024;
+    constexpr s16 max = 1023;
     sample_left = std::clamp(sample_left, min, max);
     sample_right = std::clamp(sample_right, min, max);
 
     // don't bit crush (as gba does) because it sounds very bad.
-    if (gba.bit_crushing == false)
+    if (!gba.bit_crushing)
     {
         sample_left <<= 5;
         sample_right <<= 5;

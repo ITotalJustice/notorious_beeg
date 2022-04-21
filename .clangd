@@ -1,0 +1,19 @@
+CompileFlags:
+    Add: [
+      # enable c++23 support
+      -std=c++2b,
+      # constexpr args need to be tweeked a bit
+      -fconstexpr-depth=1000000000, -fconstexpr-steps=1271242]
+
+Diagnostics:
+  # Tweak Clang-Tidy checks.
+  ClangTidy:
+    Add: [performance*, modernize*, readability*]
+    Remove: [
+      readability-else-after-return,
+      readability-redundant-access-specifiers,
+      readability-magic-numbers,
+      readability-identifier-length,
+      readability-function-cognitive-complexity,
+      readability-qualified-auto,
+      modernize-avoid-c-arrays]

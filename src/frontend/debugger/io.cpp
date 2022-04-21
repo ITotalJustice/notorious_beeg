@@ -856,7 +856,9 @@ auto render(gba::Gba& gba, bool* p_open) -> void
             for (auto i = 0; i < IO_NAMES.size(); i++)
             {
                 if (ImGui::Selectable(IO_NAMES[i].name, selected == i))
+                {
                     selected = i;
+                }
             }
             ImGui::EndChild();
         }
