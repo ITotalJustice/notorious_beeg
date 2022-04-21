@@ -31,7 +31,6 @@ auto reset(Gba& gba) -> void
     set_cpsr_from_u32(gba, 0x6000001F, true, true);
 
     refill_pipeline(gba);
-    disable_interrupts(gba);
 }
 
 auto check_cond(const Gba& gba, u8 cond) -> bool
