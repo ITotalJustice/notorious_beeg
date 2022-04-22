@@ -15,20 +15,24 @@
 
 namespace gba::arm7tdmi {
 
-auto reset(Gba& gba) -> void
+auto reset(Gba& gba, bool skip_bios) -> void
 {
-    enum { ROM_START_ADDR = 0x08000000 };
-    // enum { ROM_START_ADDR = 0 }; // bios
+    gba.cpu = {};
 
-    // CPU.cpsr.M = MODE_USER;
     CPU.cpsr.M = MODE_SYSTEM;
-    CPU.registers[PC_INDEX] = ROM_START_ADDR;
-    // these values are from no$gba
-    CPU.registers[LR_INDEX] = 0x08000000;
-    CPU.registers[SP_INDEX] = 0x03007F00;
-    CPU.banked_reg_irq[0] = 0x3007FA0; // SP
-    CPU.banked_reg_svc[0] = 0x3007FE0; // SP
-    set_cpsr_from_u32(gba, 0x6000001F, true, true);
+    CPU.cpsr.T = false; // start in arm
+    CPU.cpsr.F = true; // disable FIQ
+
+    // todo: compare values accross diff bios (normmatt / official)
+    if (skip_bios)
+    {
+        CPU.registers[SP_INDEX] = 0x03007F00;
+        CPU.registers[LR_INDEX] = 0x08000000;
+        CPU.registers[PC_INDEX] = 0x08000000;
+
+        CPU.banked_reg_irq[0] = 0x3007FA0; // SP
+        CPU.banked_reg_svc[0] = 0x3007FE0; // SP
+    }
 
     refill_pipeline(gba);
 }
@@ -188,7 +192,7 @@ auto get_u32_from_psr(Psr& psr) -> u32
     value |= (psr.C << 29);
     value |= (psr.V << 28);
     value |= (psr.I << 7);
-    value |= (psr.F << 6);
+    value |= (1/*psr.F*/ << 6); // forced to 1
     value |= (psr.T << 5);
     value |= psr.M;
     return value;
@@ -251,7 +255,6 @@ auto set_psr_from_u32(Gba& gba, Psr& psr, u32 value, bool flag_write, bool contr
     if (control_write && get_mode(gba) != MODE_USER)
     {
         psr.I = bit::is_set<7>(value);
-        psr.F = bit::is_set<6>(value);
         psr.T = bit::is_set<5>(value);
         psr.M = bit::get_range<0, 4>(value);
     }

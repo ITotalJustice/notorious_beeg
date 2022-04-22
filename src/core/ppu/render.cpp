@@ -1121,7 +1121,7 @@ static auto render_mode4(Gba& gba) noexcept -> void
 auto render(Gba& gba) -> void
 {
     // if forced blanking is enabled, the screen is black
-    if (bit::is_set<7>(REG_DISPCNT)) [[unlikely]]
+    if (is_screen_blanked(gba)) [[unlikely]]
     {
         std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], 0);
         return;

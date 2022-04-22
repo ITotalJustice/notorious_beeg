@@ -94,11 +94,7 @@ static auto on_reset_event(Gba& gba) -> void
 
 auto reset(Gba& gba) -> void
 {
-    for (auto& entry : gba.scheduler.entries)
-    {
-        entry.enabled = false;
-        entry.delta = 0;
-    }
+    gba.scheduler = {};
 
     gba.scheduler.cycles = START_CYCLES;
     gba.scheduler.next_event_cycles = RESET_CYCLES;

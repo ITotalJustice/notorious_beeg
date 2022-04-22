@@ -36,9 +36,6 @@ struct Mem
     WriteArray wmap_16[16]{};
     WriteArray wmap_32[16]{};
 
-    // 16kb, 32-bus
-    alignas(u32) u8 bios[1024 * 16]{};
-
     // 256kb, 16-bit bus
     alignas(u32) u8 ewram[1024 * 256]{};
 
@@ -56,6 +53,9 @@ struct Mem
 
     // 1kb, 16/32-bit
     alignas(u32) u8 io[1024 * 1]{};
+
+    // internal memory control
+    alignas(u32) u8 imc[4];
 };
 
 
@@ -222,10 +222,14 @@ constexpr auto IO_TM3CNT = 0x400010E; // (Timer 3 Control)
 constexpr auto IO_KEY = 0x04000130; // (The input register)(Read Only)
 constexpr auto IO_IE = 0x04000200; // (Interrupt Enable Register)
 constexpr auto IO_IF = 0x04000202; // (Interrupt Flags Regster)
+constexpr auto IO_WSCNT = 0x4000204; // (Wait State Control)
 constexpr auto IO_IME = 0x4000208; // (Interrupt Master Enable)
 
 constexpr auto IO_HALTCNT_L = 0x4000300; // (LFirst Boot/Debug Control)
 constexpr auto IO_HALTCNT_H = 0x4000301; // (Low Power Mode Control)
+
+constexpr auto IO_IMC_L = 0x4000800; // (Internal Memory Control)
+constexpr auto IO_IMC_H = 0x4000802; // (Internal Memory Control)
 
 #define REG_DISPCNT  *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DISPCNT & 0x3FF))
 #define REG_DISPSTAT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DISPSTAT & 0x3FF))
@@ -357,10 +361,18 @@ constexpr auto IO_HALTCNT_H = 0x4000301; // (Low Power Mode Control)
 #define REG_KEY *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_KEY & 0x3FF))
 #define REG_IE *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_IE & 0x3FF))
 #define REG_IF *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_IF & 0x3FF))
+#define REG_WSCNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_WSCNT & 0x3FF))
 #define REG_IME *reinterpret_cast<std::uint8_t*>(gba.mem.io + (gba::mem::IO_IME & 0x3FF))
 
+// currently these regs are not handled
+// #define REG_IMC_L *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_IMC_L & 0x3FF))
+// #define REG_IMC_H *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_IMC_H & 0x3FF))
+
+#define REG_IMC_L *reinterpret_cast<std::uint16_t*>(gba.mem.imc + 0)
+#define REG_IMC_H *reinterpret_cast<std::uint16_t*>(gba.mem.imc + 2)
+
 auto setup_tables(Gba& gba) -> void;
-auto reset(Gba& gba) -> void;
+auto reset(Gba& gba, bool skip_bios) -> void;
 
 [[nodiscard]]
 STATIC_INLINE auto read8(Gba& gba, u32 addr) -> u8;

@@ -1379,7 +1379,7 @@ static constexpr u8 normmatt_bios[] =
 
 auto load_normmatt_bios(Gba& gba) -> void
 {
-    std::ranges::copy(normmatt_bios, gba.mem.bios);
+    std::ranges::copy(normmatt_bios, gba.bios);
 }
 
 } // namespace gba::bios

@@ -23,7 +23,7 @@ struct Ppu
     Period period;
 
     // bgr555
-    std::uint16_t pixels[160][240];
+    u16 pixels[160][240];
 };
 
 // used for debugging
@@ -32,8 +32,13 @@ auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8;
 auto get_mode(Gba& gba) -> u8;
 auto is_bitmap_mode(Gba & gba) -> bool;
 
+// returns true if screen is forcefully blanked (off)
+auto is_screen_blanked(Gba& gba) -> bool;
+// returns true if in hdraw and screen isn't blanked
+auto is_screen_visible(Gba& gba) -> bool;
+
 auto on_event(Gba& gba) -> void;
-auto reset(Gba& gba) -> void;
+auto reset(Gba& gba, bool skip_bios) -> void;
 auto run(Gba& gba, u8 cycles) -> void;
 
 } // namespace gba::ppu

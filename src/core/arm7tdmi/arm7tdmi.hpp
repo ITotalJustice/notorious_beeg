@@ -101,7 +101,7 @@ struct Arm7tdmi
 
 #define CPU gba.cpu
 
-STATIC auto reset(Gba& gba) -> void;
+STATIC auto reset(Gba& gba, bool skip_bios) -> void;
 
 STATIC auto refill_pipeline(Gba& gba) -> void;
 

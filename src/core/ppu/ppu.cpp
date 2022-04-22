@@ -49,11 +49,35 @@ auto is_bitmap_mode(Gba & gba) -> bool
     return mode == 3 || mode == 4 || mode == 5;
 }
 
-auto reset(Gba& gba) -> void
+auto is_screen_blanked(Gba& gba) -> bool
 {
+    return bit::is_set<7>(REG_DISPCNT);
+}
+
+auto is_screen_visible(Gba& gba) -> bool
+{
+    return !is_screen_blanked(gba) && gba.ppu.period == Period::hdraw;
+}
+
+auto reset(Gba& gba, bool skip_bios) -> void
+{
+    gba.ppu = {};
+
     PPU.period = Period::hdraw;
     update_period_cycles(gba);
     add_event(gba);
+
+    if (skip_bios)
+    {
+        REG_DISPCNT = 0x0080;
+        // ignoring this for now as it causes screen tearing
+        // will have to sync up to vblank in frontend.
+        // REG_VCOUNT = 126; // 0x007E
+        REG_BG2PA = 0x0100;
+        REG_BG2PD = 0x0100;
+        REG_BG3PA = 0x0100;
+        REG_BG3PD = 0x0100;
+    }
 }
 
 // called during hblank from lines 0-227

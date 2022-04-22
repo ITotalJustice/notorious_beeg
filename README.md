@@ -36,6 +36,11 @@ gba emulator witten in c++23.
 - fix vrally 3 by not disabling interrupts when skipping bios. fixes [#53](https://github.com/ITotalJustice/notorious_beeg/issues/53)
 - better impl backup save type searching (less strict with the string found, may cause issues!). fixes [#52](https://github.com/ITotalJustice/notorious_beeg/issues/52)
 - do obj alpha blending if the alpha bit is set in oam.
+- fixed loading alt bios.
+- add 1 cycle penalty if game accesses pram/vram/oam whilst in hdraw.
+- more accurately set registers for skipping bios.
+- fix strb to hltcnt_l writing to both hltcnt_l hltcnt_h, causing invalid halt in official bios.
+- move bios array to gba struct so that bios isn't included in savestate.
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
@@ -113,17 +118,12 @@ gba emulator witten in c++23.
 - sram
 
 ## not impl
-- flash
 - dma3 special
-- timer cascade
-- all non-bitmap modes
-- apu writes ignored on apu disabled
 - unused bits
 - unused region read
 - bios read (when pc is not in bios)
 - delayed dma
 - proper r/w timing access
-- soundbias
 - proper fifo <https://github.com/mgba-emu/mgba/issues/1847>
 
 ## misc
@@ -173,3 +173,4 @@ gba emulator witten in c++23.
 - endrift for mgba <https://github.com/mgba-emu/mgba>
 - ocornut for imgui <https://github.com/ocornut/imgui>
 - ocornut for imgui_club <https://github.com/ocornut/imgui_club>
+- everyone that has contributed to the bios decomp <https://github.com/Gericom/gba_bios>

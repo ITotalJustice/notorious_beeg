@@ -69,11 +69,11 @@ auto setup_tables(Gba& gba) -> void
     std::ranges::fill(MEM.wmap_16, WriteArray{});
     std::ranges::fill(MEM.wmap_32, WriteArray{});
 
-    // MEM.rmap_16[0x0] = {gba.mem.bios, BIOS_MASK};
+    // MEM.rmap_16[0x0] = {gba.bios, BIOS_MASK};
     MEM.rmap_16[0x2] = {gba.mem.ewram, EWRAM_MASK};
     MEM.rmap_16[0x3] = {gba.mem.iwram, IWRAM_MASK};
-    MEM.rmap_16[0x5] = {gba.mem.pram, PRAM_MASK};
-    MEM.rmap_16[0x7] = {gba.mem.oam, OAM_MASK};
+    // MEM.rmap_16[0x5] = {gba.mem.pram, PRAM_MASK};
+    // MEM.rmap_16[0x7] = {gba.mem.oam, OAM_MASK};
     MEM.rmap_16[0x8] = {gba.rom, ROM_MASK};
     MEM.rmap_16[0x9] = {gba.rom, ROM_MASK};
     MEM.rmap_16[0xA] = {gba.rom, ROM_MASK};
@@ -83,8 +83,8 @@ auto setup_tables(Gba& gba) -> void
 
     MEM.wmap_16[0x2] = {gba.mem.ewram, EWRAM_MASK};
     MEM.wmap_16[0x3] = {gba.mem.iwram, IWRAM_MASK};
-    MEM.wmap_16[0x5] = {gba.mem.pram, PRAM_MASK};
-    MEM.wmap_16[0x7] = {gba.mem.oam, OAM_MASK};
+    // MEM.wmap_16[0x5] = {gba.mem.pram, PRAM_MASK};
+    // MEM.wmap_16[0x7] = {gba.mem.oam, OAM_MASK};
 
     // this will be handled by the function handlers
     if (gba.backup.type == backup::Type::EEPROM)
@@ -104,14 +104,13 @@ auto setup_tables(Gba& gba) -> void
     MEM.wmap_8[0x7] = {}; // ignore oam byte stores
 }
 
-auto reset(Gba& gba) -> void
+auto reset(Gba& gba, bool skip_bios) -> void
 {
-    std::ranges::fill(MEM.ewram, 0);
-    std::ranges::fill(MEM.iwram, 0);
-    std::ranges::fill(MEM.pram, 0);
-    std::ranges::fill(MEM.vram, 0);
-    std::ranges::fill(MEM.oam, 0);
-    REG_KEY = 0xFFFF;
+    gba.mem = {};
+
+    REG_KEY = 0xFFFF; // all keys are up
+    REG_IMC_L = bit::set<5>(REG_IMC_L, true); // always set
+    REG_IMC_H = 0xD00; // wram 2 waitstates
 
     setup_tables(gba);
 }
@@ -399,6 +398,12 @@ static constexpr auto read_io16(Gba& gba, u32 addr) -> u16
         case IO_DMA3CNT_L:
             return 0x0000;
 
+        case IO_IMC_L:
+            return REG_IMC_L;
+
+        case IO_IMC_H:
+            return REG_IMC_H;
+
         default:
             //printf("unhandled io read addr: 0x%08X\n", addr);
             return read_array<u16>(MEM.io, IO_MASK, addr);
@@ -454,6 +459,38 @@ static constexpr auto write_io16(Gba& gba, u32 addr, u16 value) -> void
             REG_SOUNDCNT_X = (REG_SOUNDCNT_X & 0xF) | (value & ~0xF);
             apu::write_legacy(gba, addr, value);
             return;
+
+        case IO_WSCNT: {
+            const auto old_value = REG_WSCNT;
+            const auto new_value = value;
+
+            std::printf("[IO_WSCNT] 0x%04X\n", value);
+            REG_WSCNT = value;
+
+            if (old_value != new_value)
+            {
+                // assert(!"IO_WSCNT waitstate updated!");
+            }
+        } return;
+
+        case IO_IMC_L:
+            REG_IMC_L = value;
+            assert(bit::is_set<5>(REG_IMC_L) && "when bit 5 is unset, locks up gba");
+            return;
+
+        case IO_IMC_H: {
+            const auto old_value = bit::get_range<0x8, 0xB>(REG_IMC_H);
+            const auto new_value = bit::get_range<0x8, 0xB>(value);
+            assert((new_value == 0b1101 || new_value == 0b1110) && "invalid wram waitstate");
+
+            REG_IMC_H = value;
+
+            if (old_value != new_value)
+            {
+                // todo: update waitstate!
+                assert(!"wram waitstate updated!");
+            }
+        } return;
     }
 
     write_array<u16>(MEM.io, IO_MASK, addr, value);
@@ -670,6 +707,10 @@ static constexpr auto write_io8(Gba& gba, u32 addr, u8 value) -> void
             arm7tdmi::schedule_interrupt(gba);
             return;
 
+        case IO_HALTCNT_L:
+            write_array<u8>(MEM.io, IO_MASK, addr, value);
+            return;
+
         case IO_HALTCNT_H:
             arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
             return;
@@ -733,9 +774,9 @@ static constexpr auto read_bios_region(Gba& gba, u32 addr) -> T
     // this isn't perfect, i don't think the bios should be able
     // to read from itself, though the official bios likely doesn't
     // unofficial bios might do however
-    if (arm7tdmi::get_pc(gba) < BIOS_SIZE) [[likely]]
+    if (arm7tdmi::get_pc(gba) <= BIOS_SIZE) [[likely]]
     {
-        bios_openbus_value = read_array<T>(gba.mem.bios, BIOS_MASK, addr);
+        bios_openbus_value = read_array<T>(gba.bios, BIOS_MASK, addr);
         return bios_openbus_value;
     }
     else
@@ -758,10 +799,30 @@ static constexpr auto write_iwram_region(Gba& gba, u32 addr, T value) -> void
     write_array<T>(MEM.iwram, IWRAM_MASK, addr, value);
 }
 
-// unused, handled in array writes
+// if accessing vram/pram/oam at the same time as the ppu
+// then an 1 cycle penalty occurs.
+static inline auto extra_cycle_if_ppu_access_mem(Gba& gba) -> void
+{
+    if (ppu::is_screen_visible(gba)) [[unlikely]]
+    {
+        // std::printf("[MEM] 1 cycle penalty for ppu access\n");
+        gba.scheduler.tick(1);
+    }
+}
+
+template<typename T>
+static constexpr auto read_oam_region(Gba& gba, u32 addr) -> T
+{
+    extra_cycle_if_ppu_access_mem(gba);
+
+    return read_array<T>(MEM.oam, OAM_MASK, addr);
+}
+
 template<typename T>
 static constexpr auto write_oam_region(Gba& gba, u32 addr, T value) -> void
 {
+    extra_cycle_if_ppu_access_mem(gba);
+
     // only non-byte writes are allowed
     if constexpr(!std::is_same<T, u8>())
     {
@@ -778,6 +839,8 @@ static constexpr auto is_vram_dma_overflow_bug(Gba& gba, u32 addr)
 template<typename T> [[nodiscard]]
 static constexpr auto read_vram_region(Gba& gba, u32 addr) -> T
 {
+    extra_cycle_if_ppu_access_mem(gba);
+
     if ((addr & VRAM_MASK) > 0x17FFF)
     {
         if (is_vram_dma_overflow_bug(gba, addr)) [[unlikely]]
@@ -792,6 +855,8 @@ static constexpr auto read_vram_region(Gba& gba, u32 addr) -> T
 template<typename T>
 static constexpr auto write_vram_region(Gba& gba, u32 addr, T value) -> void
 {
+    extra_cycle_if_ppu_access_mem(gba);
+
     if ((addr & VRAM_MASK) > 0x17FFF)
     {
         if (is_vram_dma_overflow_bug(gba, addr)) [[unlikely]]
@@ -823,8 +888,18 @@ static constexpr auto write_vram_region(Gba& gba, u32 addr, T value) -> void
 }
 
 template<typename T>
+static constexpr auto read_pram_region(Gba& gba, u32 addr) -> T
+{
+    extra_cycle_if_ppu_access_mem(gba);
+
+    return read_array<T>(MEM.pram, PRAM_MASK, addr);
+}
+
+template<typename T>
 static constexpr auto write_pram_region(Gba& gba, u32 addr, T value) -> void
 {
+    extra_cycle_if_ppu_access_mem(gba);
+
     if constexpr(std::is_same<T, u8>())
     {
         const u32 end_region = 0x50003FF;
@@ -969,9 +1044,9 @@ static constexpr ReadFunction<T> READ_FUNCTION[0x10] =
     /*[0x2] =*/ openbus, // todo: add this
     /*[0x3] =*/ openbus, // todo: add this
     /*[0x4] =*/ read_io_region<T>,
-    /*[0x5] =*/ openbus,
+    /*[0x5] =*/ read_pram_region<T>,
     /*[0x6] =*/ read_vram_region<T>,
-    /*[0x7] =*/ openbus,
+    /*[0x7] =*/ read_oam_region<T>,
     /*[0x8] =*/ openbus, // todo: add this
     /*[0x9] =*/ openbus, // todo: add this
     /*[0xA] =*/ openbus, // todo: add this

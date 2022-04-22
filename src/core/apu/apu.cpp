@@ -977,18 +977,20 @@ void on_wave_mem_write(Gba& gba, u32 addr, u8 value)
     }
 }
 
-auto reset(Gba& gba) -> void
+auto reset(Gba& gba, bool skip_bios) -> void
 {
-    // by default bias is set to 512 and resample mode is 0
-    REG_SOUNDBIAS = 512 << 1;
-    // enable sound on startup
-    REG_SOUNDCNT_X = bit::set<7>(REG_SOUNDCNT_X, true);
-    APU.enabled = true;
+    gba.apu = {};
+
     // todo: reset al apu regs properly if skipping bios
     APU.fifo[0].reset();
     APU.fifo[1].reset();
     scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, SAMPLE_TICKS);
-    scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, APU.frame_sequencer.tick_rate);
+
+    if (skip_bios)
+    {
+        REG_SOUNDCNT_H = 0x880E;
+        REG_SOUNDBIAS = 0x200; // by default bias is set to 512 and resample mode is 0
+    }
 }
 
 void clock_len(Gba& gba)

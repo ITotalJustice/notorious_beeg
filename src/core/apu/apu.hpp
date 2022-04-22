@@ -196,7 +196,7 @@ auto on_noise_event(Gba& gba) -> void;
 auto on_frame_sequencer_event(Gba& gba) -> void;
 auto on_sample_event(Gba& gba) -> void;
 
-auto reset(Gba& gba) -> void;
+auto reset(Gba& gba, bool skip_bios) -> void;
 auto run(Gba& gba, u8 cycles) -> void;
 
 } // namespace gba::apu

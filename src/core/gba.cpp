@@ -25,11 +25,13 @@ auto Gba::reset() -> void
         gba::bios::load_normmatt_bios(*this);
     }
 
+    bool skip_bios = true;
+
     scheduler::reset(*this);
-    mem::reset(*this); // this needed to be before arm::reset because memtables
-    arm7tdmi::reset(*this);
-    ppu::reset(*this);
-    apu::reset(*this);
+    mem::reset(*this, skip_bios); // this needed to be before arm::reset because memtables
+    arm7tdmi::reset(*this, skip_bios);
+    ppu::reset(*this, skip_bios);
+    apu::reset(*this, skip_bios);
 }
 
 auto Gba::loadrom(std::span<const u8> new_rom) -> bool
@@ -86,14 +88,16 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
 
 auto Gba::loadbios(std::span<const u8> new_bios) -> bool
 {
-    if (new_bios.size() > std::size(this->mem.bios))
+    if (new_bios.size() > std::size(this->bios))
     {
         assert(!"bios is way too beeg");
         return false;
     }
 
-    std::ranges::copy(new_bios, this->mem.bios);
+    std::ranges::copy(new_bios, this->bios);
     this->has_bios = true;
+
+    this->reset();
 
     return true;
 }

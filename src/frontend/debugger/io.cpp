@@ -729,6 +729,31 @@ static auto io_if(gba::Gba& gba) -> void
     io_ie_if(gba, gba::mem::IO_IF, REG_IF);
 }
 
+static auto IO_WSCNT(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_WSCNT, REG_WSCNT);
+
+    static const char* ws[] = { "4 cycles", "3 cycles", "2 cycles", "8 cycles" };
+
+    io_list<0x0, 0x1>(gba, REG_WSCNT, "SRAM", ws);
+    ImGui::Separator();
+
+    io_list<0x2, 0x3>(gba, REG_WSCNT, "0x08000000 initial (WS0)", ws);
+    ImGui::Separator();
+
+    io_list<0x5, 0x6>(gba, REG_WSCNT, "0x0A000000 initial (WS1)", ws);
+    ImGui::Separator();
+
+    io_list<0x8, 0x9>(gba, REG_WSCNT, "0x0C000000 initial (WS2)", ws);
+    ImGui::Separator();
+
+    static const char* cart_clock[] = { "idk", "4 Mhz", "8 Mhz", "16 Mhz" };
+    io_list<0xB, 0xC>(gba, REG_WSCNT, "Cart Clock", cart_clock);
+    ImGui::Separator();
+
+    io_button<0xE>(gba, REG_WSCNT, "Prefetch");
+}
+
 static auto io_ime(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_IME, REG_IME);
@@ -814,10 +839,6 @@ static const std::array IO_NAMES =
     IoRegEntry{ "DMA1DAD", IO_DMA1DAD },
     IoRegEntry{ "DMA2DAD", IO_DMA2DAD },
     IoRegEntry{ "DMA3DAD", IO_DMA3DAD },
-    IoRegEntry{ "DMA0CNT", unimpl_io_view },
-    IoRegEntry{ "DMA1CNT", unimpl_io_view },
-    IoRegEntry{ "DMA2CNT", unimpl_io_view },
-    IoRegEntry{ "DMA3CNT", unimpl_io_view },
     IoRegEntry{ "DMA0CNT_L", unimpl_io_view },
     IoRegEntry{ "DMA1CNT_L", unimpl_io_view },
     IoRegEntry{ "DMA2CNT_L", unimpl_io_view },
@@ -837,6 +858,7 @@ static const std::array IO_NAMES =
     IoRegEntry{ "KEY", io_key },
     IoRegEntry{ "IE", io_ie },
     IoRegEntry{ "IF", io_if },
+    IoRegEntry{ "WSCNT", IO_WSCNT },
     IoRegEntry{ "IME", io_ime },
     IoRegEntry{ "HALTCNT_L", unimpl_io_view },
     IoRegEntry{ "HALTCNT_H", unimpl_io_view },
