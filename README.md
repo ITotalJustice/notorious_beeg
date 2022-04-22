@@ -35,6 +35,7 @@ gba emulator witten in c++23.
 - add 2D layout obj support. fixes [#37](https://github.com/ITotalJustice/notorious_beeg/issues/37)
 - fix vrally 3 by not disabling interrupts when skipping bios. fixes [#53](https://github.com/ITotalJustice/notorious_beeg/issues/53)
 - better impl backup save type searching (less strict with the string found, may cause issues!). fixes [#52](https://github.com/ITotalJustice/notorious_beeg/issues/52)
+- do obj alpha blending if the alpha bit is set in oam.
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)

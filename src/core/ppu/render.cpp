@@ -236,22 +236,30 @@ struct BLDMOD
         src{bg0_src, bg1_src, bg2_src, bg3_src, obj_src, backdrop_src},
         dst{bg0_dst, bg1_dst, bg2_dst, bg3_dst, obj_dst, backdrop_dst} {}
 
+    // get blend mode (does not apply to top layer alpha obj)
     [[nodiscard]] constexpr auto get_mode() const
     {
         return static_cast<Blend>(mode);
     }
 
+    // check if can blend (does not apply to top layer alpha obj)
     [[nodiscard]] constexpr auto is_alpha(u8 top_num, u8 bottom_num=0) const
     {
         switch (this->get_mode())
         {
-            case Blend::None:
+            case Blend::None: return false;
             case Blend::Alpha: return src[top_num] && dst[bottom_num];
             case Blend::White: return src[top_num];
             case Blend::Black: return src[top_num];
         }
 
         std::unreachable();
+    }
+
+    // returns true if the bottom layer enabled for bledning
+    [[nodiscard]] constexpr auto is_alpha_bottom(u8 bottom_num) const
+    {
+        return dst[bottom_num];
     }
 
 private:
@@ -855,7 +863,7 @@ auto WindowBounds::apply_obj_window(Gba& gba, const ObjLine& obj_line) -> void
     }
 }
 
-static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, std::span<BgLine> bg_lines, ObjLine& obj_line) -> void
+static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, std::span<const BgLine> bg_lines, const ObjLine& obj_line) -> void
 {
     struct Layers
     {
@@ -876,12 +884,11 @@ static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, s
                 pixel[1] = pixel[0];
                 prio[1] = prio[0];
                 num[1] = num[0];
-                is_alpha[1] = is_alpha[0];
 
                 pixel[0] = new_pixel;
                 prio[0] = new_prio;
                 num[0] = new_num;
-                is_alpha[0] = new_is_alpha;
+                is_alpha = new_is_alpha;
             }
             // otherwise, check if new pixel has a lower prio
             // than the current bottom layer.
@@ -890,18 +897,18 @@ static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, s
                 pixel[1] = new_pixel;
                 prio[1] = new_prio;
                 num[1] = new_num;
-                is_alpha[1] = new_is_alpha;
             }
         }
 
         [[nodiscard]] auto get_pixel() const { return pixel[0]; }
         [[nodiscard]] auto get_prio() const { return prio[0]; }
         [[nodiscard]] auto get_num() const { return num[0]; }
+        [[nodiscard]] auto is_obj_alpha() const { return is_alpha; }
 
         u16 pixel[2];
         u8 prio[2];
         u8 num[2];
-        bool is_alpha[2]{}; // only useful for obj
+        bool is_alpha{}; // only useful for obj
     };
 
     const auto backdrop_colour = get_backdrop_colour(gba);
@@ -931,7 +938,7 @@ static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, s
             }
         }
 
-        for (auto & bg_line : bg_lines)
+        for (auto& bg_line : bg_lines)
         {
             if (bg_line.is_opaque[x])
             {
@@ -939,39 +946,44 @@ static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, s
                     bg_line.pixels[x], // pixel
                     bg_line.priority, // priority
                     bg_line.num, // bg_num
-                    true // is_alpha
+                    false // is_alpha (always false for bg)
                 );
             }
         }
 
-        // todo: obj can blend if alpha flag set regardless of blend mode
-        if (layers.is_alpha[0] && bounds.can_blend(x))
+        if (bounds.can_blend(x))
         {
-            switch (blend_mode)
+            // if obj has alpha bit set, it always does alpha blend as long
+            // as the bottom layer (dst) is enabled in bldmod
+            if (layers.is_obj_alpha())
             {
-                case Blend::None:
-                    break;
-
-                case Blend::Alpha:
-                    if (bldmod.is_alpha(layers.num[0], layers.num[1]))
+                if (bldmod.is_alpha_bottom(layers.num[1]))
+                {
+                    layers.pixel[0] = blend_alpha(layers.pixel[0], layers.pixel[1], coeff_src, coeff_dst);
+                }
+            }
+            else
+            {
+                if (bldmod.is_alpha(layers.num[0], layers.num[1]))
+                {
+                    switch (blend_mode)
                     {
-                        layers.pixel[0] = blend_alpha(layers.pixel[0], layers.pixel[1], coeff_src, coeff_dst);
-                    }
-                    break;
+                        case Blend::None:
+                            break;
 
-                case Blend::White:
-                    if (bldmod.is_alpha(layers.num[0]))
-                    {
-                        layers.pixel[0] = blend_white(layers.pixel[0], coeff_wb);
-                    }
-                    break;
+                        case Blend::Alpha:
+                            layers.pixel[0] = blend_alpha(layers.pixel[0], layers.pixel[1], coeff_src, coeff_dst);
+                            break;
 
-                case Blend::Black:
-                    if (bldmod.is_alpha(layers.num[0]))
-                    {
-                        layers.pixel[0] = blend_black(layers.pixel[0], coeff_wb);
+                        case Blend::White:
+                            layers.pixel[0] = blend_white(layers.pixel[0], coeff_wb);
+                            break;
+
+                        case Blend::Black:
+                            layers.pixel[0] = blend_black(layers.pixel[0], coeff_wb);
+                            break;
                     }
-                    break;
+                }
             }
         }
 
@@ -1036,7 +1048,7 @@ static auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layers layers = La
         }
     }
 
-    for (auto & line : bg_lines)
+    for (auto& line : bg_lines)
     {
         // only render bg if enabled
         if (is_bg_enabled(gba, line.num) && layers & (1 << line.num))
