@@ -21,7 +21,6 @@ auto reset(Gba& gba, bool skip_bios) -> void
 
     CPU.cpsr.M = MODE_SYSTEM;
     CPU.cpsr.T = false; // start in arm
-    CPU.cpsr.F = true; // disable FIQ
 
     // todo: compare values accross diff bios (normmatt / official)
     if (skip_bios)
@@ -192,7 +191,8 @@ auto get_u32_from_psr(Psr& psr) -> u32
     value |= (psr.C << 29);
     value |= (psr.V << 28);
     value |= (psr.I << 7);
-    value |= (1/*psr.F*/ << 6); // forced to 1
+    // value |= (1/*psr.F*/ << 6); // forced to 1
+    value |= (psr.F << 6); // forced to 1
     value |= (psr.T << 5);
     value |= psr.M;
     return value;

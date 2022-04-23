@@ -161,6 +161,24 @@ static constexpr auto empty_write([[maybe_unused]] Gba& gba, [[maybe_unused]] u3
 [[nodiscard]]
 static constexpr auto read_io16(Gba& gba, u32 addr) -> u16
 {
+    // don't mirror io
+    if (addr > 0x40003FF) [[unlikely]]
+    {
+        // the only mirrored reg
+        if ((addr & 0xFFF) == (IO_IMC_L & 0xFFF))
+        {
+            return REG_IMC_L;
+        }
+        else if ((addr & 0xFFF) == (IO_IMC_H & 0xFFF))
+        {
+            return REG_IMC_H;
+        }
+        else
+        {
+            return openbus<u16>(gba, addr);
+        }
+    }
+
     switch (addr)
     {
         // todo: fix this for scheduler timers
@@ -441,6 +459,22 @@ static constexpr auto read_io32(Gba& gba, u32 addr) -> u32
 
 static constexpr auto write_io16(Gba& gba, u32 addr, u16 value) -> void
 {
+    // don't mirror io
+    if (addr > 0x40003FF) [[unlikely]]
+    {
+        // the only mirrored reg
+        if ((addr & 0xFFF) == (IO_IMC_L & 0xFFF))
+        {
+            REG_IMC_L = value;
+        }
+        else if ((addr & 0xFFF) == (IO_IMC_H & 0xFFF))
+        {
+            REG_IMC_H = value;
+        }
+
+        return;
+    }
+
     switch (addr)
     {
         // read only regs
