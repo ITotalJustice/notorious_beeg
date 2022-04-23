@@ -469,9 +469,8 @@ struct Bgr
 // masking the b,g,r is handled by the bitfield.
 static constexpr auto blend_alpha(u16 src, u16 dst, u8 coeff_src, u8 coeff_dst) -> u16
 {
-    // disable this to have very bright colours in phoenix wright
-    coeff_src = std::min<u8>(16, coeff_src);
-    coeff_dst = std::min<u8>(16, coeff_dst);
+    assert(coeff_src <= 16);
+    assert(coeff_dst <= 16);
 
     const Bgr src_col{src};
     const Bgr dst_col{dst};
@@ -486,6 +485,8 @@ static constexpr auto blend_alpha(u16 src, u16 dst, u8 coeff_src, u8 coeff_dst) 
 
 static constexpr auto blend_white(u16 col, u8 coeff) -> u16
 {
+    assert(coeff <= 16);
+
     const Bgr src_col{col};
     Bgr fin_col{0};
 
@@ -499,6 +500,8 @@ static constexpr auto blend_white(u16 col, u8 coeff) -> u16
 
 static constexpr auto blend_black(u16 col, u8 coeff) -> u16
 {
+    assert(coeff <= 16);
+
     const Bgr src_col{col};
     Bgr fin_col{0};
 
@@ -917,9 +920,9 @@ static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, s
     const auto bldmod = BLDMOD{REG_BLDMOD};
     const auto blend_mode = bldmod.get_mode();
 
-    const auto coeff_src = bit::get_range<0, 4>(REG_COLEV);
-    const auto coeff_dst = bit::get_range<8, 12>(REG_COLEV);
-    const auto coeff_wb = bit::get_range<0, 4>(REG_COLEY);
+    const auto coeff_src = std::min<u8>(16, bit::get_range<0, 4>(REG_COLEV));
+    const auto coeff_dst = std::min<u8>(16, bit::get_range<8, 12>(REG_COLEV));
+    const auto coeff_wb = std::min<u8>(16, bit::get_range<0, 4>(REG_COLEY));
 
     for (auto x = 0; x < 240; x++)
     {
