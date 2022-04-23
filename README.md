@@ -42,6 +42,7 @@ gba emulator witten in c++23.
 - fix strb to hltcnt_l writing to both hltcnt_l hltcnt_h, causing invalid halt in official bios.
 - move bios array to gba struct so that bios isn't included in savestate.
 - clamp light/dark blend coeff to 16.
+- init `REG_RCNT` when skipping bios. fixes [#67](https://github.com/ITotalJustice/notorious_beeg/issues/67)
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)

@@ -220,6 +220,8 @@ constexpr auto IO_TM2CNT = 0x400010A; // (Timer 2 Control)
 constexpr auto IO_TM3CNT = 0x400010E; // (Timer 3 Control)
 
 constexpr auto IO_KEY = 0x04000130; // (The input register)(Read Only)
+constexpr auto IO_RCNT = 0x04000134;
+
 constexpr auto IO_IE = 0x04000200; // (Interrupt Enable Register)
 constexpr auto IO_IF = 0x04000202; // (Interrupt Flags Regster)
 constexpr auto IO_WSCNT = 0x4000204; // (Wait State Control)
@@ -359,6 +361,8 @@ constexpr auto IO_IMC_H = 0x4000802; // (Internal Memory Control)
 #define REG_TM3CNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_TM3CNT & 0x3FF))
 
 #define REG_KEY *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_KEY & 0x3FF))
+#define REG_RCNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_RCNT & 0x3FF))
+
 #define REG_IE *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_IE & 0x3FF))
 #define REG_IF *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_IF & 0x3FF))
 #define REG_WSCNT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_WSCNT & 0x3FF))

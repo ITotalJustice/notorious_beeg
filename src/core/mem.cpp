@@ -112,6 +112,11 @@ auto reset(Gba& gba, bool skip_bios) -> void
     REG_IMC_L = bit::set<5>(REG_IMC_L, true); // always set
     REG_IMC_H = 0xD00; // wram 2 waitstates
 
+    if (skip_bios)
+    {
+        REG_RCNT = 0x8000;
+    }
+
     setup_tables(gba);
 }
 
