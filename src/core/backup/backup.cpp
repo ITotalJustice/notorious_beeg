@@ -19,7 +19,7 @@ auto find_type(std::span<const u8> rom) -> Type
     {
         { .string = "EEPROM", .type = Type::EEPROM },
         { .string = "SRAM", .type = Type::SRAM },
-        { .string = "FLASH", .type = Type::FLASH },
+        { .string = "FLASH_", .type = Type::FLASH },
         { .string = "FLASH512", .type = Type::FLASH512 },
         { .string = "FLASH1M", .type = Type::FLASH1M },
     };
