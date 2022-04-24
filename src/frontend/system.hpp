@@ -9,6 +9,7 @@
 #include <string>
 #include <mutex>
 #include <chrono>
+#include <unordered_map>
 #include <SDL.h>
 
 namespace sys {
@@ -19,10 +20,6 @@ struct System
 
     static auto init(int argc, char** argv) -> bool;
     static auto run() -> void;
-    static auto on_key_event(const SDL_KeyboardEvent& e) -> void;
-    static auto on_display_event(const SDL_DisplayEvent& e) -> void;
-    static auto on_window_event(const SDL_WindowEvent& e) -> void;
-    static auto on_dropfile_event(SDL_DropEvent& e) -> void;
 
     static auto loadrom(const std::string& path) -> bool;
     static auto closerom() -> void;
@@ -95,6 +92,16 @@ struct System
 private:
     // static inline bool
     static inline bool show_grid{false};
+    static inline std::unordered_map<Sint32, SDL_GameController*> controllers;
+
+private:
+    static auto on_display_event(const SDL_DisplayEvent& e) -> void;
+    static auto on_window_event(const SDL_WindowEvent& e) -> void;
+    static auto on_key_event(const SDL_KeyboardEvent& e) -> void;
+    static auto on_controlleraxis_event(const SDL_ControllerAxisEvent& e) -> void;
+    static auto on_controllerbutton_event(const SDL_ControllerButtonEvent& e) -> void;
+    static auto on_controllerdevice_event(const SDL_ControllerDeviceEvent& e) -> void;
+    static auto on_dropfile_event(SDL_DropEvent& e) -> void;
 
 private:
     static auto run_events() -> void;

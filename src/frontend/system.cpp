@@ -3,6 +3,7 @@
 
 #include "system.hpp"
 #include "debugger/io.hpp"
+#include "gba.hpp"
 #include "trim_font.hpp"
 #include "icon.hpp"
 
@@ -259,6 +260,11 @@ System::~System()
         SDL_DestroyTexture(text);
     }
 
+    for (auto& [_, controller] : System::controllers)
+    {
+        SDL_GameControllerClose(controller);
+    }
+
     if (audio_device != 0) { SDL_CloseAudioDevice(audio_device); }
     if (audio_stream != nullptr) { SDL_FreeAudioStream(audio_stream); }
     if (texture != nullptr) { SDL_DestroyTexture(texture); }
@@ -484,6 +490,125 @@ auto System::on_dropfile_event(SDL_DropEvent& e) -> void
     }
 }
 
+auto System::on_controlleraxis_event(const SDL_ControllerAxisEvent& e) -> void
+{
+    // sdl recommends deadzone of 8000
+    constexpr auto DEADZONE = 8000;
+    constexpr auto LEFT     = -DEADZONE;
+    constexpr auto RIGHT    = +DEADZONE;
+    constexpr auto UP       = -DEADZONE;
+    constexpr auto DOWN     = +DEADZONE;
+
+    switch (e.axis)
+    {
+        case SDL_CONTROLLER_AXIS_LEFTX:
+        case SDL_CONTROLLER_AXIS_RIGHTX:
+            if (e.value < LEFT)
+            {
+                System::emu_set_button(gba::LEFT, true);
+            }
+            else if (e.value > RIGHT)
+            {
+                System::emu_set_button(gba::RIGHT, true);
+            }
+            else
+            {
+                System::emu_set_button(gba::LEFT, false);
+                System::emu_set_button(gba::RIGHT, false);
+            }
+            break;
+
+        case SDL_CONTROLLER_AXIS_LEFTY:
+        case SDL_CONTROLLER_AXIS_RIGHTY:
+            if (e.value < UP)
+            {
+                System::emu_set_button(gba::UP, true);
+            }
+            else if (e.value > DOWN)
+            {
+                System::emu_set_button(gba::DOWN, true);
+            }
+            else
+            {
+            {
+                System::emu_set_button(gba::UP, false);
+                System::emu_set_button(gba::DOWN, false);
+            }
+            }
+            break;
+
+        // don't handle yet
+        case SDL_CONTROLLER_AXIS_TRIGGERLEFT:
+        case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:
+            return;
+
+        default: return; // silence enum warning
+    }
+}
+
+auto System::on_controllerbutton_event(const SDL_ControllerButtonEvent& e) -> void
+{
+    const auto down = e.type == SDL_CONTROLLERBUTTONDOWN;
+
+    switch (e.button)
+    {
+        case SDL_CONTROLLER_BUTTON_A: System::emu_set_button(gba::A, down); break;
+        case SDL_CONTROLLER_BUTTON_B: System::emu_set_button(gba::B, down); break;
+        case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: System::emu_set_button(gba::L, down); break;
+        case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: System::emu_set_button(gba::R, down); break;
+        case SDL_CONTROLLER_BUTTON_START: System::emu_set_button(gba::START, down); break;
+        case SDL_CONTROLLER_BUTTON_GUIDE: System::emu_set_button(gba::SELECT, down); break;
+        case SDL_CONTROLLER_BUTTON_DPAD_UP: System::emu_set_button(gba::UP, down); break;
+        case SDL_CONTROLLER_BUTTON_DPAD_DOWN: System::emu_set_button(gba::DOWN, down); break;
+        case SDL_CONTROLLER_BUTTON_DPAD_LEFT: System::emu_set_button(gba::LEFT, down); break;
+        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: System::emu_set_button(gba::RIGHT, down); break;
+
+        default: break; // silence enum warning
+    }
+}
+
+auto System::on_controllerdevice_event(const SDL_ControllerDeviceEvent& e) -> void
+{
+    switch (e.type)
+    {
+        case SDL_CONTROLLERDEVICEADDED: {
+            const auto itr = System::controllers.find(e.which);
+            if (itr == System::controllers.end())
+            {
+                auto controller = SDL_GameControllerOpen(e.which);
+                if (controller != nullptr)
+                {
+                    std::printf("[CONTROLLER] opened: %s\n", SDL_GameControllerNameForIndex(e.which));
+                }
+                else
+                {
+                    std::printf("[CONTROLLER] failed to open: %s error: %s\n", SDL_GameControllerNameForIndex(e.which), SDL_GetError());
+                }
+            }
+            else
+            {
+               std::printf("[CONTROLLER] already added, ignoring: %s\n", SDL_GameControllerNameForIndex(e.which));
+            }
+        } break;
+
+        case SDL_CONTROLLERDEVICEREMOVED: {
+            const auto itr = System::controllers.find(e.which);
+            if (itr != System::controllers.end())
+            {
+                std::printf("[CONTROLLER] removed controller\n");
+
+                // have to manually close to free struct
+                SDL_GameControllerClose(itr->second);
+                System::controllers.erase(itr);
+            }
+        } break;
+
+        case SDL_CONTROLLERDEVICEREMAPPED:
+            std::printf("mapping updated for: %s\n", SDL_GameControllerNameForIndex(e.which));
+            break;
+    }
+}
+
 auto System::init(int argc, char** argv) -> bool
 {
     // enable to record audio
@@ -628,6 +753,21 @@ auto System::run_events() -> void
                 on_window_event(e.window);
                 break;
 
+            case SDL_CONTROLLERAXISMOTION:
+                on_controlleraxis_event(e.caxis);
+                break;
+
+            case SDL_CONTROLLERBUTTONDOWN:
+            case SDL_CONTROLLERBUTTONUP:
+                on_controllerbutton_event(e.cbutton);
+                break;
+
+            case SDL_CONTROLLERDEVICEADDED:
+            case SDL_CONTROLLERDEVICEREMOVED:
+            case SDL_CONTROLLERDEVICEREMAPPED:
+                on_controllerdevice_event(e.cdevice);
+                break;
+
             case SDL_DROPFILE:
                 on_dropfile_event(e.drop);
                 break;
@@ -658,12 +798,6 @@ auto System::run_events() -> void
             case SDL_JOYBUTTONUP:
             case SDL_JOYDEVICEADDED:
             case SDL_JOYDEVICEREMOVED:
-            case SDL_CONTROLLERAXISMOTION:
-            case SDL_CONTROLLERBUTTONDOWN:
-            case SDL_CONTROLLERBUTTONUP:
-            case SDL_CONTROLLERDEVICEADDED:
-            case SDL_CONTROLLERDEVICEREMOVED:
-            case SDL_CONTROLLERDEVICEREMAPPED:
             case SDL_CONTROLLERTOUCHPADDOWN:
             case SDL_CONTROLLERTOUCHPADMOTION:
             case SDL_CONTROLLERTOUCHPADUP:
