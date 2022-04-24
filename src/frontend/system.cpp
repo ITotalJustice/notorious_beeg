@@ -20,34 +20,13 @@
 #include <minizip/unzip.h>
 
 #include <imgui.h>
-#include <imgui_impl_sdl.h>
-#include <imgui_impl_sdlrenderer.h>
 #include <imgui_memory_editor.h>
 
+#include "backend/sdl2/backend_sdl2.hpp"
+
+namespace bend = sys::backend::sdl2;
+
 namespace sys {
-
-auto audio_callback(void* user, Uint8* data, int len) -> void
-{
-    std::scoped_lock lock{System::audio_mutex};
-
-    // this shouldn't be needed, however it causes less pops on startup
-    if (SDL_AudioStreamAvailable(System::audio_stream) < len * 2)
-    {
-        std::memset(data, System::aspec_got.silence, len);
-        return;
-    }
-
-    SDL_AudioStreamGet(System::audio_stream, data, len);
-}
-
-auto push_sample_callback(void* user, std::int16_t left, std::int16_t right) -> void
-{
-#if SPEED_TEST == 0
-    std::scoped_lock lock{System::audio_mutex};
-    const int16_t samples[2] = {left, right};
-    SDL_AudioStreamPut(System::audio_stream, samples, sizeof(samples));
-#endif
-}
 
 auto dumpfile(const std::string& path, std::span<const std::uint8_t> data) -> bool
 {
@@ -204,16 +183,7 @@ auto System::render_layers() -> void
             continue;
         }
 
-        void* pixels{};
-        int pitch{};
-
-        SDL_LockTexture(texture_bg_layer[layer], nullptr, &pixels, &pitch);
-            SDL_ConvertPixels(
-                width, height, // w,h
-                SDL_PIXELFORMAT_BGR555, System::layers[layer].pixels, width * sizeof(uint16_t), // src
-                SDL_PIXELFORMAT_BGR555, pixels, pitch // dst
-            );
-        SDL_UnlockTexture(texture_bg_layer[layer]);
+        bend::update_texture(layers[layer].id, layers[layer].pixels);
 
         const auto flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav;
         ImGui::SetNextWindowSize(ImVec2(240, 160));
@@ -231,7 +201,7 @@ auto System::render_layers() -> void
             ImGui::SetCursorPos({0, 0});
 
             ImVec2 p = ImGui::GetCursorScreenPos();
-            ImGui::Image(texture_bg_layer[layer], ImVec2(240, 160));
+            ImGui::Image(bend::get_texture(layers[layer].id), ImVec2(240, 160));
             ImGui::PopStyleVar(5);
 
             if (show_grid)
@@ -249,28 +219,10 @@ System::~System()
     // save game on exit
     System::closerom();
 
+    bend::quit();
+
     // Cleanup
-    ImGui_ImplSDLRenderer_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
-
-    // destroy debug textures
-    for (auto& text : texture_bg_layer)
-    {
-        SDL_DestroyTexture(text);
-    }
-
-    for (auto& [_, controller] : System::controllers)
-    {
-        SDL_GameControllerClose(controller);
-    }
-
-    if (audio_device != 0) { SDL_CloseAudioDevice(audio_device); }
-    if (audio_stream != nullptr) { SDL_FreeAudioStream(audio_stream); }
-    if (texture != nullptr) { SDL_DestroyTexture(texture); }
-    if (renderer != nullptr) { SDL_DestroyRenderer(renderer); }
-    if (window != nullptr) { SDL_DestroyWindow(window); }
-    SDL_Quit();
 }
 
 auto System::closerom() -> void
@@ -369,253 +321,8 @@ auto System::emu_set_button(gba::Button button, bool down) -> void
     }
 }
 
-auto System::on_key_event(const SDL_KeyboardEvent& e) -> void
-{
-    const auto down = e.type == SDL_KEYDOWN;
-    const auto ctrl = (e.keysym.mod & KMOD_CTRL) > 0;
-    const auto shift = (e.keysym.mod & KMOD_SHIFT) > 0;
-
-    if (ctrl)
-    {
-        if (down)
-        {
-            return;
-        }
-
-        if (shift)
-        {
-            switch (e.keysym.scancode)
-            {
-                case SDL_SCANCODE_I:
-                    System::viewer_io ^= 1;
-                    break;
-
-                case SDL_SCANCODE_L:
-                    System::toggle_master_layer_enable();
-                    break;
-
-                case SDL_SCANCODE_A:
-                    System::gameboy_advance.bit_crushing ^= 1;
-                    break;
-
-                default: break; // silence enum warning
-            }
-        }
-        else
-        {
-            switch (e.keysym.scancode)
-            {
-                case SDL_SCANCODE_P:
-                    System::emu_run ^= 1;
-                    break;
-
-                case SDL_SCANCODE_S:
-                    System::savestate(System::rom_path);
-                    break;
-
-                case SDL_SCANCODE_L:
-                    System::loadstate(System::rom_path);
-                    break;
-
-                default: break; // silence enum warning
-            }
-        }
-
-        return;
-    }
-
-    switch (e.keysym.scancode)
-    {
-        case SDL_SCANCODE_X:      System::emu_set_button(gba::A, down);      break;
-        case SDL_SCANCODE_Z:      System::emu_set_button(gba::B, down);      break;
-        case SDL_SCANCODE_A:      System::emu_set_button(gba::L, down);      break;
-        case SDL_SCANCODE_S:      System::emu_set_button(gba::R, down);      break;
-        case SDL_SCANCODE_RETURN: System::emu_set_button(gba::START, down);  break;
-        case SDL_SCANCODE_SPACE:  System::emu_set_button(gba::SELECT, down); break;
-        case SDL_SCANCODE_UP:     System::emu_set_button(gba::UP, down);     break;
-        case SDL_SCANCODE_DOWN:   System::emu_set_button(gba::DOWN, down);   break;
-        case SDL_SCANCODE_LEFT:   System::emu_set_button(gba::LEFT, down);   break;
-        case SDL_SCANCODE_RIGHT:  System::emu_set_button(gba::RIGHT, down);  break;
-
-    #ifndef EMSCRIPTEN
-        case SDL_SCANCODE_ESCAPE:
-            running = false;
-            break;
-    #endif // EMSCRIPTEN
-
-        default: break; // silence enum warning
-    }
-}
-
-auto System::on_display_event(const SDL_DisplayEvent& e) -> void
-{
-
-}
-
-auto System::on_window_event(const SDL_WindowEvent& e) -> void
-{
-    switch (e.event)
-    {
-        case SDL_WINDOWEVENT_SHOWN:
-        case SDL_WINDOWEVENT_HIDDEN:
-        case SDL_WINDOWEVENT_EXPOSED:
-        case SDL_WINDOWEVENT_MOVED:
-        case SDL_WINDOWEVENT_RESIZED:
-            break;
-
-        case SDL_WINDOWEVENT_SIZE_CHANGED:
-            System::resize_emu_screen();
-            break;
-
-        case SDL_WINDOWEVENT_MINIMIZED:
-        case SDL_WINDOWEVENT_MAXIMIZED:
-        case SDL_WINDOWEVENT_RESTORED:
-        case SDL_WINDOWEVENT_ENTER:
-        case SDL_WINDOWEVENT_LEAVE:
-        case SDL_WINDOWEVENT_FOCUS_GAINED:
-        case SDL_WINDOWEVENT_FOCUS_LOST:
-        case SDL_WINDOWEVENT_CLOSE:
-        case SDL_WINDOWEVENT_TAKE_FOCUS:
-        case SDL_WINDOWEVENT_HIT_TEST:
-            break;
-    }
-}
-
-auto System::on_dropfile_event(SDL_DropEvent& e) -> void
-{
-    if (e.file != nullptr)
-    {
-        System::loadrom(e.file);
-        SDL_free(e.file);
-    }
-}
-
-auto System::on_controlleraxis_event(const SDL_ControllerAxisEvent& e) -> void
-{
-    // sdl recommends deadzone of 8000
-    constexpr auto DEADZONE = 8000;
-    constexpr auto LEFT     = -DEADZONE;
-    constexpr auto RIGHT    = +DEADZONE;
-    constexpr auto UP       = -DEADZONE;
-    constexpr auto DOWN     = +DEADZONE;
-
-    switch (e.axis)
-    {
-        case SDL_CONTROLLER_AXIS_LEFTX:
-        case SDL_CONTROLLER_AXIS_RIGHTX:
-            if (e.value < LEFT)
-            {
-                System::emu_set_button(gba::LEFT, true);
-            }
-            else if (e.value > RIGHT)
-            {
-                System::emu_set_button(gba::RIGHT, true);
-            }
-            else
-            {
-                System::emu_set_button(gba::LEFT, false);
-                System::emu_set_button(gba::RIGHT, false);
-            }
-            break;
-
-        case SDL_CONTROLLER_AXIS_LEFTY:
-        case SDL_CONTROLLER_AXIS_RIGHTY:
-            if (e.value < UP)
-            {
-                System::emu_set_button(gba::UP, true);
-            }
-            else if (e.value > DOWN)
-            {
-                System::emu_set_button(gba::DOWN, true);
-            }
-            else
-            {
-            {
-                System::emu_set_button(gba::UP, false);
-                System::emu_set_button(gba::DOWN, false);
-            }
-            }
-            break;
-
-        // don't handle yet
-        case SDL_CONTROLLER_AXIS_TRIGGERLEFT:
-        case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:
-            return;
-
-        default: return; // silence enum warning
-    }
-}
-
-auto System::on_controllerbutton_event(const SDL_ControllerButtonEvent& e) -> void
-{
-    const auto down = e.type == SDL_CONTROLLERBUTTONDOWN;
-
-    switch (e.button)
-    {
-        case SDL_CONTROLLER_BUTTON_A: System::emu_set_button(gba::A, down); break;
-        case SDL_CONTROLLER_BUTTON_B: System::emu_set_button(gba::B, down); break;
-        case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: System::emu_set_button(gba::L, down); break;
-        case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: System::emu_set_button(gba::R, down); break;
-        case SDL_CONTROLLER_BUTTON_START: System::emu_set_button(gba::START, down); break;
-        case SDL_CONTROLLER_BUTTON_GUIDE: System::emu_set_button(gba::SELECT, down); break;
-        case SDL_CONTROLLER_BUTTON_DPAD_UP: System::emu_set_button(gba::UP, down); break;
-        case SDL_CONTROLLER_BUTTON_DPAD_DOWN: System::emu_set_button(gba::DOWN, down); break;
-        case SDL_CONTROLLER_BUTTON_DPAD_LEFT: System::emu_set_button(gba::LEFT, down); break;
-        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: System::emu_set_button(gba::RIGHT, down); break;
-
-        default: break; // silence enum warning
-    }
-}
-
-auto System::on_controllerdevice_event(const SDL_ControllerDeviceEvent& e) -> void
-{
-    switch (e.type)
-    {
-        case SDL_CONTROLLERDEVICEADDED: {
-            const auto itr = System::controllers.find(e.which);
-            if (itr == System::controllers.end())
-            {
-                auto controller = SDL_GameControllerOpen(e.which);
-                if (controller != nullptr)
-                {
-                    std::printf("[CONTROLLER] opened: %s\n", SDL_GameControllerNameForIndex(e.which));
-                }
-                else
-                {
-                    std::printf("[CONTROLLER] failed to open: %s error: %s\n", SDL_GameControllerNameForIndex(e.which), SDL_GetError());
-                }
-            }
-            else
-            {
-               std::printf("[CONTROLLER] already added, ignoring: %s\n", SDL_GameControllerNameForIndex(e.which));
-            }
-        } break;
-
-        case SDL_CONTROLLERDEVICEREMOVED: {
-            const auto itr = System::controllers.find(e.which);
-            if (itr != System::controllers.end())
-            {
-                std::printf("[CONTROLLER] removed controller\n");
-
-                // have to manually close to free struct
-                SDL_GameControllerClose(itr->second);
-                System::controllers.erase(itr);
-            }
-        } break;
-
-        case SDL_CONTROLLERDEVICEREMAPPED:
-            std::printf("mapping updated for: %s\n", SDL_GameControllerNameForIndex(e.which));
-            break;
-    }
-}
-
 auto System::init(int argc, char** argv) -> bool
 {
-    // enable to record audio
-    #if DUMP_AUDIO
-        SDL_setenv("SDL_AUDIODRIVER", "disk", 1);
-    #endif
-
     if (argc < 2)
     {
         return false;
@@ -643,66 +350,8 @@ auto System::init(int argc, char** argv) -> bool
 
     // set audio callback and user data
     // System::gameboy_advance.set_userdata(this);
-    System::gameboy_advance.set_audio_callback(push_sample_callback);
+    // System::gameboy_advance.set_audio_callback(push_sample_callback);
     System::gameboy_advance.set_hblank_callback(on_hblank_callback);
-
-    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER);
-    System::window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    System::renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    System::texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
-    #if SPEED_TEST == 0
-    SDL_RenderSetVSync(renderer, 1);
-    #endif
-
-    #if SDL_BYTEORDER == SDL_BIG_ENDIAN
-    const auto rmask = 0xff000000;
-    const auto gmask = 0x00ff0000;
-    const auto bmask = 0x0000ff00;
-    const auto amask = 0xff;
-    #else // little endian, like x86
-    const auto rmask = 0x000000ff;
-    const auto gmask = 0x0000ff00;
-    const auto bmask = 0x00ff0000;
-    const auto amask = 0xff000000;
-    #endif
-
-    auto icon = SDL_CreateRGBSurfaceFrom(const_cast<uint32_t*>(app_icon_data), 32, 32, 32, 4*32, rmask, gmask, bmask, amask);
-    if (icon != nullptr)
-    {
-        SDL_SetWindowIcon(window, icon);
-        SDL_FreeSurface(icon);
-    }
-
-    aspec_wnt.freq = sample_rate;
-    aspec_wnt.format = AUDIO_S16;
-    aspec_wnt.channels = 2;
-    aspec_wnt.silence = 0;
-    aspec_wnt.samples = 2048;
-    aspec_wnt.padding = 0;
-    aspec_wnt.size = 0;
-    aspec_wnt.callback = audio_callback;
-    // aspec_wnt.userdata = this;
-
-    // allow all apsec to be changed if needed.
-    // will be coverted and resampled by audiostream.
-    audio_device = SDL_OpenAudioDevice(nullptr, 0, &aspec_wnt, &aspec_got, SDL_AUDIO_ALLOW_ANY_CHANGE);
-    if (audio_device == 0)
-    {
-        return false;
-    }
-
-    audio_stream = SDL_NewAudioStream(
-        aspec_wnt.format, aspec_wnt.channels, aspec_wnt.freq,
-        aspec_got.format, aspec_got.channels, aspec_got.freq
-    );
-
-    std::printf("[SDL-AUDIO] format\twant: 0x%X \tgot: 0x%X\n", aspec_wnt.format, aspec_got.format);
-    std::printf("[SDL-AUDIO] freq\twant: %d \tgot: %d\n", aspec_wnt.freq, aspec_got.freq);
-    std::printf("[SDL-AUDIO] channels\twant: %d \tgot: %d\n", aspec_wnt.channels, aspec_got.channels);
-    std::printf("[SDL-AUDIO] samples\twant: %d \tgot: %d\n", aspec_wnt.samples, aspec_got.samples);
-    std::printf("[SDL-AUDIO] size\twant: %u \tgot: %u\n", aspec_wnt.size, aspec_got.size);
-
-    SDL_PauseAudioDevice(audio_device, 0);
 
     // setup debugger
     IMGUI_CHECKVERSION();
@@ -717,109 +366,12 @@ auto System::init(int argc, char** argv) -> bool
 
     io.Fonts->AddFontFromMemoryCompressedTTF(trim_font_compressed_data, trim_font_compressed_size, 20);
 
-    // Setup Platform/Renderer backends
-    ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
-    ImGui_ImplSDLRenderer_Init(renderer);
-
-    // create debug textures
-    for (auto& text : texture_bg_layer)
-    {
-        text = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
-    }
-
-    return true;
+    return bend::init();
 }
 
 auto System::run_events() -> void
 {
-    SDL_Event e{};
-    while (SDL_PollEvent(&e) != 0)
-    {
-        ImGui_ImplSDL2_ProcessEvent(&e);
-        switch (e.type)
-        {
-            case SDL_QUIT: running = false; break;
-
-            case SDL_KEYDOWN:
-            case SDL_KEYUP:
-                on_key_event(e.key);
-                break;
-
-            case SDL_DISPLAYEVENT:
-                on_display_event(e.display);
-                break;
-
-            case SDL_WINDOWEVENT:
-                on_window_event(e.window);
-                break;
-
-            case SDL_CONTROLLERAXISMOTION:
-                on_controlleraxis_event(e.caxis);
-                break;
-
-            case SDL_CONTROLLERBUTTONDOWN:
-            case SDL_CONTROLLERBUTTONUP:
-                on_controllerbutton_event(e.cbutton);
-                break;
-
-            case SDL_CONTROLLERDEVICEADDED:
-            case SDL_CONTROLLERDEVICEREMOVED:
-            case SDL_CONTROLLERDEVICEREMAPPED:
-                on_controllerdevice_event(e.cdevice);
-                break;
-
-            case SDL_DROPFILE:
-                on_dropfile_event(e.drop);
-                break;
-
-            case SDL_DROPTEXT:
-            case SDL_DROPBEGIN:
-            case SDL_DROPCOMPLETE:
-
-            case SDL_APP_TERMINATING:
-            case SDL_APP_LOWMEMORY:
-            case SDL_APP_WILLENTERBACKGROUND:
-            case SDL_APP_DIDENTERBACKGROUND:
-            case SDL_APP_WILLENTERFOREGROUND:
-            case SDL_APP_DIDENTERFOREGROUND:
-            case SDL_LOCALECHANGED:
-            case SDL_SYSWMEVENT:
-            case SDL_TEXTEDITING:
-            case SDL_TEXTINPUT:
-            case SDL_KEYMAPCHANGED:
-            case SDL_MOUSEMOTION:
-            case SDL_MOUSEBUTTONDOWN:
-            case SDL_MOUSEBUTTONUP:
-            case SDL_MOUSEWHEEL:
-            case SDL_JOYAXISMOTION:
-            case SDL_JOYBALLMOTION:
-            case SDL_JOYHATMOTION:
-            case SDL_JOYBUTTONDOWN:
-            case SDL_JOYBUTTONUP:
-            case SDL_JOYDEVICEADDED:
-            case SDL_JOYDEVICEREMOVED:
-            case SDL_CONTROLLERTOUCHPADDOWN:
-            case SDL_CONTROLLERTOUCHPADMOTION:
-            case SDL_CONTROLLERTOUCHPADUP:
-            case SDL_CONTROLLERSENSORUPDATE:
-            case SDL_FINGERDOWN:
-            case SDL_FINGERUP:
-            case SDL_FINGERMOTION:
-            case SDL_DOLLARGESTURE:
-            case SDL_DOLLARRECORD:
-            case SDL_MULTIGESTURE:
-            case SDL_CLIPBOARDUPDATE:
-            case SDL_AUDIODEVICEADDED:
-            case SDL_AUDIODEVICEREMOVED:
-            case SDL_SENSORUPDATE:
-            case SDL_RENDER_TARGETS_RESET:
-            case SDL_RENDER_DEVICE_RESET:
-            case SDL_USEREVENT:
-                break;
-
-            default: break; // silence enum warning
-        }
-    }
+    bend::poll_events();
 }
 
 auto System::run_emu() -> void
@@ -972,11 +524,11 @@ auto System::menubar_tab_help() -> void
     if (ImGui::MenuItem("Info")) {}
     if (ImGui::MenuItem("Open On GitHub"))
     {
-        SDL_OpenURL("https://github.com/ITotalJustice/notorious_beeg");
+        bend::open_url("https://github.com/ITotalJustice/notorious_beeg");
     }
     if (ImGui::MenuItem("Open An Issue"))
     {
-        SDL_OpenURL("https://github.com/ITotalJustice/notorious_beeg/issues/new");
+        bend::open_url("https://github.com/ITotalJustice/notorious_beeg/issues/new");
     }
 }
 
@@ -1090,16 +642,7 @@ auto System::emu_update_texture() -> void
         return;
     }
 
-    void* pixels{};
-    int pitch{};
-
-    SDL_LockTexture(texture, nullptr, &pixels, &pitch);
-        SDL_ConvertPixels(
-            width, height, // w,h
-            SDL_PIXELFORMAT_BGR555, gameboy_advance.ppu.pixels, width * sizeof(uint16_t), // src
-            SDL_PIXELFORMAT_BGR555, pixels, pitch // dst
-        );
-    SDL_UnlockTexture(texture);
+    bend::update_texture(TextureID::emu, gameboy_advance.ppu.pixels);
 }
 
 auto System::emu_render() -> void
@@ -1121,7 +664,7 @@ auto System::emu_render() -> void
         ImGui::SetCursorPos(ImVec2(0, 0));
 
         ImVec2 p = ImGui::GetCursorScreenPos();
-        ImGui::Image(texture, ImVec2(emu_rect.w, emu_rect.h));
+        ImGui::Image(bend::get_texture(TextureID::emu), ImVec2(emu_rect.w, emu_rect.h));
         ImGui::PopStyleVar(5);
 
         if (show_grid)
@@ -1136,8 +679,7 @@ auto System::emu_render() -> void
 auto System::run_render() -> void
 {
     // Start the Dear ImGui frame
-    ImGui_ImplSDLRenderer_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
+    bend::render_begin();
     ImGui::NewFrame();
 
     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
@@ -1165,10 +707,7 @@ auto System::run_render() -> void
 
     // Rendering (REMEMBER TO RENDER IMGUI STUFF [BEFORE] THIS LINE)
     ImGui::Render();
-    SDL_RenderClear(renderer);
-
-    ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
-    SDL_RenderPresent(renderer);
+    bend::render_end();
 }
 
 auto System::run() -> void
@@ -1196,20 +735,12 @@ auto System::run() -> void
 
 auto System::is_fullscreen() -> bool
 {
-    const auto flags = SDL_GetWindowFlags(window);
-    return (flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;
+    return bend::is_fullscreen();
 }
 
 auto System::toggle_fullscreen() -> void
 {
-    if (System::is_fullscreen())
-    {
-        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
-    }
-    else
-    {
-        SDL_SetWindowFullscreen(window, 0);
-    }
+    bend::toggle_fullscreen();
 }
 
 auto System::resize_to_menubar() -> void
@@ -1221,19 +752,15 @@ auto System::resize_to_menubar() -> void
 
     should_resize = false;
 
-    int w;
-    int h;
-    SDL_GetRendererOutputSize(renderer, &w, &h);
-    SDL_SetWindowSize(window, w, h + menubar_height);
+    const auto [w, h] = bend::get_window_size();
+    bend::set_window_size({w, h + menubar_height});
 
     System::resize_emu_screen();
 }
 
 auto System::resize_emu_screen() -> void
 {
-    int w;
-    int h;
-    SDL_GetRendererOutputSize(renderer, &w, &h);
+    const auto [w, h] = bend::get_window_size();
 
     // update rect
     emu_rect.x = 0;

@@ -41,17 +41,15 @@ add_library(imgui
     ${imgui_SOURCE_DIR}/imgui_demo.cpp
 )
 
-target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR}/ ${imgui_SOURCE_DIR}/backends)
-
-# the backend we want
-find_package(SDL2 CONFIG REQUIRED)
-target_sources(imgui PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer.cpp)
-target_link_libraries(imgui PRIVATE SDL2::SDL2)
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
 
 # memory editor
 add_library(imgui_club INTERFACE)
 target_include_directories(imgui INTERFACE ${imgui_club_SOURCE_DIR}/imgui_memory_editor)
 # fetch imgui is done!
+
+# always include backend after fetching imgui
+add_subdirectory(backend)
 
 add_executable(main
     main.cpp
@@ -59,12 +57,9 @@ add_executable(main
     debugger/io.cpp
 )
 
-find_package(SDL2 CONFIG REQUIRED)
-
 target_link_libraries(main PRIVATE GBA)
-target_link_libraries(main PRIVATE SDL2::SDL2)
-target_link_libraries(main PRIVATE SDL2::SDL2main)
 target_link_libraries(main PRIVATE imgui imgui_club)
+target_link_libraries(main PRIVATE backend)
 
 set(FOUND_MINIZIP FALSE)
 
