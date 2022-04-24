@@ -73,6 +73,8 @@ static auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
 
     if constexpr(Special)
     {
+        dma.src_addr = mem::align_address<u32>(dma.src_addr);
+
         for (int i = 0; i < 4; i++)
         {
             dma.src_addr &= SRC_MASK[channel_num];
@@ -111,6 +113,9 @@ static auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
         switch (dma.size_type)
         {
             case SizeType::half:
+                dma.src_addr = mem::align_address<u16>(dma.src_addr);
+                dma.dst_addr = mem::align_address<u16>(dma.dst_addr);
+
                 while (dma.len--)
                 {
                     dma.src_addr &= SRC_MASK[channel_num];
@@ -125,6 +130,9 @@ static auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
                 break;
 
             case SizeType::word:
+                dma.src_addr = mem::align_address<u32>(dma.src_addr);
+                dma.dst_addr = mem::align_address<u32>(dma.dst_addr);
+
                 while (dma.len--)
                 {
                     dma.src_addr &= SRC_MASK[channel_num];

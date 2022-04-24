@@ -29,23 +29,6 @@ static constexpr auto mirror_address(u32 addr) -> u32
     return addr & 0x0FFFFFFF;
 }
 
-template<typename T>
-static constexpr auto align_address(u32 addr) -> u32
-{
-    if constexpr(std::is_same<T, u8>())
-    {
-        return addr;
-    }
-    if constexpr(std::is_same<T, u16>())
-    {
-        return addr & ~0x1;
-    }
-    if constexpr(std::is_same<T, u32>())
-    {
-        return addr & ~0x3;
-    }
-}
-
 [[nodiscard]]
 static inline auto get_memory_timing(u8 index, u32 addr) -> u8
 {

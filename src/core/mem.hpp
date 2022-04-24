@@ -389,6 +389,23 @@ STATIC_INLINE auto write8(Gba& gba, u32 addr, u8 value) -> void;
 STATIC_INLINE auto write16(Gba& gba, u32 addr, u16 value) -> void;
 STATIC_INLINE auto write32(Gba& gba, u32 addr, u32 value) -> void;
 
+template <typename T> [[nodiscard]]
+constexpr auto align_address(u32 addr) -> u32
+{
+    if constexpr(std::is_same<T, u8>())
+    {
+        return addr;
+    }
+    if constexpr(std::is_same<T, u16>())
+    {
+        return addr & ~0x1;
+    }
+    if constexpr(std::is_same<T, u32>())
+    {
+        return addr & ~0x3;
+    }
+}
+
 // helpers for read / write arrays.
 template <typename T> [[nodiscard]]
 STATIC_INLINE constexpr auto read_array(std::span<const u8> array, auto mask, u32 addr) -> T
