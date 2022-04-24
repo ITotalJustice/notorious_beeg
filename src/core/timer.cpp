@@ -182,7 +182,7 @@ auto update_timer(Gba& gba, Timer& timer) -> void
         return;
     }
 
-    const auto delta = (gba.scheduler.cycles - timer.event_time) / timer.freq;
+    const auto delta = (gba.scheduler.cycles + gba.scheduler.elapsed - timer.event_time) / timer.freq;
     // update counter
     timer.counter += delta;
     // update timestamp (needed for Event::Reset)

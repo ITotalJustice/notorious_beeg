@@ -454,10 +454,9 @@ auto on_halt_event(Gba& gba) -> void
     {
         assert(gba.scheduler.next_event_cycles >= gba.scheduler.cycles && "unsigned underflow happens!");
         gba.scheduler.cycles = gba.scheduler.next_event_cycles;
+        gba.scheduler.elapsed = 0;
         scheduler::fire(gba);
     }
-
-    gba.scheduler.elapsed = 0;
 }
 
 auto on_halt_trigger(Gba& gba, HaltType type) -> void
