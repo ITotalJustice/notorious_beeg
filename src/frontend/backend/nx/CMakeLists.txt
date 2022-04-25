@@ -4,6 +4,8 @@ add_library(backend
     backend_nx.cpp
     ftpd_imgui/imgui_deko3d.cpp
     ftpd_imgui/imgui_nx.cpp
+
+    audio/audio.cpp
 )
 
 target_link_libraries(backend PRIVATE imgui)

@@ -5,6 +5,7 @@
 #include "ftpd_imgui/imgui_nx.h"
 #include "../backend.hpp"
 #include "../../system.hpp"
+#include "audio/audio.hpp"
 #include <cstdint>
 #include <switch/applets/error.h>
 #include <utility>
@@ -105,7 +106,7 @@ AppletHookCookie appletHookCookie;
 auto applet_show_error_message(const char* message, const char* long_message)
 {
     ErrorApplicationConfig cfg;
-    errorApplicationCreate(&cfg, "Unsupported Launch!", "Please launch as application!");
+    errorApplicationCreate(&cfg, message, long_message);
     errorApplicationShow(&cfg);
 }
 
@@ -431,7 +432,7 @@ auto Texture::quit() -> void
 
     if (!imgui::nx::init())
     {
-        applet_show_error_message("Unsupported Launch!", "Please launch as application!");
+        applet_show_error_message("Failed to init imgui!", "");
         return false;
     }
 
@@ -454,11 +455,19 @@ auto Texture::quit() -> void
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&pad);
 
+    if (!nx::audio::init())
+    {
+        applet_show_error_message("failed to open audio!", "");
+        return false;
+    }
+
     return true;
 }
 
 auto quit() -> void
 {
+    nx::audio::quit();
+
     imgui::nx::exit();
 
     // wait for queue to be idle
@@ -489,22 +498,28 @@ auto poll_events() -> void
     }
 
     padUpdate(&pad);
-    const auto down = padGetButtons(&pad);
+    const auto buttons = padGetButtons(&pad);
+    const auto down = padGetButtonsDown(&pad);
 
-    System::emu_set_button(gba::A, !!(down & HidNpadButton_A));
-    System::emu_set_button(gba::B, !!(down & HidNpadButton_B));
-    System::emu_set_button(gba::L, !!(down & HidNpadButton_L));
-    System::emu_set_button(gba::R, !!(down & HidNpadButton_R));
-    System::emu_set_button(gba::START, !!(down & HidNpadButton_Plus));
-    System::emu_set_button(gba::SELECT, !!(down & HidNpadButton_Minus));
-    System::emu_set_button(gba::UP, !!(down & HidNpadButton_AnyUp));
-    System::emu_set_button(gba::DOWN, !!(down & HidNpadButton_AnyDown));
-    System::emu_set_button(gba::LEFT, !!(down & HidNpadButton_AnyLeft));
-    System::emu_set_button(gba::RIGHT, !!(down & HidNpadButton_AnyRight));
+    System::emu_set_button(gba::A, !!(buttons & HidNpadButton_A));
+    System::emu_set_button(gba::B, !!(buttons & HidNpadButton_B));
+    System::emu_set_button(gba::L, !!(buttons & HidNpadButton_L));
+    System::emu_set_button(gba::R, !!(buttons & HidNpadButton_R));
+    System::emu_set_button(gba::START, !!(buttons & HidNpadButton_Plus));
+    System::emu_set_button(gba::SELECT, !!(buttons & HidNpadButton_Minus));
+    System::emu_set_button(gba::UP, !!(buttons & HidNpadButton_AnyUp));
+    System::emu_set_button(gba::DOWN, !!(buttons & HidNpadButton_AnyDown));
+    System::emu_set_button(gba::LEFT, !!(buttons & HidNpadButton_AnyLeft));
+    System::emu_set_button(gba::RIGHT, !!(buttons & HidNpadButton_AnyRight));
 
     if (!!(down & HidNpadButton_ZR))
     {
         System::running = false;
+    }
+
+    if (!!(down & HidNpadButton_ZL))
+    {
+        System::loadstate(System::rom_path);
     }
 
     // this only update inputs and screen size
