@@ -22,9 +22,7 @@
 #include <imgui.h>
 #include <imgui_memory_editor.h>
 
-#include "backend/sdl2/backend_sdl2.hpp"
-
-namespace bend = sys::backend::sdl2;
+#include "backend/backend.hpp"
 
 namespace sys {
 
@@ -183,7 +181,7 @@ auto System::render_layers() -> void
             continue;
         }
 
-        bend::update_texture(layers[layer].id, layers[layer].pixels);
+        backend::update_texture(layers[layer].id, layers[layer].pixels);
 
         const auto flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoNav;
         ImGui::SetNextWindowSize(ImVec2(240, 160));
@@ -201,7 +199,11 @@ auto System::render_layers() -> void
             ImGui::SetCursorPos({0, 0});
 
             ImVec2 p = ImGui::GetCursorScreenPos();
-            ImGui::Image(bend::get_texture(layers[layer].id), ImVec2(240, 160));
+            auto texure = backend::get_texture(layers[layer].id);
+            if (texure)
+            {
+                ImGui::Image(backend::get_texture(layers[layer].id), ImVec2(240, 160));
+            }
             ImGui::PopStyleVar(5);
 
             if (show_grid)
@@ -219,7 +221,7 @@ System::~System()
     // save game on exit
     System::closerom();
 
-    bend::quit();
+    backend::quit();
 
     // Cleanup
     ImGui::DestroyContext();
@@ -323,6 +325,13 @@ auto System::emu_set_button(gba::Button button, bool down) -> void
 
 auto System::init(int argc, char** argv) -> bool
 {
+#if defined(__SWITCH__)
+    if (!System::loadrom("/roms/gba/doom.gba"))
+    {
+        std::printf("failed to loadrom\n");
+        return false;
+    }
+#else
     if (argc < 2)
     {
         return false;
@@ -347,6 +356,7 @@ auto System::init(int argc, char** argv) -> bool
             return false;
         }
     }
+#endif
 
     // set audio callback and user data
     // System::gameboy_advance.set_userdata(this);
@@ -364,14 +374,16 @@ auto System::init(int argc, char** argv) -> bool
     ImGui::StyleColorsDark();
     //ImGui::StyleColorsClassic();
 
+    #if !defined(__SWITCH__)
     io.Fonts->AddFontFromMemoryCompressedTTF(trim_font_compressed_data, trim_font_compressed_size, 20);
+    #endif
 
-    return bend::init();
+    return backend::init();
 }
 
 auto System::run_events() -> void
 {
-    bend::poll_events();
+    backend::poll_events();
 }
 
 auto System::run_emu() -> void
@@ -524,11 +536,11 @@ auto System::menubar_tab_help() -> void
     if (ImGui::MenuItem("Info")) {}
     if (ImGui::MenuItem("Open On GitHub"))
     {
-        bend::open_url("https://github.com/ITotalJustice/notorious_beeg");
+        backend::open_url("https://github.com/ITotalJustice/notorious_beeg");
     }
     if (ImGui::MenuItem("Open An Issue"))
     {
-        bend::open_url("https://github.com/ITotalJustice/notorious_beeg/issues/new");
+        backend::open_url("https://github.com/ITotalJustice/notorious_beeg/issues/new");
     }
 }
 
@@ -642,7 +654,7 @@ auto System::emu_update_texture() -> void
         return;
     }
 
-    bend::update_texture(TextureID::emu, gameboy_advance.ppu.pixels);
+    backend::update_texture(TextureID::emu, gameboy_advance.ppu.pixels);
 }
 
 auto System::emu_render() -> void
@@ -664,7 +676,11 @@ auto System::emu_render() -> void
         ImGui::SetCursorPos(ImVec2(0, 0));
 
         ImVec2 p = ImGui::GetCursorScreenPos();
-        ImGui::Image(bend::get_texture(TextureID::emu), ImVec2(emu_rect.w, emu_rect.h));
+        auto texture = backend::get_texture(TextureID::emu);
+        if (texture != nullptr)
+        {
+            ImGui::Image(texture, ImVec2(emu_rect.w, emu_rect.h));
+        }
         ImGui::PopStyleVar(5);
 
         if (show_grid)
@@ -679,7 +695,7 @@ auto System::emu_render() -> void
 auto System::run_render() -> void
 {
     // Start the Dear ImGui frame
-    bend::render_begin();
+    backend::render_begin();
     ImGui::NewFrame();
 
     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
@@ -707,7 +723,7 @@ auto System::run_render() -> void
 
     // Rendering (REMEMBER TO RENDER IMGUI STUFF [BEFORE] THIS LINE)
     ImGui::Render();
-    bend::render_end();
+    backend::render_end();
 }
 
 auto System::run() -> void
@@ -735,12 +751,12 @@ auto System::run() -> void
 
 auto System::is_fullscreen() -> bool
 {
-    return bend::is_fullscreen();
+    return backend::is_fullscreen();
 }
 
 auto System::toggle_fullscreen() -> void
 {
-    bend::toggle_fullscreen();
+    backend::toggle_fullscreen();
 }
 
 auto System::resize_to_menubar() -> void
@@ -752,15 +768,15 @@ auto System::resize_to_menubar() -> void
 
     should_resize = false;
 
-    const auto [w, h] = bend::get_window_size();
-    bend::set_window_size({w, h + menubar_height});
+    const auto [w, h] = backend::get_window_size();
+    backend::set_window_size({w, h + menubar_height});
 
     System::resize_emu_screen();
 }
 
 auto System::resize_emu_screen() -> void
 {
-    const auto [w, h] = bend::get_window_size();
+    const auto [w, h] = backend::get_window_size();
 
     // update rect
     emu_rect.x = 0;

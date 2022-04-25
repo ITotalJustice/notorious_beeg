@@ -82,8 +82,13 @@ else()
         target_link_libraries(main PRIVATE ${minizip_lib})
         target_include_directories(main PRIVATE ${minizip_inc})
 
+        # on switch, i need to manually link against
+        # zlib as well, and has to be linked after minizip!
+        find_package(ZLIB REQUIRED)
+        target_link_libraries(main PRIVATE ZLIB::ZLIB)
+
         set(FOUND_MINIZIP TRUE)
-        message(STATUS "using system minizip")
+        message(STATUS "using system minizip lib: ${minizip_lib} inc: ${minizip_inc}")
     endif()
 endif()
 
@@ -127,3 +132,35 @@ target_compile_definitions(main PRIVATE
     DUMP_AUDIO=$<BOOL:${DUMP_AUDIO}>
     DEBUGGER=$<BOOL:${DEBUGGER}>
 )
+
+if (NINTENDO_SWITCH)
+    # create romfs folder
+    dkp_add_asset_target(main_romfs ${CMAKE_CURRENT_BINARY_DIR}/romfs)
+
+    # setup nacp
+    nx_generate_nacp(main.nacp
+        NAME "Notorious BEEG"
+        AUTHOR TotalJustice
+        VERSION 0.0.3
+    )
+
+    # create nro (final binary)
+    nx_create_nro(main
+        ICON ${CMAKE_SOURCE_DIR}/src/frontend/backend/nx/icon.jpg
+        NACP main.nacp
+        ROMFS main_romfs
+    )
+
+    # compile and add shaders to romfs
+    set(SHADER_FOLDER ${CMAKE_SOURCE_DIR}/src/frontend/backend/nx/shaders)
+
+    nx_add_shader_program(imgui_fsh ${SHADER_FOLDER}/imgui_fsh.glsl frag)
+    nx_add_shader_program(imgui_vsh ${SHADER_FOLDER}/imgui_vsh.glsl vert)
+
+    dkp_install_assets(main_romfs
+        DESTINATION shaders
+        TARGETS
+            imgui_fsh
+            imgui_vsh
+    )
+endif()

@@ -179,3 +179,4 @@ gba emulator witten in c++23.
 - ocornut for imgui <https://github.com/ocornut/imgui>
 - ocornut for imgui_club <https://github.com/ocornut/imgui_club>
 - everyone that has contributed to the bios decomp <https://github.com/Gericom/gba_bios>
+- [ftpd](https://github.com/mtheall/ftpd) and [nxshell](https://github.com/joel16/NX-Shell) for the deko3d backend for switch.

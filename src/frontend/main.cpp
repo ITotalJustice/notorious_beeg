@@ -7,6 +7,7 @@
 
 auto main(int argc, char** argv) -> int
 {
+    #if !defined(__SWITCH__)
     if (argc < 2)
     {
         std::printf("- args: exe rom\n");
@@ -14,6 +15,7 @@ auto main(int argc, char** argv) -> int
         std::printf("- args: exe rom bios\n");
         return 1;
     }
+    #endif
 
     auto system = std::make_unique<sys::System>();
 
