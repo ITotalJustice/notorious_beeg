@@ -20,6 +20,10 @@ enum class TextureID
     layer1,
     layer2,
     layer3,
+    folder_icon,
+    file_icon,
+
+    max, // not real texture
 };
 
 struct Rect
@@ -61,7 +65,7 @@ struct System
     static inline std::string rom_path{};
     static inline bool has_rom{false};
     static inline bool running{true};
-    static inline bool emu_run{true};
+    static inline bool emu_run{false};
     static inline bool show_debug_window{false};
     static inline bool show_demo_window{false};
     static inline bool show_menubar{true};
@@ -73,6 +77,9 @@ struct System
     static inline auto fps = 0;
     static inline auto start_time = std::chrono::high_resolution_clock::now();
     #endif
+
+    // set to true to fill the screen
+    static inline bool emu_stretch{false};
 
     struct Layer
     {

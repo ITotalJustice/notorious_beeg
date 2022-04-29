@@ -18,12 +18,11 @@
 
 #include "../../../system.hpp"
 #include <switch.h>
-#include <switch/result.h>
-#include <switch/services/audren.h>
 #include <cstddef>
 #include <cstdint>
 #include <thread>
 #include <mutex>
+#include <array>
 #include <vector>
 #include <algorithm>
 #include <ranges>
@@ -74,6 +73,7 @@ constexpr uint8_t sink_channels[channels]{ 0, 1 };
 int sink_id;
 int mem_pool_id;
 
+// mempool that is aligned for audio
 std::vector<std::uint8_t, PoolAllocator<std::uint8_t>> mem_pool;
 std::size_t spec_size;
 
@@ -82,7 +82,7 @@ std::vector<std::int16_t> temp_buf;
 std::size_t temp_buffer_index;
 
 // this is what we copy the temp_buf into per audio frame
-std::vector<AudioDriverWaveBuf> wave_buffers;
+std::array<AudioDriverWaveBuf, 2> wave_buffers;
 std::size_t wave_buffer_index;
 
 std::jthread thread;
@@ -103,14 +103,8 @@ auto audio_callback(void* user, int16_t left, int16_t right) -> void
 
 auto audio_thread(std::stop_token token) -> void
 {
-    for (;;)
+    while (!token.stop_requested())
     {
-        if (token.stop_requested())
-        {
-            printf("[INFO] stop token requested in loop!\n");
-            return;
-        }
-
         auto& buffer = wave_buffers[wave_buffer_index];
         if (buffer.state == AudioDriverWaveBufState_Free || buffer.state == AudioDriverWaveBufState_Done)
         {
@@ -125,9 +119,10 @@ auto audio_thread(std::stop_token token) -> void
                 // stretch last sample
                 if (temp_buffer_index >= 2 && temp_buffer_index < temp_buf.size())
                 {
-                    for (size_t i = temp_buffer_index; i < temp_buf.size(); i++)
+                    for (size_t i = temp_buffer_index; i < temp_buf.size(); i += 2)
                     {
-                        data16[i] = temp_buf[temp_buffer_index - 2];
+                        data16[i+0] = temp_buf[temp_buffer_index - 2]; // left
+                        data16[i+1] = temp_buf[temp_buffer_index - 1]; // right
                     }
                 }
 
@@ -165,8 +160,6 @@ namespace nx::audio {
 
 auto init() -> bool
 {
-    wave_buffers.resize(2);
-
     if (auto r = audrenInitialize(&cfg); R_FAILED(r))
     {
         printf("failed to init audren\n");
@@ -216,9 +209,9 @@ auto init() -> bool
     spec_size = sizeof(std::int16_t) * channels * samples;
     const auto mem_pool_size = ((spec_size * wave_buffers.size()) + (AUDREN_MEMPOOL_ALIGNMENT - 1)) &~ (AUDREN_MEMPOOL_ALIGNMENT - 1);
     mem_pool.resize(mem_pool_size);
-    // LOG("unaliged size 0x%lX aligned size: 0x%lX vector size: 0x%lX\n", spec_size * wave_buffers.size(), ((spec_size * wave_buffers.size()) + (AUDREN_MEMPOOL_ALIGNMENT - 1)) &~ (AUDREN_MEMPOOL_ALIGNMENT - 1), mem_pool.size());
 
-    for (std::size_t i = 0; i < wave_buffers.size(); ++i) {
+    for (std::size_t i = 0; i < wave_buffers.size(); ++i)
+    {
         wave_buffers[i].data_adpcm = mem_pool.data();
         wave_buffers[i].size = mem_pool.size();
         wave_buffers[i].start_sample_offset = i * samples;
@@ -235,8 +228,15 @@ auto init() -> bool
     }
 
     wave_buffer_index = 0;
+
+    // set the buffer size
     temp_buf.resize(spec_size / 2); // this is s16
+    std::ranges::fill(temp_buf, 0);
+
+    // start audio thread
     thread = std::jthread(audio_thread);
+
+    // set callback for emu
     sys::System::gameboy_advance.set_audio_callback(audio_callback);
 
     return true;

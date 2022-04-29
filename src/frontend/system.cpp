@@ -326,11 +326,6 @@ auto System::emu_set_button(gba::Button button, bool down) -> void
 auto System::init(int argc, char** argv) -> bool
 {
 #if defined(__SWITCH__)
-    if (!System::loadrom("/roms/gba/doom.gba"))
-    {
-        std::printf("failed to loadrom\n");
-        return false;
-    }
 #else
     if (argc < 2)
     {
@@ -660,7 +655,7 @@ auto System::emu_update_texture() -> void
 auto System::emu_render() -> void
 {
     const auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBringToFrontOnFocus;
-    ImGui::SetNextWindowPos(ImVec2(0, emu_rect.y));
+    ImGui::SetNextWindowPos(ImVec2(emu_rect.x, emu_rect.y));
     ImGui::SetNextWindowSize(ImVec2(emu_rect.w, emu_rect.h));
     ImGui::SetNextWindowSizeConstraints({0, 0}, ImVec2(emu_rect.w, emu_rect.h));
 
@@ -721,6 +716,8 @@ auto System::run_render() -> void
 
     resize_to_menubar();
 
+    backend::render();
+
     // Rendering (REMEMBER TO RENDER IMGUI STUFF [BEFORE] THIS LINE)
     ImGui::Render();
     backend::render_end();
@@ -774,15 +771,39 @@ auto System::resize_to_menubar() -> void
     System::resize_emu_screen();
 }
 
+int get_scale(int w, int h)
+{
+    const auto scale_w = w / 240;
+    const auto scale_h = h / 160;
+
+    return std::min(scale_w, scale_h);
+}
+
 auto System::resize_emu_screen() -> void
 {
     const auto [w, h] = backend::get_window_size();
 
     // update rect
-    emu_rect.x = 0;
-    emu_rect.y = menubar_height;
-    emu_rect.w = w;
-    emu_rect.h = h-menubar_height;
+    if (emu_stretch)
+    {
+        emu_rect.x = 0;
+        emu_rect.y = menubar_height;
+        emu_rect.w = w;
+        emu_rect.h = h-menubar_height;
+    }
+    else
+    {
+        const auto min_scale = get_scale(w, h);
+
+        emu_rect.w = 240 * min_scale;
+        emu_rect.h = 160 * min_scale;
+        emu_rect.x = (w - emu_rect.w) / 2;
+        emu_rect.y = (h - emu_rect.h) / 2;
+        // emu_rect.x = 0;
+        // emu_rect.y = menubar_height;
+        // emu_rect.w = w;
+        // emu_rect.h = h-menubar_height;
+    }
 }
 
 } // namespace sys

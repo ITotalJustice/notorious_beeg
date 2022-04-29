@@ -528,6 +528,10 @@ auto render_begin() -> void
     ImGui_ImplSDL2_NewFrame();
 }
 
+auto render() -> void
+{
+}
+
 auto render_end() -> void
 {
     SDL_RenderClear(renderer);

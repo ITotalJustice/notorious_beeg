@@ -180,3 +180,5 @@ gba emulator witten in c++23.
 - ocornut for imgui_club <https://github.com/ocornut/imgui_club>
 - everyone that has contributed to the bios decomp <https://github.com/Gericom/gba_bios>
 - [ftpd](https://github.com/mtheall/ftpd) and [nxshell](https://github.com/joel16/NX-Shell) for the deko3d backend for switch.
+- <a target="_blank" href="https://icons8.com/icon/38359/visual-game-boy">Visual Game Boy</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>
+- <a target="_blank" href="https://icons8.com/icon/71cUHRMvCNMk/mac-folder">Mac Folder</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a>

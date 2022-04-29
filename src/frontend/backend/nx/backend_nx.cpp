@@ -6,8 +6,13 @@
 #include "../backend.hpp"
 #include "../../system.hpp"
 #include "audio/audio.hpp"
+#include "fs.hpp"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#include <cstddef>
 #include <cstdint>
-#include <switch/applets/error.h>
 #include <utility>
 #include <imgui.h>
 #include <switch.h>
@@ -52,9 +57,11 @@ namespace {
 
 struct Texture
 {
-    auto init() -> void;
+    auto init(int w, int h, int bpp, DkImageFormat f, int id, void* data = nullptr) -> void;
+    auto init(const char* file, int id) -> void;
+
     auto quit() -> void;
-    auto update(std::uint16_t data[160][240]) -> void;
+    auto update(void* data) -> void;
 
     [[nodiscard]] auto get_image_id() { return image_id; }
     [[nodiscard]] auto get_sampler_id() { return sampler_id; }
@@ -65,18 +72,18 @@ private:
 
     // todo: make texture creation like a factory which returns an
     // id (index into texture array)
-    static inline const auto image_id = 2;
-    static inline const auto sampler_id = 1;
+    int image_id;
+    int sampler_id;
 
     // thse should be set in init()
-    static inline const auto format = DkImageFormat_RGB5_Unorm;
-    static inline const auto width = 240;
-    static inline const auto height = 160;
-    static inline const auto size = width * height * sizeof(uint16_t);
+    DkImageFormat format;
+    int width;
+    int height;
+    int size;
 };
 
 constexpr auto MAX_SAMPLERS = 2;
-constexpr auto MAX_IMAGES = 8;
+constexpr auto MAX_IMAGES = std::to_underlying(TextureID::max) + 2;
 constexpr auto FB_NUM = 2u;
 constexpr auto CMDBUF_SIZE = 1024 * 1024;
 
@@ -98,10 +105,12 @@ dk::ImageDescriptor *s_imageDescriptors   = nullptr;
 dk::UniqueQueue s_queue;
 dk::UniqueSwapchain s_swapchain;
 
-Texture textures[1];
+Texture textures[std::to_underlying(TextureID::max)];
 PadState pad;
 
 AppletHookCookie appletHookCookie;
+
+bool show_fs_browser{false};
 
 auto applet_show_error_message(const char* message, const char* long_message)
 {
@@ -360,8 +369,15 @@ void exit_deko3d(void) {
 }
 
 // SOURCE: https://github.com/joel16/NX-Shell/blob/5a5067afeb6b18c0d2bb4d7b16f71899a768012a/source/textures.cpp#L150
-auto Texture::init() -> void
+auto Texture::init(int w, int h, int bpp, DkImageFormat f, int id, void* data) -> void
 {
+    width = w;
+    height = h;
+    format = f;
+    image_id = 1 + id;
+    sampler_id = 1;
+    size = width * height * bpp;
+
     s_queue.waitIdle();
 
     dk::ImageLayout layout;
@@ -379,7 +395,14 @@ auto Texture::init() -> void
         .setFlags(DkMemBlockFlags_GpuCached | DkMemBlockFlags_Image)
         .create();
 
-    std::memset(memBlock.getCpuAddr(), 0, size);
+    if (data != nullptr)
+    {
+        std::memcpy(memBlock.getCpuAddr(), data, size);
+    }
+    else
+    {
+        std::memset(memBlock.getCpuAddr(), 0, size);
+    }
 
     image.initialize(layout, s_imageMemBlock, 0);
     s_imageDescriptors[image_id].initialize(image);
@@ -391,14 +414,38 @@ auto Texture::init() -> void
 
     s_queue.submitCommands(s_cmdBuf[0].finishList());
 
-    s_samplerDescriptors[sampler_id].initialize(dk::Sampler{}
-        .setFilter(DkFilter_Nearest, DkFilter_Nearest)
-        .setWrapMode(DkWrapMode_ClampToEdge, DkWrapMode_ClampToEdge, DkWrapMode_ClampToEdge));
+    // this is a hack because i cba to write good code
+    static bool sample_already_init = false;
+    if (!sample_already_init)
+    {
+        s_samplerDescriptors[sampler_id].initialize(dk::Sampler{}
+            .setFilter(DkFilter_Nearest, DkFilter_Nearest)
+            .setWrapMode(DkWrapMode_ClampToEdge, DkWrapMode_ClampToEdge, DkWrapMode_ClampToEdge));
+    }
 
     s_queue.waitIdle();
 }
 
-auto Texture::update(std::uint16_t data[160][240]) -> void
+auto Texture::init(const char* file, int id) -> void
+{
+    // Load from disk into a raw RGBA buffer
+    int image_width = 0;
+    int image_height = 0;
+    int bpp = 0;
+    unsigned char* image_data = stbi_load(file, &image_width, &image_height, NULL, 4);
+    if (image_data == NULL)
+    {
+        std::printf("failed to load image: %s\n", file);
+        return;
+    }
+
+    init(image_width, image_height, 4, DkImageFormat_RGBA8_Unorm, id, image_data);
+    stbi_image_free(image_data);
+
+    std::printf("loaded file\n");
+}
+
+auto Texture::update(void* data) -> void
 {
     s_queue.waitIdle(); // is this needed?
 
@@ -442,11 +489,14 @@ auto Texture::quit() -> void
     // init deko3d for imgui
     imgui::deko3d::init(s_device, s_queue, s_cmdBuf[0], s_samplerDescriptors[0], s_imageDescriptors[0], dkMakeTextureHandle(0, 0), FB_NUM);
 
-    // init all textures being used
-    for (auto& texture : textures)
-    {
-        texture.init();
-    }
+    textures[std::to_underlying(TextureID::emu)].init(240, 160, sizeof(u16), DkImageFormat_RGB5_Unorm, std::to_underlying(TextureID::emu));
+    textures[std::to_underlying(TextureID::layer0)].init(240, 160, sizeof(u16), DkImageFormat_RGB5_Unorm, std::to_underlying(TextureID::layer0));
+    textures[std::to_underlying(TextureID::layer1)].init(240, 160, sizeof(u16), DkImageFormat_RGB5_Unorm, std::to_underlying(TextureID::layer1));
+    textures[std::to_underlying(TextureID::layer2)].init(240, 160, sizeof(u16), DkImageFormat_RGB5_Unorm, std::to_underlying(TextureID::layer2));
+    textures[std::to_underlying(TextureID::layer3)].init(240, 160, sizeof(u16), DkImageFormat_RGB5_Unorm, std::to_underlying(TextureID::layer3));
+
+    textures[std::to_underlying(TextureID::folder_icon)].init("romfs:/icons/icons8-mac-folder-64.png", std::to_underlying(TextureID::folder_icon));
+    textures[std::to_underlying(TextureID::file_icon)].init("romfs:/icons/icons8-visual-game-boy-48.png", std::to_underlying(TextureID::file_icon));
 
     // setup callback for applet events
     appletHook(&appletHookCookie, appplet_hook_calback, nullptr);
@@ -522,14 +572,122 @@ auto poll_events() -> void
         System::loadstate(System::rom_path);
     }
 
+    if (!!(down & HidNpadButton_Y))
+    {
+        show_fs_browser ^= 1;
+        if (System::has_rom)
+        {
+            // if showing browser, stop running, else run
+            System::emu_run = !show_fs_browser;
+        }
+    }
+
     // this only update inputs and screen size
     // so it should be called in poll events
     imgui::nx::newFrame(&pad);
 }
 
+void show_debug_monitor()
+{
+    static int corner = -1;
+    ImGuiIO& io = ImGui::GetIO();
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+    if (corner != -1)
+    {
+        const float PAD = 10.0f;
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+        ImVec2 work_size = viewport->WorkSize;
+        ImVec2 window_pos, window_pos_pivot;
+        window_pos.x = (corner & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
+        window_pos.y = (corner & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
+        window_pos_pivot.x = (corner & 1) ? 1.0f : 0.0f;
+        window_pos_pivot.y = (corner & 2) ? 1.0f : 0.0f;
+        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+        window_flags |= ImGuiWindowFlags_NoMove;
+    }
+
+    ImGui::SetNextWindowBgAlpha(0.50f); // Transparent background
+    if (ImGui::Begin("NX overlay", nullptr, window_flags))
+    {
+        ImGui::Text("BEEG Debug Monitor\n");
+        ImGui::Separator();
+        if (ImGui::CollapsingHeader("Memory"))
+        {
+            // SOURCE: https://switchbrew.org/wiki/SVC#SystemInfoType
+            constexpr u64 TotalPhysicalMemorySize_Application = 0;
+            constexpr u64 TotalPhysicalMemorySize_Applet = 1;
+            constexpr u64 TotalPhysicalMemorySize_System = 2;
+            constexpr u64 TotalPhysicalMemorySize_SystemUnsafe = 3;
+
+            constexpr u64 UsedPhysicalMemorySize_Application = 0;
+            constexpr u64 UsedPhysicalMemorySize_Applet = 1;
+            constexpr u64 UsedPhysicalMemorySize_System = 2;
+            constexpr u64 UsedPhysicalMemorySize_SystemUnsafe = 3;
+
+            constexpr u8 svcGetSystemInfo_id = 0x6F;
+
+            // check if we have priv to use the sys call!
+            if (envIsSyscallHinted(svcGetSystemInfo_id))
+            {
+                u64 total_application = 0;
+                u64 total_applet = 0;
+                u64 total_system = 0;
+                u64 total_unsafe = 0;
+
+                u64 used_application = 0;
+                u64 used_applet = 0;
+                u64 used_system = 0;
+                u64 used_unsafe = 0;
+
+                svcGetSystemInfo(&total_application, 0, INVALID_HANDLE, TotalPhysicalMemorySize_Application);
+                svcGetSystemInfo(&total_applet, 0, INVALID_HANDLE, TotalPhysicalMemorySize_Applet);
+                svcGetSystemInfo(&total_system, 0, INVALID_HANDLE, TotalPhysicalMemorySize_System);
+                svcGetSystemInfo(&total_unsafe, 0, INVALID_HANDLE, TotalPhysicalMemorySize_SystemUnsafe);
+
+                svcGetSystemInfo(&used_application, 1, INVALID_HANDLE, UsedPhysicalMemorySize_Application);
+                svcGetSystemInfo(&used_applet, 1, INVALID_HANDLE, UsedPhysicalMemorySize_Applet);
+                svcGetSystemInfo(&used_system, 1, INVALID_HANDLE, UsedPhysicalMemorySize_System);
+                svcGetSystemInfo(&used_unsafe, 1, INVALID_HANDLE, UsedPhysicalMemorySize_SystemUnsafe);
+
+                ImGui::Text("[Application]  %.2f MB\t%.2f MB\n", (double)used_application / 1024.0 / 1024.0, (double)total_application / 1024.0 / 1024.0);
+                ImGui::Text("[Applet]       %.2f MB\t%.2f MB\n", (double)used_applet / 1024.0 / 1024.0, (double)total_applet / 1024.0 / 1024.0);
+                ImGui::Text("[System]       %.2f MB\t%.2f MB\n", (double)used_system / 1024.0 / 1024.0, (double)total_system / 1024.0 / 1024.0);
+                ImGui::Text("[SystemUnsafe] %.2f MB\t%.2f MB\n", (double)used_unsafe / 1024.0 / 1024.0, (double)total_unsafe / 1024.0 / 1024.0);
+            }
+        }
+
+        if (ImGui::CollapsingHeader("Audio"))
+        {
+
+        }
+
+        if (ImGui::CollapsingHeader("Display"))
+        {
+
+        }
+
+        if (ImGui::CollapsingHeader("Misc"))
+        {
+
+        }
+    }
+    ImGui::End();
+}
+
 auto render_begin() -> void
 {
-    // imgui::nx::newFrame(&pad);
+}
+
+auto render() -> void
+{
+    show_debug_monitor();
+
+    if (!sys::System::has_rom || show_fs_browser)
+    {
+        // fs returns true when a rom has been loaded
+        show_fs_browser = !nx::fs::render();
+    }
 }
 
 auto render_end() -> void
@@ -568,14 +726,12 @@ auto render_end() -> void
 
 auto get_texture(TextureID id) -> void*
 {
-    assert(id == TextureID::emu && "only emu texture is impl!");
     auto& texture = textures[std::to_underlying(id)];
     return imgui::deko3d::makeTextureID(dkMakeTextureHandle(texture.get_image_id(), texture.get_sampler_id()));
 }
 
 auto update_texture(TextureID id, std::uint16_t pixels[160][240]) -> void
 {
-    assert(id == TextureID::emu && "only emu texture is impl!");
     textures[std::to_underlying(id)].update(pixels);
 }
 
@@ -601,6 +757,21 @@ auto toggle_fullscreen() -> void
 
 auto open_url(const char* url) -> void
 {
+    WebCommonConfig config{};
+
+    auto rc = webPageCreate(&config, url);
+
+    if (R_SUCCEEDED(rc))
+    {
+        rc = webConfigSetWhitelist(&config, "^http*");
+        if (R_SUCCEEDED(rc))
+        {
+            rc = webConfigShow(&config, nullptr);
+            if (R_SUCCEEDED(rc))
+            {
+            }
+        }
+    }
 }
 
 } // sys::backend
