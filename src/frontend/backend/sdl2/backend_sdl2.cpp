@@ -1,7 +1,7 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include "backend_sdl2.hpp"
+#include "../backend.hpp"
 #include "../../system.hpp"
 #include "../../icon.hpp"
 #include <cstdio>
@@ -11,7 +11,7 @@
 #include <imgui_impl_sdl.h>
 #include <imgui_impl_sdlrenderer.h>
 
-namespace sys::backend::sdl2 {
+namespace sys::backend {
 
 namespace {
 SDL_Window* window{};
@@ -528,6 +528,10 @@ auto render_begin() -> void
     ImGui_ImplSDL2_NewFrame();
 }
 
+auto render() -> void
+{
+}
+
 auto render_end() -> void
 {
     SDL_RenderClear(renderer);
@@ -574,4 +578,4 @@ auto open_url(const char* url) -> void
     SDL_OpenURL(url);
 }
 
-} // sys::backend::sdl2
+} // sys::backend

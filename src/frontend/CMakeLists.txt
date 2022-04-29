@@ -30,8 +30,17 @@ FetchContent_Declare(minizip
     BUILD_COMMAND ""
 )
 
+FetchContent_Declare(stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG        af1a5bc352164740c1cc1354942b1c6b72eacb8a
+    GIT_PROGRESS   TRUE
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+)
+
 FetchContent_MakeAvailable(imgui)
 FetchContent_MakeAvailable(imgui_club)
+FetchContent_MakeAvailable(stb)
 
 add_library(imgui
     ${imgui_SOURCE_DIR}/imgui.cpp
@@ -45,8 +54,11 @@ target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
 
 # memory editor
 add_library(imgui_club INTERFACE)
-target_include_directories(imgui INTERFACE ${imgui_club_SOURCE_DIR}/imgui_memory_editor)
+target_include_directories(imgui_club INTERFACE ${imgui_club_SOURCE_DIR}/imgui_memory_editor)
 # fetch imgui is done!
+
+add_library(stb INTERFACE)
+target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
 
 # always include backend after fetching imgui
 add_subdirectory(backend)
@@ -82,8 +94,13 @@ else()
         target_link_libraries(main PRIVATE ${minizip_lib})
         target_include_directories(main PRIVATE ${minizip_inc})
 
+        # on switch, i need to manually link against
+        # zlib as well, and has to be linked after minizip!
+        find_package(ZLIB REQUIRED)
+        target_link_libraries(main PRIVATE ZLIB::ZLIB)
+
         set(FOUND_MINIZIP TRUE)
-        message(STATUS "using system minizip")
+        message(STATUS "using system minizip lib: ${minizip_lib} inc: ${minizip_inc}")
     endif()
 endif()
 
@@ -127,3 +144,41 @@ target_compile_definitions(main PRIVATE
     DUMP_AUDIO=$<BOOL:${DUMP_AUDIO}>
     DEBUGGER=$<BOOL:${DEBUGGER}>
 )
+
+if (NINTENDO_SWITCH)
+    set(ASSETS ${CMAKE_SOURCE_DIR}/assets)
+
+    # create romfs folder
+    dkp_add_asset_target(main_romfs ${CMAKE_CURRENT_BINARY_DIR}/romfs)
+
+    configure_file(${ASSETS}/icons/icons8-mac-folder-64.png ${CMAKE_CURRENT_BINARY_DIR}/romfs/icons/icons8-mac-folder-64.png COPYONLY)
+    configure_file(${ASSETS}/icons/icons8-visual-game-boy-48.png ${CMAKE_CURRENT_BINARY_DIR}/romfs/icons/icons8-visual-game-boy-48.png COPYONLY)
+
+    # setup nacp
+    nx_generate_nacp(main.nacp
+        NAME "Notorious BEEG"
+        AUTHOR TotalJustice
+        VERSION 0.0.3
+    )
+
+    # create nro (final binary)
+    nx_create_nro(main
+        ICON ${ASSETS}/icons/icon.jpg
+        NACP main.nacp
+        ROMFS main_romfs
+    )
+
+    # compile and add shaders to romfs
+    set(SHADER_FOLDER ${ASSETS}/shaders/nx)
+
+    nx_add_shader_program(imgui_fsh ${SHADER_FOLDER}/imgui_fsh.glsl frag)
+    nx_add_shader_program(imgui_vsh ${SHADER_FOLDER}/imgui_vsh.glsl vert)
+
+    dkp_install_assets(main_romfs
+        DESTINATION shaders
+        TARGETS
+            imgui_fsh
+            imgui_vsh
+    )
+
+endif()

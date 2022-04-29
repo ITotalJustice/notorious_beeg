@@ -10,10 +10,6 @@ target_include_directories(backend PRIVATE
     ${imgui_SOURCE_DIR}/backends
 )
 
-target_include_directories(backend PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
 find_package(SDL2 CONFIG REQUIRED)
 
 target_link_libraries(backend PRIVATE imgui)

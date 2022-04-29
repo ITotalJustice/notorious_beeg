@@ -37,7 +37,8 @@ list(APPEND gcc_flags
     -Wmissing-requires
 )
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+# for switch build, always enable full optimisations, even in debug
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT NINTENDO_SWITCH)
     list(APPEND gcc_flags -Og) # always enable otherwise debug builds would be too slow
 else()
     list(APPEND gcc_flags -fno-rtti -Ofast)

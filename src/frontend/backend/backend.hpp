@@ -2,18 +2,22 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 
-#include "../../system.hpp"
+#include "../system.hpp"
 #include <cstdint>
 #include <span>
 #include <utility>
 
-namespace sys::backend::sdl2 {
+namespace sys::backend {
 
 [[nodiscard]] auto init() -> bool;
 auto quit() -> void;
 
 auto poll_events() -> void;
+// used for setup
 auto render_begin() -> void;
+// render anything specific to the backend
+auto render() -> void;
+// flip the screen
 auto render_end() -> void;
 
 auto get_texture(TextureID id) -> void*;
@@ -28,4 +32,4 @@ auto toggle_fullscreen() -> void;
 
 auto open_url(const char* url) -> void;
 
-} // sys::backend::sdl2
+} // sys::backend
