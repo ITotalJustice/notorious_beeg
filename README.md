@@ -46,6 +46,7 @@ gba emulator witten in c++23.
 - no loger mirror io r/w.
 - force align dma r/w.
 - add controller support to frontend.
+- correctly restore r8-12 when leaving fiq. fixes [#72](https://github.com/ITotalJustice/notorious_beeg/issues/72)
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
@@ -179,3 +180,4 @@ gba emulator witten in c++23.
 - ocornut for imgui <https://github.com/ocornut/imgui>
 - ocornut for imgui_club <https://github.com/ocornut/imgui_club>
 - everyone that has contributed to the bios decomp <https://github.com/Gericom/gba_bios>
+- xproger for openlara (fixed several bugs in my emu) <https://github.com/XProger/OpenLara>

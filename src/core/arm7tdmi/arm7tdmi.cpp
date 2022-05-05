@@ -81,13 +81,12 @@ auto refill_pipeline(Gba& gba) -> void
     }
 }
 
-auto change_mode_save_regs(Gba& gba, std::span<u32> banked_regs, struct Psr* banked_spsr)
+static auto change_mode_save_regs(Gba& gba, std::span<u32> banked_regs, struct Psr* banked_spsr)
 {
     const auto offset = 15 - banked_regs.size();
 
     for (std::size_t i = 0; i < banked_regs.size(); i++)
     {
-        gba_log("storing: 0x%08X from: %zu to %zu\n", CPU.registers[offset + i], offset + i, i);
         banked_regs[i] = CPU.registers[offset + i];
     }
 
@@ -97,19 +96,12 @@ auto change_mode_save_regs(Gba& gba, std::span<u32> banked_regs, struct Psr* ban
     }
 }
 
-auto change_mode_restore_regs(Gba& gba, std::span<const u32> banked_regs, const Psr* banked_spsr, int max)
+static auto change_mode_restore_regs(Gba& gba, std::span<const u32> banked_regs, const Psr* banked_spsr)
 {
-    std::size_t i = 0;
     const auto offset = 15 - banked_regs.size();
-    if (max > 0)
-    {
-        //std::printf("max is %d\n", max);
-        i = banked_regs.size() - max;
-    }
 
-    for (; i < banked_regs.size(); i++)
+    for (std::size_t i = 0; i < banked_regs.size(); i++)
     {
-        gba_log("restoring: 0x%08X from: %zu to %zu\n", banked_regs[i], i, offset+i);
         CPU.registers[offset + i] = banked_regs[i];
     }
 
@@ -129,7 +121,6 @@ auto change_mode(Gba& gba, u8 old_mode, u8 new_mode) -> void
         return;
     }
 
-    int max = -1;
     switch (old_mode)
     {
         case MODE_USER: case MODE_SYSTEM:
@@ -137,49 +128,58 @@ auto change_mode(Gba& gba, u8 old_mode, u8 new_mode) -> void
             break;
         case MODE_FIQ:
             change_mode_save_regs(gba, CPU.banked_reg_fiq, &CPU.banked_spsr_fiq);
-            max = sizeof(CPU.banked_reg_fiq) / sizeof(CPU.banked_reg_fiq[0]);
+            // if the previous mode was fiq, then we are changing to
+            // a mode with only r13-14 banked, so we need to restore
+            // r8-12 that fiq banks.
+            // SEE: https://github.com/ITotalJustice/notorious_beeg/issues/72
+            CPU.registers[8] = CPU.banked_r8_r12[0];
+            CPU.registers[9] = CPU.banked_r8_r12[1];
+            CPU.registers[10] = CPU.banked_r8_r12[2];
+            CPU.registers[11] = CPU.banked_r8_r12[3];
+            CPU.registers[12] = CPU.banked_r8_r12[4];
             break;
         case MODE_IRQ:
             change_mode_save_regs(gba, CPU.banked_reg_irq, &CPU.banked_spsr_irq);
-            max = sizeof(CPU.banked_reg_irq) / sizeof(CPU.banked_reg_irq[0]);
             break;
         case MODE_SUPERVISOR:
             change_mode_save_regs(gba, CPU.banked_reg_svc, &CPU.banked_spsr_svc);
-            max = sizeof(CPU.banked_reg_svc) / sizeof(CPU.banked_reg_svc[0]);
             break;
         case MODE_ABORT:
             change_mode_save_regs(gba, CPU.banked_reg_abt, &CPU.banked_spsr_abt);
-            max = sizeof(CPU.banked_reg_abt) / sizeof(CPU.banked_reg_abt[0]);
             break;
         case MODE_UNDEFINED:
             change_mode_save_regs(gba, CPU.banked_reg_und, &CPU.banked_spsr_und);
-            max = sizeof(CPU.banked_reg_und) / sizeof(CPU.banked_reg_und[0]);
             break;
     }
 
     switch (new_mode)
     {
         case MODE_USER: case MODE_SYSTEM:
-            change_mode_restore_regs(gba, CPU.banked_reg_usr, nullptr, max);
+            change_mode_restore_regs(gba, CPU.banked_reg_usr, nullptr);
             break;
         case MODE_FIQ:
-            change_mode_restore_regs(gba, CPU.banked_reg_fiq, &CPU.banked_spsr_fiq, -1);
+            // before loading fiq regs, bank regs r8-12
+            // so that when leaving fiq, r8-12 can be restored.
+            CPU.banked_r8_r12[0] = CPU.registers[8];
+            CPU.banked_r8_r12[1] = CPU.registers[9];
+            CPU.banked_r8_r12[2] = CPU.registers[10];
+            CPU.banked_r8_r12[3] = CPU.registers[11];
+            CPU.banked_r8_r12[4] = CPU.registers[12];
+            change_mode_restore_regs(gba, CPU.banked_reg_fiq, &CPU.banked_spsr_fiq);
             break;
         case MODE_IRQ:
-            change_mode_restore_regs(gba, CPU.banked_reg_irq, &CPU.banked_spsr_irq, -1);
+            change_mode_restore_regs(gba, CPU.banked_reg_irq, &CPU.banked_spsr_irq);
             break;
         case MODE_SUPERVISOR:
-            change_mode_restore_regs(gba, CPU.banked_reg_svc, &CPU.banked_spsr_svc, -1);
+            change_mode_restore_regs(gba, CPU.banked_reg_svc, &CPU.banked_spsr_svc);
             break;
         case MODE_ABORT:
-            change_mode_restore_regs(gba, CPU.banked_reg_abt, &CPU.banked_spsr_abt, -1);
+            change_mode_restore_regs(gba, CPU.banked_reg_abt, &CPU.banked_spsr_abt);
             break;
         case MODE_UNDEFINED:
-            change_mode_restore_regs(gba, CPU.banked_reg_und, &CPU.banked_spsr_und, -1);
+            change_mode_restore_regs(gba, CPU.banked_reg_und, &CPU.banked_spsr_und);
             break;
     }
-
-    gba_log("swapped mode from: %u to %u\n", old_mode, new_mode);
 }
 
 

@@ -83,8 +83,10 @@ struct Arm7tdmi
     Psr cpsr;
     Psr spsr;
 
-    u32 banked_reg_usr[7]; // not real
-    u32 banked_reg_irq[2]; // r13_irq, r14_irq
+    u32 banked_r8_r12[5]; // used for restoring r8-12 leaving fiq
+    u32 banked_reg_usr[2]; // used for restoring r13-14 when entering usr/sys mode
+
+    u32 banked_reg_irq[2]; // r13_irq, r14_irq, SPSR_irq
     u32 banked_reg_fiq[7]; // r8_fiq, r9_fiq, r10_fiq, r11_fiq, r12_fiq, r13_fiq, r14_fiq, and SPSR_fiq
     u32 banked_reg_svc[2]; // r13_svc, r14_svc, SPSR_svc.
     u32 banked_reg_abt[2]; // r13_abt, r14_abt, SPSR_abt.
