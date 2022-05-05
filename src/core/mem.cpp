@@ -389,19 +389,31 @@ static constexpr auto read_io16(Gba& gba, u32 addr) -> u16
             return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
         }
 
+        case IO_KEY: {
+            constexpr auto mask = bit::get_mask<0, 9, u16>();
+            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+        }
+
         // these are registers with w only bits
         // these don't return openbus, instead return 0x0000
-        case 0x4000066:
-        case 0x400006E:
-        case 0x4000076:
-        case 0x400007A:
-        case 0x400007E:
-        case 0x4000086:
-        case 0x400008A:
+        case 0x4000066: // REG_SOUND1CNT_X (high 16 bits unreadable)
+        case 0x400006A: // REG_SOUND2CNT_L (high 16 bits unreadable)
+        case 0x400006E: // REG_SOUND2CNT_H (high 16 bits unreadable)
+        case 0x4000076: // REG_SOUND3CNT_X (high 16 bits unreadable)
+        case 0x400007A: // REG_SOUND4CNT_L (high 16 bits unreadable)
+        case 0x400007E: // REG_SOUND4CNT_L (high 16 bits unreadable)
+        case 0x4000086: // REG_SOUNDCNT_X (high 16 bits unreadable)
+        case 0x400008A: // REG_SOUNDBIAS (high 16 bits unreadable)
         case IO_DMA0CNT_L:
         case IO_DMA1CNT_L:
         case IO_DMA2CNT_L:
         case IO_DMA3CNT_L:
+        case 0x4000136: // REG_IR (high 16 bits unreadable)
+        case 0x4000142: // ???
+        case 0x400015A: // REG_JOYSTAT_H (high 16 bits unreadable)
+        case 0x4000206: // REG_WSCNT (high 16 bits unreadable)
+        case 0x400020A: // REG_IME (high 16 bits unreadable)
+        case 0x4000302: // REG_PAUSE (high 16 bits unreadable)
             return 0x0000;
 
         case IO_IMC_L:
