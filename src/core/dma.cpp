@@ -13,10 +13,13 @@
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#DMA%20Source%20Registers
 // https://problemkaputt.de/gbatek.htm#gbadmatransfers
-namespace gba::dma
-{
+namespace gba::dma {
+namespace {
 
-static constexpr arm7tdmi::Interrupt INTERRUPTS[4] =
+constexpr auto INTERNAL_MEMORY_RANGE = 0x07FFFFFF;
+constexpr auto ANY_MEMORY_RANGE = 0x0FFFFFFF;
+
+constexpr arm7tdmi::Interrupt INTERRUPTS[4] =
 {
     arm7tdmi::Interrupt::DMA0,
     arm7tdmi::Interrupt::DMA1,
@@ -24,10 +27,7 @@ static constexpr arm7tdmi::Interrupt INTERRUPTS[4] =
     arm7tdmi::Interrupt::DMA3,
 };
 
-constexpr auto INTERNAL_MEMORY_RANGE = 0x07FFFFFF;
-constexpr auto ANY_MEMORY_RANGE = 0x0FFFFFFF;
-
-static constexpr u32 SRC_MASK[4] =
+constexpr u32 SRC_MASK[4] =
 {
     INTERNAL_MEMORY_RANGE,
     ANY_MEMORY_RANGE,
@@ -35,7 +35,7 @@ static constexpr u32 SRC_MASK[4] =
     ANY_MEMORY_RANGE,
 };
 
-static constexpr u32 DST_MASK[4] =
+constexpr u32 DST_MASK[4] =
 {
     INTERNAL_MEMORY_RANGE,
     INTERNAL_MEMORY_RANGE,
@@ -51,7 +51,7 @@ struct [[nodiscard]] Registers
     u16 dmacnt_l;
 };
 
-static auto get_channel_registers(Gba& gba, u8 channel_num) -> Registers
+auto get_channel_registers(Gba& gba, u8 channel_num) -> Registers
 {
     switch (channel_num)
     {
@@ -65,7 +65,7 @@ static auto get_channel_registers(Gba& gba, u8 channel_num) -> Registers
 }
 
 template<bool Special = false>
-static auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
+auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
 {
     const auto len = dma.len;
     // const auto src = dma.src_addr;
@@ -184,6 +184,8 @@ static auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
         dma.enabled = false;
     }
 }
+
+} // namespace
 
 auto on_hblank(Gba& gba) -> void
 {

@@ -7,12 +7,13 @@
 #include "mem.hpp"
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 134 (5.12)
 template<
     bool SP // 0=PC, 1=SP
 >
-static auto load_address(Gba& gba, u16 opcode) -> void
+auto load_address(Gba& gba, u16 opcode) -> void
 {
     constexpr const auto src_reg = SP ? SP_INDEX : PC_INDEX;
     const auto Rd = bit::get_range<8, 10>(opcode);
@@ -30,4 +31,5 @@ static auto load_address(Gba& gba, u16 opcode) -> void
     set_reg_thumb(gba, Rd, result);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

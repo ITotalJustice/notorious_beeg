@@ -7,6 +7,7 @@
 #include "mem.hpp"
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // T1 = final type (u64/i64)
 // T2 = base type (u32/i32) this is used for sign extending
@@ -16,7 +17,7 @@ template<
     bool A,
     bool S
 >
-static auto multiply_long(Gba& gba, u32 opcode) -> void
+auto multiply_long(Gba& gba, u32 opcode) -> void
 {
     const auto RdHi = bit::get_range<16, 19>(opcode); // dst Hi
     const auto RdLo = bit::get_range<12, 15>(opcode); // dst Lo
@@ -57,7 +58,7 @@ template<
     bool A, // 0=mull, 1=mlal and accumulate
     bool S  // 0=no flags, 1=mod flags
 >
-static auto multiply_long(Gba& gba, u32 opcode) -> void
+auto multiply_long(Gba& gba, u32 opcode) -> void
 {
     if constexpr(U) // signed
     {
@@ -69,4 +70,5 @@ static auto multiply_long(Gba& gba, u32 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

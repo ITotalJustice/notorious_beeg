@@ -9,11 +9,12 @@
 #include <cassert>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 template<
     bool L // 0=store, 1=load
 >
-static auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
+auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
 {
     const auto Rb = bit::get_range<8, 10>(opcode); // base
     auto addr = get_reg(gba, Rb);
@@ -37,7 +38,7 @@ static auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
 template<
     bool L // 0=store, 1=load
 >
-static auto multiple_load_store(Gba& gba, u16 opcode) -> void
+auto multiple_load_store(Gba& gba, u16 opcode) -> void
 {
     const auto Rb = bit::get_range<8, 10>(opcode); // base
     u16 Rlist = bit::get_range<0, 7>(opcode);
@@ -108,4 +109,5 @@ static auto multiple_load_store(Gba& gba, u16 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

@@ -1,14 +1,13 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include "backup/sram.hpp"
+#include "sram.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
 #include <algorithm>
 #include <ranges>
 
-namespace gba::backup::sram
-{
+namespace gba::backup::sram {
 
 auto Sram::init([[maybe_unused]] Gba& gba) -> void
 {
@@ -36,7 +35,7 @@ auto Sram::get_data() const -> std::span<const u8>
 
 constexpr auto SRAM_MASK = sizeof(Sram::data)-1;
 
-auto Sram::read([[maybe_unused]] Gba& gba, u32 addr) -> u8
+auto Sram::read([[maybe_unused]] Gba& gba, u32 addr) const -> u8
 {
     return mem::read_array<u8>(this->data, SRAM_MASK, addr);
 }

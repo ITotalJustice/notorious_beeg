@@ -8,12 +8,13 @@
 #include <bit>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 126 (5.8)
 template<
     bool L // 0=STR, 1=LDR
 >
-static auto load_store_halfword(Gba& gba, u16 opcode) -> void
+auto load_store_halfword(Gba& gba, u16 opcode) -> void
 {
     const auto Rb = bit::get_range<3, 5>(opcode);
     const auto Rd = bit::get_range<0, 2>(opcode);
@@ -35,4 +36,5 @@ static auto load_store_halfword(Gba& gba, u16 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

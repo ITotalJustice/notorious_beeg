@@ -28,6 +28,7 @@
 #include <utility>
 
 namespace gba::ppu {
+namespace {
 
 constexpr auto CHARBLOCK_SIZE = 0x4000;
 constexpr auto SCREENBLOCK_SIZE = 0x800;
@@ -48,12 +49,27 @@ constexpr auto BACKDROP_NUM = 5;
 [[maybe_unused]] constexpr auto PRIORITY_3 = 3;
 constexpr auto PRIORITY_BACKDROP = 4;
 
+constexpr auto WIN0_PRIORITY = 0;
+constexpr auto WIN1_PRIORITY = 1;
+constexpr auto WIN_OBJ_PRIORITY = 2;
+
 enum class Blend
 {
     None, // no blending
     Alpha, // blend 2 layers
     White, // fade to white
     Black, // fade to black
+};
+
+enum Layer
+{
+    BG0 = 1 << 0,
+    BG1 = 1 << 1,
+    BG2 = 1 << 2,
+    BG3 = 1 << 3,
+    OBJ = 1 << 4,
+
+    ALL = BG0 | BG1 | BG2 | BG3 | OBJ,
 };
 
 struct ObjLine
@@ -181,10 +197,6 @@ public:
     bool out[6];
     bool obj[6];
 };
-
-constexpr auto WIN0_PRIORITY = 0;
-constexpr auto WIN1_PRIORITY = 1;
-constexpr auto WIN_OBJ_PRIORITY = 2;
 
 struct WindowBounds
 {
@@ -405,7 +417,7 @@ enum class Index : bool
 };
 
 template<Index index> [[nodiscard]] // 1=Y, 0=X
-static auto get_bg_offset(BGxCNT cnt, auto x) -> u16
+auto get_bg_offset(BGxCNT cnt, auto x) -> u16
 {
     constexpr auto PIXEL_MAP_SIZE = 255;
 
@@ -430,7 +442,7 @@ static auto get_bg_offset(BGxCNT cnt, auto x) -> u16
 }
 
 template<bool Y> [[nodiscard]] // 0=Y, 1=X
-static auto get_bg_offset_affine(BGxCNT cnt, auto x) -> u16
+auto get_bg_offset_affine(BGxCNT cnt, auto x) -> u16
 {
     constexpr auto PIXEL_MAP_SIZE = 255;
     constexpr u16 mod[4] = { 128, 256, 512, 1024 };
@@ -467,7 +479,7 @@ struct Bgr
 // NOTE: don't try to apply the coeff directly to the bgr555 colour, it won't work.
 // have to apply it to each b,g,r value.
 // masking the b,g,r is handled by the bitfield.
-static constexpr auto blend_alpha(u16 src, u16 dst, u8 coeff_src, u8 coeff_dst) -> u16
+constexpr auto blend_alpha(u16 src, u16 dst, u8 coeff_src, u8 coeff_dst) -> u16
 {
     assert(coeff_src <= 16);
     assert(coeff_dst <= 16);
@@ -483,7 +495,7 @@ static constexpr auto blend_alpha(u16 src, u16 dst, u8 coeff_src, u8 coeff_dst) 
     return fin_col.pack();
 }
 
-static constexpr auto blend_white(u16 col, u8 coeff) -> u16
+constexpr auto blend_white(u16 col, u8 coeff) -> u16
 {
     assert(coeff <= 16);
 
@@ -498,7 +510,7 @@ static constexpr auto blend_white(u16 col, u8 coeff) -> u16
     return fin_col.pack();
 }
 
-static constexpr auto blend_black(u16 col, u8 coeff) -> u16
+constexpr auto blend_black(u16 col, u8 coeff) -> u16
 {
     assert(coeff <= 16);
 
@@ -512,12 +524,12 @@ static constexpr auto blend_black(u16 col, u8 coeff) -> u16
     return fin_col.pack();
 }
 
-static auto get_backdrop_colour(const Gba& gba) -> u16
+auto get_backdrop_colour(const Gba& gba) -> u16
 {
     return mem::read_array<u16>(gba.mem.pram, mem::PRAM_MASK, 0);
 }
 
-static auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
+auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
 {
     // ovram is the last 2 entries of the charblock in vram.
     // in tile modes, this allows for 1024 tiles in total.
@@ -650,7 +662,7 @@ static auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> v
     }
 }
 
-static auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
+auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
 {
     const auto vcount = REG_VCOUNT;
     //
@@ -709,7 +721,7 @@ static auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& boun
     }
 }
 
-static auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
+auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
 {
     const auto vram = reinterpret_cast<const u16*>(gba.mem.vram + (240 * REG_VCOUNT * 2));
 
@@ -728,7 +740,7 @@ static auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& b
     }
 }
 
-static auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
+auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
 {
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
     const auto pram = reinterpret_cast<const u16*>(gba.mem.pram);
@@ -752,7 +764,7 @@ static auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& b
     }
 }
 
-static auto is_obj_enabled(Gba& gba)
+auto is_obj_enabled(Gba& gba)
 {
     return bit::is_set<12>(REG_DISPCNT);
 }
@@ -866,7 +878,7 @@ auto WindowBounds::apply_obj_window(Gba& gba, const ObjLine& obj_line) -> void
     }
 }
 
-static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, std::span<const BgLine> bg_lines, const ObjLine& obj_line) -> void
+auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, std::span<const BgLine> bg_lines, const ObjLine& obj_line) -> void
 {
     struct Layers
     {
@@ -994,14 +1006,14 @@ static auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, s
     }
 }
 
-static auto is_bg_enabled(Gba& gba, u8 bg_num)
+auto is_bg_enabled(Gba& gba, u8 bg_num)
 {
     assert(bg_num <= 3);
 
     return bit::is_set(REG_DISPCNT, 8 + bg_num);
 }
 
-static auto get_bg_meta(Gba& gba, u8 bg_num) -> BgMeta
+auto get_bg_meta(Gba& gba, u8 bg_num) -> BgMeta
 {
     assert(bg_num <= 3);
 
@@ -1016,18 +1028,7 @@ static auto get_bg_meta(Gba& gba, u8 bg_num) -> BgMeta
     std::unreachable();
 }
 
-enum Layers
-{
-    BG0 = 1 << 0,
-    BG1 = 1 << 1,
-    BG2 = 1 << 2,
-    BG3 = 1 << 3,
-    OBJ = 1 << 4,
-
-    ALL = BG0 | BG1 | BG2 | BG3 | OBJ,
-};
-
-static auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layers layers = Layers::ALL, bool apply_window = true, bool apply_merge = true) -> void
+auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layer layers = Layer::ALL, bool apply_window = true, bool apply_merge = true) -> void
 {
     // setup inital windowing (using win0 and win1)
     WindowBounds bounds{};
@@ -1040,7 +1041,7 @@ static auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layers layers = La
     ObjLine obj_line{};
 
     // only render obj if enabled
-    if (is_obj_enabled(gba) && layers & Layers::OBJ)
+    if (is_obj_enabled(gba) && layers & Layer::OBJ)
     {
         render_obj(gba, bounds, obj_line);
 
@@ -1088,38 +1089,40 @@ static auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layers layers = La
 }
 
 // 4 regular
-static auto render_mode0(Gba& gba) -> void
+auto render_mode0(Gba& gba) -> void
 {
     BgLine bg_lines[4]{ {0, RenderType::Reg}, {1, RenderType::Reg}, {2, RenderType::Reg}, {3, RenderType::Reg} };
     tile_render(gba, bg_lines);
 }
 
 // 2 regular, 1 affine
-static auto render_mode1(Gba& gba) -> void
+auto render_mode1(Gba& gba) -> void
 {
     BgLine bg_lines[3]{ {0, RenderType::Reg}, {1, RenderType::Reg}, {2, RenderType::Affine} };
     tile_render(gba, bg_lines);
 }
 
 // 4 affine
-// static auto render_mode2(Gba& gba) -> void
+// auto render_mode2(Gba& gba) -> void
 // {
 //     BgLine bg_lines[4]{ {0, RenderType::Affine}, {1, RenderType::Affine}, {2, RenderType::Affine}, {3, RenderType::Affine} };
 //     tile_render(gba, bg_lines);
 //     assert(!"unsupported mode");
 // }
 
-static auto render_mode3(Gba& gba) noexcept -> void
+auto render_mode3(Gba& gba) noexcept -> void
 {
     BgLine bg_lines[1]{ {2, RenderType::Bitmap3} };
     tile_render(gba, bg_lines);
 }
 
-static auto render_mode4(Gba& gba) noexcept -> void
+auto render_mode4(Gba& gba) noexcept -> void
 {
     BgLine bg_lines[1]{ {2, RenderType::Bitmap4} };
     tile_render(gba, bg_lines);
 }
+
+} // namespace
 
 auto render(Gba& gba) -> void
 {
@@ -1166,7 +1169,7 @@ auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
 
             const auto index = bitmap_mode ? 0 : layer;
 
-            tile_render(gba, lines, static_cast<Layers>(1 << layer), false, false);
+            tile_render(gba, lines, static_cast<Layer>(1 << layer), false, false);
             std::ranges::copy(lines[index].pixels, pixels.begin());
         }
     };

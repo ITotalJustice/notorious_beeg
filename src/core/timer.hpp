@@ -4,38 +4,35 @@
 #pragma once
 
 #include "fwd.hpp"
-#include <cstdint>
 
-namespace gba::timer
-{
+namespace gba::timer {
 
 struct Timer
 {
-	std::uint32_t event_time;
-	std::uint16_t cycles;
-	std::uint16_t counter; // timer, but timer.timer looks strange
-	std::uint16_t reload;
-	std::uint16_t freq;
+	u32 event_time;
+	u16 cycles;
+	u16 counter; // timer, but timer.timer looks strange
+	u16 reload;
+	u16 freq;
 	bool cascade;
 	bool irq;
 	bool enable;
 
 };
 
-auto on_timer0_event(Gba& gba) -> void;
-auto on_timer1_event(Gba& gba) -> void;
-auto on_timer2_event(Gba& gba) -> void;
-auto on_timer3_event(Gba& gba) -> void;
+STATIC auto on_timer0_event(Gba& gba) -> void;
+STATIC auto on_timer1_event(Gba& gba) -> void;
+STATIC auto on_timer2_event(Gba& gba) -> void;
+STATIC auto on_timer3_event(Gba& gba) -> void;
 
-auto on_savestate_load(Gba& gba) -> void;
-auto on_cnt0_write(Gba& gba, u16 cnt) -> void;
-auto on_cnt1_write(Gba& gba, u16 cnt) -> void;
-auto on_cnt2_write(Gba& gba, u16 cnt) -> void;
-auto on_cnt3_write(Gba& gba, u16 cnt) -> void;
+STATIC auto on_cnt0_write(Gba& gba, u16 cnt) -> void;
+STATIC auto on_cnt1_write(Gba& gba, u16 cnt) -> void;
+STATIC auto on_cnt2_write(Gba& gba, u16 cnt) -> void;
+STATIC auto on_cnt3_write(Gba& gba, u16 cnt) -> void;
 
-auto update_timer(Gba& gba, Timer& timer) -> void;
-auto read_timer(Gba& gba, std::uint8_t num) -> std::uint16_t;
+STATIC auto update_timer(Gba& gba, Timer& timer) -> void;
+STATIC auto read_timer(Gba& gba, u8 num) -> u16;
 
-auto run(Gba& gba, std::uint8_t cycles) -> void;
+STATIC auto run(Gba& gba, u8 cycles) -> void;
 
 } // namespace gba::timer

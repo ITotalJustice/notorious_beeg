@@ -5,23 +5,6 @@
 
 #include <cstdint>
 
-#if HAVE_STD_UNREACHABLE == 0
-namespace std
-{
-[[noreturn]] inline void unreachable()
-{
-    // Uses compiler specific extensions if possible.
-    // Even if no extension is used, undefined behavior is still raised by
-    // an empty function body and the noreturn attribute.
-#if defined(__GNUC__) // GCC, Clang, ICC
-    __builtin_unreachable();
-#elif defined(_MSC_VER) // MSVC
-    __assume(false);
-#endif
-}
-}
-#endif
-
 #if 0
     #include <cstdio>
     #include <cassert>

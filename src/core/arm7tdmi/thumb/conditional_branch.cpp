@@ -8,10 +8,10 @@
 #include "mem.hpp"
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 142 (5.16)
-// thumb_instruction_template
-static auto conditional_branch(Gba& gba, u16 opcode) -> void
+auto conditional_branch(Gba& gba, u16 opcode) -> void
 {
     // CONSTEXPR const auto cond = bit_decoded_get_range(8, 11);
     const auto cond = bit::get_range<8, 11>(opcode);
@@ -29,4 +29,5 @@ static auto conditional_branch(Gba& gba, u16 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

@@ -8,10 +8,11 @@
 #include "mem.hpp"
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 146 (5.19)
 template<bool H>
-static auto long_branch_with_link(Gba& gba, u16 opcode) -> void
+auto long_branch_with_link(Gba& gba, u16 opcode) -> void
 {
     const auto pc = get_pc(gba);
 
@@ -30,4 +31,5 @@ static auto long_branch_with_link(Gba& gba, u16 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

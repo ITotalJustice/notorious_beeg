@@ -164,8 +164,8 @@ enum class HaltType
     // hle_int_halt,
 };
 
-auto on_interrupt_event(Gba& gba) -> void;
-auto on_halt_event(Gba& gba) -> void;
-auto on_halt_trigger(Gba& gba, HaltType type) -> void;
+STATIC auto on_interrupt_event(Gba& gba) -> void;
+STATIC auto on_halt_event(Gba& gba) -> void;
+STATIC auto on_halt_trigger(Gba& gba, HaltType type) -> void;
 
 } // namespace gba::arm7tdmi

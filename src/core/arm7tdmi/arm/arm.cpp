@@ -21,6 +21,7 @@
 #include <cstdio>
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 enum class Instruction
 {
@@ -40,7 +41,7 @@ enum class Instruction
     software_interrupt,
 };
 
-static constexpr auto decode_template(auto opcode)
+constexpr auto decode_template(auto opcode)
 {
     return (bit::get_range<20, 27>(opcode) << 4) | (bit::get_range<4, 7>(opcode));
 }
@@ -146,7 +147,7 @@ consteval auto decode(uint32_t opcode) -> Instruction
     return Instruction::undefined;
 }
 
-static auto undefined([[maybe_unused]] Gba& gba, u32 opcode) -> void
+auto undefined([[maybe_unused]] Gba& gba, u32 opcode) -> void
 {
     std::printf("[arm] undefined %08X\n", opcode);
     assert(!"[arm] undefined");
@@ -345,7 +346,9 @@ consteval auto generate_function_table()
     return table;
 };
 
-static auto fetch(Gba& gba)
+constexpr auto func_table = generate_function_table();
+
+auto fetch(Gba& gba)
 {
     const auto opcode = CPU.pipeline[0];
     CPU.pipeline[0] = CPU.pipeline[1];
@@ -355,10 +358,10 @@ static auto fetch(Gba& gba)
     return opcode;
 }
 
+} // namespace
+
 auto execute(Gba& gba) -> void
 {
-    static constexpr auto func_table = generate_function_table();
-
     const auto opcode = fetch(gba);
     const auto cond = bit::get_range<28, 31>(opcode);
 

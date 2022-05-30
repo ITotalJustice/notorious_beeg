@@ -375,8 +375,8 @@ constexpr auto IO_IMC_H = 0x4000802; // (Internal Memory Control)
 #define REG_IMC_L *reinterpret_cast<std::uint16_t*>(gba.mem.imc + 0)
 #define REG_IMC_H *reinterpret_cast<std::uint16_t*>(gba.mem.imc + 2)
 
-auto setup_tables(Gba& gba) -> void;
-auto reset(Gba& gba, bool skip_bios) -> void;
+STATIC auto setup_tables(Gba& gba) -> void;
+STATIC auto reset(Gba& gba, bool skip_bios) -> void;
 
 [[nodiscard]]
 STATIC_INLINE auto read8(Gba& gba, u32 addr) -> u8;

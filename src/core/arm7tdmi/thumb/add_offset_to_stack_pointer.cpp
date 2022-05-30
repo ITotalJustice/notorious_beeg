@@ -7,12 +7,13 @@
 #include "mem.hpp"
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 136 (5.13)
 template<
     bool S // 0=unsigned, 1=signed
 >
-static auto add_offset_to_stack_pointer(Gba& gba, u16 opcode) -> void
+auto add_offset_to_stack_pointer(Gba& gba, u16 opcode) -> void
 {
     auto SWord7 = bit::get_range<0, 6>(opcode) << 2;
 
@@ -24,4 +25,5 @@ static auto add_offset_to_stack_pointer(Gba& gba, u16 opcode) -> void
     set_sp(gba, get_sp(gba) + SWord7);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

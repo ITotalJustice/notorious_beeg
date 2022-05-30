@@ -8,12 +8,13 @@
 #include <bit>
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // page 89 (4.12)
 template<
     bool B // 0=word, 1=byte
 >
-static auto single_data_swap(Gba& gba, u32 opcode) -> void
+auto single_data_swap(Gba& gba, u32 opcode) -> void
 {
     const auto Rn = bit::get_range<16, 19>(opcode); // base address
     const auto Rd = bit::get_range<12, 15>(opcode); // dst
@@ -38,4 +39,5 @@ static auto single_data_swap(Gba& gba, u32 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

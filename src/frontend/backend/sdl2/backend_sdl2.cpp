@@ -12,8 +12,8 @@
 #include <imgui_impl_sdlrenderer.h>
 
 namespace sys::backend::sdl2 {
-
 namespace {
+
 SDL_Window* window{};
 SDL_Renderer* renderer{};
 SDL_Texture* texture{};
@@ -307,19 +307,19 @@ auto init() -> bool
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
     #if SPEED_TEST == 0
-    SDL_RenderSetVSync(renderer, 1);
+        SDL_RenderSetVSync(renderer, 1);
     #endif
 
     #if SDL_BYTEORDER == SDL_BIG_ENDIAN
-    const auto rmask = 0xff000000;
-    const auto gmask = 0x00ff0000;
-    const auto bmask = 0x0000ff00;
-    const auto amask = 0xff;
+        const auto rmask = 0xff000000;
+        const auto gmask = 0x00ff0000;
+        const auto bmask = 0x0000ff00;
+        const auto amask = 0xff;
     #else // little endian, like x86
-    const auto rmask = 0x000000ff;
-    const auto gmask = 0x0000ff00;
-    const auto bmask = 0x00ff0000;
-    const auto amask = 0xff000000;
+        const auto rmask = 0x000000ff;
+        const auto gmask = 0x0000ff00;
+        const auto bmask = 0x00ff0000;
+        const auto amask = 0xff000000;
     #endif
 
     auto icon = SDL_CreateRGBSurfaceFrom(const_cast<uint32_t*>(app_icon_data), 32, 32, 32, 4*32, rmask, gmask, bmask, amask);

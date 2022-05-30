@@ -8,10 +8,9 @@
 #include <array>
 #include <utility>
 
-namespace gba::scheduler
-{
+namespace gba::scheduler {
 
-enum class Event : std:: uint8_t
+enum class Event : u8
 {
     PPU,
     // todo: profile removing the apu channel events

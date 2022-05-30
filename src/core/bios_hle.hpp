@@ -6,6 +6,6 @@
 namespace gba::bios {
 
 // returns true if handled
-auto hle(Gba& gba, u8 comment_field) -> bool;
+STATIC auto hle(Gba& gba, u8 comment_field) -> bool;
 
 } // namespace gba::bios

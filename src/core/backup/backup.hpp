@@ -9,8 +9,8 @@
 #include "sram.hpp"
 #include "flash.hpp"
 
-namespace gba::backup
-{
+namespace gba::backup {
+
 enum class Type
 {
     NONE, // no backup chip
@@ -33,6 +33,6 @@ struct Backup
     Type type;
 };
 
-auto find_type(std::span<const u8> rom) -> Type;
+STATIC auto find_type(std::span<const u8> rom) -> Type;
 
 } // namespace gba::backup

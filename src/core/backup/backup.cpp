@@ -6,8 +6,7 @@
 #include <iostream>
 #include <cassert>
 
-namespace gba::backup
-{
+namespace gba::backup {
 
 auto find_type(std::span<const u8> rom) -> Type
 {
@@ -24,7 +23,7 @@ auto find_type(std::span<const u8> rom) -> Type
         { .string = "FLASH1M", .type = Type::FLASH1M },
     };
 
-    std::string_view rom_string{reinterpret_cast<const char*>(rom.data()), rom.size()};
+    const auto rom_string = std::string_view{reinterpret_cast<const char*>(rom.data()), rom.size()};
 
     for (auto& entry : entries)
     {

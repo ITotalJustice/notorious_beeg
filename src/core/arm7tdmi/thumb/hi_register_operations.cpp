@@ -9,6 +9,7 @@
 #include <utility>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 enum class hi_register_operations_op : u8
 {
@@ -25,7 +26,7 @@ enum class hi_register_operations_op : u8
 
 // page 119 (5.5)
 template<u8 Op2, u8 H1, u8 H2>
-static auto hi_register_operations(Gba& gba, u16 opcode) -> void
+auto hi_register_operations(Gba& gba, u16 opcode) -> void
 {
     static_assert(H1 == 0 || H1 == 8, "bad");
     static_assert(H2 == 0 || H2 == 8, "bad");
@@ -54,12 +55,11 @@ static auto hi_register_operations(Gba& gba, u16 opcode) -> void
         set_reg(gba, Rd, oprand2);
     }
     else if constexpr(Op == BX)
-{
+    {
         // if bit0 == 0, switch to arm, else thumb
         if (oprand2 & 1)
         {
             gba_log("[THUMB-BX] switching to THUMB\n");
-            CPU.cpsr.T = std::to_underlying(arm7tdmi::State::THUMB);
             set_pc(gba, oprand2 & ~0x1);
         }
         else
@@ -71,4 +71,5 @@ static auto hi_register_operations(Gba& gba, u16 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

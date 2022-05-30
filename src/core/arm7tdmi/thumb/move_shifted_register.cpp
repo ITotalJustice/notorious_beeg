@@ -9,10 +9,11 @@
 #include "mem.hpp"
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 111 (5.1)
 template<u8 Op>
-static auto move_shifted_register(Gba& gba, u16 opcode) -> void
+auto move_shifted_register(Gba& gba, u16 opcode) -> void
 {
     const auto Offset5 = bit::get_range<6, 10>(opcode);
     const auto Rs = bit::get_range<3, 5>(opcode);
@@ -24,4 +25,5 @@ static auto move_shifted_register(Gba& gba, u16 opcode) -> void
     set_reg_thumb(gba, Rd, result);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

@@ -8,13 +8,14 @@
 #include <cassert>
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // page 65 (4.7)
 template<
     bool A, // 0=mul, 1=mul and accumulate
     bool S  // 0=no flags, 1=mod flags
 >
-static auto multiply(Gba& gba, u32 opcode) -> void
+auto multiply(Gba& gba, u32 opcode) -> void
 {
     const auto Rd = bit::get_range<16, 19>(opcode); // dst
     const auto Rn = bit::get_range<12, 15>(opcode); // oprand
@@ -40,4 +41,5 @@ static auto multiply(Gba& gba, u32 opcode) -> void
     set_reg(gba, Rd, result);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

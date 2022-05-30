@@ -7,9 +7,10 @@
 #include <utility>
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // page 48 (4.3)
-static auto branch_and_exchange(Gba& gba, u32 opcode) -> void
+auto branch_and_exchange(Gba& gba, u32 opcode) -> void
 {
     const auto Rn = bit::get_range<0, 3>(opcode);
     const auto addr = get_reg(gba, Rn);
@@ -29,4 +30,5 @@ static auto branch_and_exchange(Gba& gba, u32 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

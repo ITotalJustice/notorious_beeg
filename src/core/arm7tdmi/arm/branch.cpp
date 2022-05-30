@@ -6,10 +6,11 @@
 #include "gba.hpp"
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // [4.4]
 template<bool L> // 0=branch, 1=branch with link
-static auto branch(Gba& gba, u32 opcode) -> void
+auto branch(Gba& gba, u32 opcode) -> void
 {
     s32 offset = bit::get_range<0, 23>(opcode) << 2;
     offset = bit::sign_extend<26>(offset);
@@ -24,4 +25,5 @@ static auto branch(Gba& gba, u32 opcode) -> void
     set_pc(gba, pc + offset);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

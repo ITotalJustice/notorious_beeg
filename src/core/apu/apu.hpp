@@ -6,8 +6,7 @@
 #include "fwd.hpp"
 #include <cstddef>
 
-namespace gba::apu
-{
+namespace gba::apu {
 
 struct Square0;
 struct Square1;
@@ -180,23 +179,23 @@ struct Apu
     bool enabled;
 };
 
-auto on_fifo_write8(Gba& gba, u8 value, u8 num) -> void;
-auto on_fifo_write16(Gba& gba, u16 value, u8 num) -> void;
-auto on_fifo_write32(Gba& gba, u32 value, u8 num) -> void;
-auto on_timer_overflow(Gba& gba, u8 timer_num) -> void;
-auto on_soundcnt_write(Gba& gba) -> void;
+STATIC auto on_fifo_write8(Gba& gba, u8 value, u8 num) -> void;
+STATIC auto on_fifo_write16(Gba& gba, u16 value, u8 num) -> void;
+STATIC auto on_fifo_write32(Gba& gba, u32 value, u8 num) -> void;
+STATIC auto on_timer_overflow(Gba& gba, u8 timer_num) -> void;
+STATIC auto on_soundcnt_write(Gba& gba) -> void;
 
-auto write_legacy8(Gba& gba, u32 addr, u8 value) -> void;
-auto write_legacy(Gba& gba, u32 addr, u16 value) -> void;
+STATIC auto write_legacy8(Gba& gba, u32 addr, u8 value) -> void;
+STATIC auto write_legacy(Gba& gba, u32 addr, u16 value) -> void;
 
-auto on_square0_event(Gba& gba) -> void;
-auto on_square1_event(Gba& gba) -> void;
-auto on_wave_event(Gba& gba) -> void;
-auto on_noise_event(Gba& gba) -> void;
-auto on_frame_sequencer_event(Gba& gba) -> void;
-auto on_sample_event(Gba& gba) -> void;
+STATIC auto on_square0_event(Gba& gba) -> void;
+STATIC auto on_square1_event(Gba& gba) -> void;
+STATIC auto on_wave_event(Gba& gba) -> void;
+STATIC auto on_noise_event(Gba& gba) -> void;
+STATIC auto on_frame_sequencer_event(Gba& gba) -> void;
+STATIC auto on_sample_event(Gba& gba) -> void;
 
-auto reset(Gba& gba, bool skip_bios) -> void;
-auto run(Gba& gba, u8 cycles) -> void;
+STATIC auto reset(Gba& gba, bool skip_bios) -> void;
+STATIC auto run(Gba& gba, u8 cycles) -> void;
 
 } // namespace gba::apu

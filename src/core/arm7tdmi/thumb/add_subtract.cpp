@@ -9,13 +9,14 @@
 #include "mem.hpp"
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 113 (5.2)
 template<
     bool I, // 0=reg, 1=imm
     bool Op // 0=ADD, 1=SUB
 >
-static auto add_subtract(Gba& gba, u16 opcode) -> void
+auto add_subtract(Gba& gba, u16 opcode) -> void
 {
     const auto Rn = bit::get_range<6, 8>(opcode); // either reg or imm value
     const auto Rs = bit::get_range<3, 5>(opcode);
@@ -39,4 +40,5 @@ static auto add_subtract(Gba& gba, u16 opcode) -> void
     set_reg_thumb(gba, Rd, result);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

@@ -56,7 +56,8 @@ CompileFlags:
       -Wno-switch-enum]
     Remove: [
       -std=*,
-      -W*]
+      -W*,
+      -fimplicit-constexpr]
 
 Diagnostics:
   # Tweak Clang-Tidy checks.

@@ -27,6 +27,7 @@
 #include <array>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 enum class Instruction
 {
@@ -53,7 +54,7 @@ enum class Instruction
 };
 
 // page 108
-static constexpr auto decode(uint16_t opcode) -> Instruction
+constexpr auto decode(uint16_t opcode) -> Instruction
 {
     // only need bits 5-15
     constexpr auto shift_down = 6;
@@ -196,7 +197,7 @@ static constexpr auto decode(uint16_t opcode) -> Instruction
     return Instruction::undefined;
 }
 
-static auto undefined([[maybe_unused]] gba::Gba &gba, uint16_t opcode) -> void
+auto undefined([[maybe_unused]] gba::Gba &gba, uint16_t opcode) -> void
 {
     std::printf("[THUMB] undefined %04X\n", opcode);
     assert(!"[THUMB] undefined instruction hit");
@@ -333,7 +334,7 @@ consteval auto fill_table(auto& table) -> void
         } break;
     }
 
-    if constexpr (i == end)
+    if constexpr(i == end)
     {
         return;
     }
@@ -357,7 +358,9 @@ consteval auto generate_function_table()
     return table;
 };
 
-static auto fetch(Gba& gba)
+constexpr auto func_table = generate_function_table();
+
+auto fetch(Gba& gba)
 {
     const std::uint16_t opcode = CPU.pipeline[0];
     CPU.pipeline[0] = CPU.pipeline[1];
@@ -367,10 +370,10 @@ static auto fetch(Gba& gba)
     return opcode;
 }
 
+} // namespace
+
 auto execute(Gba& gba) -> void
 {
-    static constexpr auto func_table = generate_function_table();
-
     const auto opcode = fetch(gba);
     func_table[opcode>>6](gba, opcode);
 }

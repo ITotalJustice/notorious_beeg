@@ -199,4 +199,35 @@ static_assert(
     "bit::set_range is broken!"
 );
 
+// the below are new functions, not fully tested
+// also, the name "set" can now set a range of values
+// maybe i should replace get_range<>() with just get<>().
+template <u8 start, u8 end, IntV T> [[nodiscard]]
+constexpr auto unset(const T value) -> T {
+    static_assert(start <= end, "range is inverted! remember its lo, hi");
+    static_assert(end < (sizeof(T) * 8));
+
+    constexpr auto mask = get_mask<start, end, T>();
+
+    return (value & ~mask);
+}
+
+template <u8 start, u8 end, IntV T> [[nodiscard]]
+constexpr auto set(const T value, u32 new_v) -> T {
+    static_assert(start <= end, "range is inverted! remember its lo, hi");
+    static_assert(end < (sizeof(T) * 8));
+
+    constexpr auto mask = bit::get_mask<start, end, T>() >> start;
+    const auto unset_v = unset<start, end>(value);
+
+    return unset_v | ((new_v & mask) << start);
+}
+
+static_assert(unset<6, 7, int>(0xC0) == 0, "fail");
+static_assert(
+    set<6, 7, int>(0, 0x3) == 0xC0 &&
+    set<6, 7, int>(1, 0x3) == 0xC1,
+    "fail"
+);
+
 } // namespace bit

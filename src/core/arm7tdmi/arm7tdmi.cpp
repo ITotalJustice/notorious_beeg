@@ -14,6 +14,134 @@
 #include <utility>
 
 namespace gba::arm7tdmi {
+namespace {
+
+auto change_mode_save_regs(Gba& gba, std::span<u32> banked_regs, struct Psr* banked_spsr)
+{
+    const auto offset = 15 - banked_regs.size();
+
+    for (std::size_t i = 0; i < banked_regs.size(); i++)
+    {
+        banked_regs[i] = CPU.registers[offset + i];
+    }
+
+    if (banked_spsr != nullptr)
+    {
+        *banked_spsr = CPU.spsr;
+    }
+}
+
+auto change_mode_restore_regs(Gba& gba, std::span<const u32> banked_regs, const Psr* banked_spsr)
+{
+    const auto offset = 15 - banked_regs.size();
+
+    for (std::size_t i = 0; i < banked_regs.size(); i++)
+    {
+        CPU.registers[offset + i] = banked_regs[i];
+    }
+
+    if (banked_spsr != nullptr)
+    {
+        CPU.spsr = *banked_spsr;
+    }
+}
+
+auto is_valid_mode(u8 mode) -> bool
+{
+    switch (mode)
+    {
+        case MODE_USER:
+        case MODE_SYSTEM:
+        case MODE_FIQ:
+        case MODE_IRQ:
+        case MODE_SUPERVISOR:
+        case MODE_ABORT:
+        case MODE_UNDEFINED:
+            return true;
+    }
+
+    return false;
+}
+
+auto get_u32_from_psr(Psr& psr) -> u32
+{
+    u32 value = 0;
+    value |= (psr.N << 31);
+    value |= (psr.Z << 30);
+    value |= (psr.C << 29);
+    value |= (psr.V << 28);
+    value |= (psr.I << 7);
+    // value |= (1/*psr.F*/ << 6); // forced to 1
+    value |= (psr.F << 6); // forced to 1
+    value |= (psr.T << 5);
+    value |= psr.M;
+    return value;
+}
+
+auto set_psr_from_u32(Gba& gba, Psr& psr, u32 value, bool flag_write, bool control_write) -> void
+{
+    // bit4 is always set! this means that the lowest
+    // mode value possible is 16.
+    // SEE: https://github.com/ITotalJustice/notorious_beeg/issues/44
+    value = bit::set<4>(value, true);
+
+    if (flag_write)
+    {
+        psr.N = bit::is_set<31>(value);
+        psr.Z = bit::is_set<30>(value);
+        psr.C = bit::is_set<29>(value);
+        psr.V = bit::is_set<28>(value);
+    }
+
+    // control flags can only be changed in non-privilaged mode
+    if (control_write && get_mode(gba) != MODE_USER)
+    {
+        psr.I = bit::is_set<7>(value);
+        psr.T = bit::is_set<5>(value);
+        psr.M = bit::get_range<0, 4>(value);
+    }
+}
+
+auto on_interrupt(Gba& gba)
+{
+    //printf("performing irq IE: 0x%04X IF 0x%04X lr: 0x%08X pc: 0x%08X mode: %u state: %s\n", REG_IE, REG_IF, get_lr(gba), get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
+
+    const auto state = get_state(gba);
+    const auto lr = get_pc(gba) + (state == State::THUMB ? 2 : 0);
+    const auto pc = 0x18;
+
+    // save cpsr
+    const auto cpsr = CPU.cpsr;
+    CPU.banked_spsr_irq = cpsr;
+    // swap to irq mode
+    change_mode(gba, get_mode(gba), MODE_IRQ);
+    CPU.spsr = cpsr;
+    // disable interrupts in irq mode
+    disable_interrupts(gba);
+    // we have to be start in arm state
+    CPU.cpsr.T = std::to_underlying(State::ARM);
+    // set lr_irq to the next instruction
+    set_lr(gba, lr);
+    // jump to irq handler
+    set_pc(gba, pc);
+}
+
+#if ENABLE_SCHEDULER == 0
+auto poll_interrupts(Gba& gba) -> void
+{
+    if (REG_IE & REG_IF & 0b11'1111'1111'1111)
+    {
+        CPU.halted = false;
+
+        if (REG_IME&1 && !CPU.cpsr.I)
+        {
+            on_interrupt(gba);
+        }
+    }
+}
+#endif
+
+} // namespace
 
 auto reset(Gba& gba, bool skip_bios) -> void
 {
@@ -79,53 +207,6 @@ auto refill_pipeline(Gba& gba) -> void
             gba.cpu.registers[PC_INDEX] += 2;
             break;
     }
-}
-
-static auto change_mode_save_regs(Gba& gba, std::span<u32> banked_regs, struct Psr* banked_spsr)
-{
-    const auto offset = 15 - banked_regs.size();
-
-    for (std::size_t i = 0; i < banked_regs.size(); i++)
-    {
-        banked_regs[i] = CPU.registers[offset + i];
-    }
-
-    if (banked_spsr != nullptr)
-    {
-        *banked_spsr = CPU.spsr;
-    }
-}
-
-static auto change_mode_restore_regs(Gba& gba, std::span<const u32> banked_regs, const Psr* banked_spsr)
-{
-    const auto offset = 15 - banked_regs.size();
-
-    for (std::size_t i = 0; i < banked_regs.size(); i++)
-    {
-        CPU.registers[offset + i] = banked_regs[i];
-    }
-
-    if (banked_spsr != nullptr)
-    {
-        CPU.spsr = *banked_spsr;
-    }
-}
-
-auto is_valid_mode(u8 mode) -> bool
-{
-    switch (mode)
-    {
-        case MODE_USER:
-        case MODE_SYSTEM:
-        case MODE_FIQ:
-        case MODE_IRQ:
-        case MODE_SUPERVISOR:
-        case MODE_ABORT:
-        case MODE_UNDEFINED:
-            return true;
-    }
-
-    return false;
 }
 
 auto change_mode(Gba& gba, u8 old_mode, u8 new_mode) -> void
@@ -201,21 +282,6 @@ auto change_mode(Gba& gba, u8 old_mode, u8 new_mode) -> void
     }
 }
 
-auto get_u32_from_psr(Psr& psr) -> u32
-{
-    u32 value = 0;
-    value |= (psr.N << 31);
-    value |= (psr.Z << 30);
-    value |= (psr.C << 29);
-    value |= (psr.V << 28);
-    value |= (psr.I << 7);
-    // value |= (1/*psr.F*/ << 6); // forced to 1
-    value |= (psr.F << 6); // forced to 1
-    value |= (psr.T << 5);
-    value |= psr.M;
-    return value;
-}
-
 auto get_u32_from_cpsr(Gba& gba) -> u32
 {
     return get_u32_from_psr(CPU.cpsr);
@@ -256,31 +322,6 @@ auto load_spsr_into_cpsr(Gba& gba) -> void
     {
         CPU.cpsr = CPU.spsr;
         change_mode(gba, old_mode, new_mode);
-    }
-}
-
-auto set_psr_from_u32(Gba& gba, Psr& psr, u32 value, bool flag_write, bool control_write) -> void
-{
-    // bit4 is always set! this means that the lowest
-    // mode value possible is 16.
-    // SEE: https://github.com/ITotalJustice/notorious_beeg/issues/44
-    value = bit::set<4>(value, true);
-
-    if (flag_write)
-    {
-        psr.N = bit::is_set<31>(value);
-        psr.Z = bit::is_set<30>(value);
-        psr.C = bit::is_set<29>(value);
-        psr.V = bit::is_set<28>(value);
-    }
-
-    // control flags can only be changed in non-privilaged mode
-    if (control_write && get_mode(gba) != MODE_USER)
-    {
-        psr.I = bit::is_set<7>(value);
-        psr.T = bit::is_set<5>(value);
-        psr.M = bit::get_range<0, 4>(value) | 0b10000;
-        // constexpr auto a = 0b1000;
     }
 }
 
@@ -414,33 +455,9 @@ auto disable_interrupts(Gba& gba) -> void
     CPU.cpsr.I = true; // 1=off
 }
 
-static auto on_int(Gba& gba)
-{
-    //printf("performing irq IE: 0x%04X IF 0x%04X lr: 0x%08X pc: 0x%08X mode: %u state: %s\n", REG_IE, REG_IF, get_lr(gba), get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
-
-    const auto state = get_state(gba);
-    const auto lr = get_pc(gba) + (state == State::THUMB ? 2 : 0);
-    const auto pc = 0x18;
-
-    // save cpsr
-    const auto cpsr = CPU.cpsr;
-    CPU.banked_spsr_irq = cpsr;
-    // swap to irq mode
-    change_mode(gba, get_mode(gba), MODE_IRQ);
-    CPU.spsr = cpsr;
-    // disable interrupts in irq mode
-    disable_interrupts(gba);
-    // we have to be start in arm state
-    CPU.cpsr.T = std::to_underlying(State::ARM);
-    // set lr_irq to the next instruction
-    set_lr(gba, lr);
-    // jump to irq handler
-    set_pc(gba, pc);
-}
-
 auto on_interrupt_event(Gba& gba) -> void
 {
-    on_int(gba);
+    on_interrupt(gba);
 }
 
 auto schedule_interrupt(Gba& gba) -> void
@@ -454,21 +471,6 @@ auto schedule_interrupt(Gba& gba) -> void
         }
     }
 }
-
-#if ENABLE_SCHEDULER == 0
-static auto poll_interrupts(Gba& gba) -> void
-{
-    if (REG_IE & REG_IF & 0b11'1111'1111'1111)
-    {
-        CPU.halted = false;
-
-        if (REG_IME&1 && !CPU.cpsr.I)
-        {
-            on_int(gba);
-        }
-    }
-}
-#endif
 
 auto on_halt_event(Gba& gba) -> void
 {

@@ -7,11 +7,12 @@
 #include "mem.hpp"
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // I don't template this function because it's mostly very unnecessary
 // because rlist=0 is not very common case, thus, its a waste of
 // icache space.
-static auto block_data_transfer_empty_rlist(Gba& gba, u32 opcode) -> void
+auto block_data_transfer_empty_rlist(Gba& gba, u32 opcode) -> void
 {
     auto P = bit::is_set<24>(opcode);
     const auto U = bit::is_set<23>(opcode);
@@ -68,7 +69,7 @@ template<
     bool W2,
     bool L  // 0=STM, 1=LDM
 >
-static auto block_data_transfer(Gba& gba, u32 opcode) -> void
+auto block_data_transfer(Gba& gba, u32 opcode) -> void
 {
     auto P = P2;
     auto W = W2;
@@ -197,4 +198,5 @@ static auto block_data_transfer(Gba& gba, u32 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

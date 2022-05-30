@@ -10,8 +10,8 @@
 #include <cstdint>
 #include <utility>
 
-namespace gba::scheduler
-{
+namespace gba::scheduler {
+namespace {
 
 // we start at the highest possible value for delta so that
 // should delta ever be maxed (it wont), then we can ensure that
@@ -23,7 +23,7 @@ namespace gba::scheduler
 constexpr auto START_CYCLES = INT16_MAX;
 constexpr auto RESET_CYCLES = INT32_MAX;
 
-static auto fire_all_expired_events(Gba& gba) -> bool
+auto fire_all_expired_events(Gba& gba) -> bool
 {
     bool fire_halt = false;
 
@@ -56,7 +56,7 @@ static auto fire_all_expired_events(Gba& gba) -> bool
     return fire_halt;
 }
 
-static auto on_reset_event(Gba& gba) -> void
+auto on_reset_event(Gba& gba) -> void
 {
     // first thing to do is to flush all events which also
     // expire at the same time!
@@ -91,6 +91,41 @@ static auto on_reset_event(Gba& gba) -> void
 
     add(gba, Event::RESET, on_reset_event, RESET_CYCLES);
 }
+
+auto find_next_event(Gba& gba, bool fire)
+{
+    u32 next_cycles = UINT32_MAX;
+    std::uint8_t index = 0;
+    bool want_halt = false;
+
+    if (fire)
+    {
+        want_halt = fire_all_expired_events(gba);
+    }
+
+    for (std::size_t i = 0; i < gba.scheduler.entries.size(); i++)
+    {
+        const auto& entry = gba.scheduler.entries[i];
+        if (entry.enabled)
+        {
+            if (entry.cycles <= next_cycles)
+            {
+                next_cycles = entry.cycles;
+                index = i;
+            }
+        }
+    }
+
+    gba.scheduler.next_event_cycles = next_cycles;
+    gba.scheduler.next_event = static_cast<Event>(index);
+
+    if (want_halt) [[unlikely]]
+    {
+        scheduler::fire(gba);
+    }
+}
+
+} // namespace
 
 auto reset(Gba& gba) -> void
 {
@@ -131,39 +166,6 @@ auto on_loadstate(Gba& gba) -> void
                 case Event::END: assert(!"Event::END somehow in array"); break;
             }
         }
-    }
-}
-
-static auto find_next_event(Gba& gba, bool fire)
-{
-    u32 next_cycles = UINT32_MAX;
-    std::uint8_t index = 0;
-    bool want_halt = false;
-
-    if (fire)
-    {
-        want_halt = fire_all_expired_events(gba);
-    }
-
-    for (std::size_t i = 0; i < gba.scheduler.entries.size(); i++)
-    {
-        const auto& entry = gba.scheduler.entries[i];
-        if (entry.enabled)
-        {
-            if (entry.cycles <= next_cycles)
-            {
-                next_cycles = entry.cycles;
-                index = i;
-            }
-        }
-    }
-
-    gba.scheduler.next_event_cycles = next_cycles;
-    gba.scheduler.next_event = static_cast<Event>(index);
-
-    if (want_halt) [[unlikely]]
-    {
-        scheduler::fire(gba);
     }
 }
 

@@ -6,6 +6,6 @@
 namespace gba::bios {
 
 // loads builtin bios
-auto load_normmatt_bios(Gba& gba) -> void;
+STATIC auto load_normmatt_bios(Gba& gba) -> void;
 
 } // namespace gba::bios

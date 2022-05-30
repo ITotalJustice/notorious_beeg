@@ -8,12 +8,13 @@
 #include <bit>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 132 (5.11)
 template<
     bool L // 0=STR, 1=LDR
 >
-static auto sp_relative_load_store(Gba& gba, u16 opcode) -> void
+auto sp_relative_load_store(Gba& gba, u16 opcode) -> void
 {
     const auto Rd = bit::get_range<8, 10>(opcode);
     // shifted to 10-bit value (unsigned)
@@ -34,4 +35,5 @@ static auto sp_relative_load_store(Gba& gba, u16 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

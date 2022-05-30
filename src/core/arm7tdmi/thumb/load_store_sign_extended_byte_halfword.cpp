@@ -8,13 +8,14 @@
 #include <bit>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 126 (5.8)
 template<
     bool H, // 0=STR, 1=LDR
     bool S  // 0=normal, 1=sign-extended
 >
-static auto load_store_sign_extended_byte_halfword(Gba& gba, u16 opcode) -> void
+auto load_store_sign_extended_byte_halfword(Gba& gba, u16 opcode) -> void
 {
     const auto Ro = bit::get_range<6, 8>(opcode);
     const auto Rb = bit::get_range<3, 5>(opcode);
@@ -66,4 +67,5 @@ static auto load_store_sign_extended_byte_halfword(Gba& gba, u16 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

@@ -8,11 +8,13 @@
 #include <ranges>
 #include <utility>
 
-namespace gba::backup::eeprom
-{
+namespace gba::backup::eeprom {
+namespace {
 
 constexpr auto READY_BIT = 0x1;
 constexpr auto READ_COUNTER_RESET = 68;
+
+} // namespace
 
 auto Eeprom::init([[maybe_unused]] Gba& gba) -> void
 {
@@ -52,9 +54,9 @@ auto Eeprom::get_data() const -> std::span<const u8>
 {
     switch (this->width)
     {
-    case Width::unknown: return {};
-    case Width::small: return { this->data, 512 };
-    case Width::beeg: return this->data;
+        case Width::unknown: return {};
+        case Width::small: return { this->data, 512 };
+        case Width::beeg: return this->data;
     }
 
     std::unreachable();

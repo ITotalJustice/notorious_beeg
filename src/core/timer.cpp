@@ -9,10 +9,10 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#Timer%20registers
-namespace gba::timer
-{
+namespace gba::timer {
+namespace {
 
-static constexpr arm7tdmi::Interrupt INTERRUPT[4] =
+constexpr arm7tdmi::Interrupt INTERRUPT[4] =
 {
     arm7tdmi::Interrupt::Timer0,
     arm7tdmi::Interrupt::Timer1,
@@ -20,7 +20,7 @@ static constexpr arm7tdmi::Interrupt INTERRUPT[4] =
     arm7tdmi::Interrupt::Timer3,
 };
 
-static constexpr scheduler::Event EVENTS[4] =
+constexpr scheduler::Event EVENTS[4] =
 {
     scheduler::Event::TIMER0,
     scheduler::Event::TIMER1,
@@ -28,7 +28,7 @@ static constexpr scheduler::Event EVENTS[4] =
     scheduler::Event::TIMER3,
 };
 
-static constexpr scheduler::callback CALLBACKS[4] =
+constexpr scheduler::callback CALLBACKS[4] =
 {
     on_timer0_event,
     on_timer1_event,
@@ -37,7 +37,7 @@ static constexpr scheduler::callback CALLBACKS[4] =
 };
 
 template<u8 Number>
-static auto add_timer_event(Gba& gba, Timer& timer, auto offset) -> void
+auto add_timer_event(Gba& gba, Timer& timer, auto offset) -> void
 {
     // don't add timer if cascade is enabled (and not timer0)
     if (Number != 0 && timer.cascade)
@@ -53,7 +53,7 @@ static auto add_timer_event(Gba& gba, Timer& timer, auto offset) -> void
 }
 
 template<u8 Number>
-static auto on_overflow(Gba& gba) -> void
+auto on_overflow(Gba& gba) -> void
 {
     auto& timer = gba.timer[Number];
     timer.counter = timer.reload;
@@ -92,7 +92,7 @@ static auto on_overflow(Gba& gba) -> void
 }
 
 template<u8 Number>
-static auto on_cnt_write(Gba& gba, u16 cnt) -> void
+auto on_cnt_write(Gba& gba, u16 cnt) -> void
 {
     constexpr u16 freq_table[4] = {1, 64, 256, 1024};
 
@@ -134,6 +134,7 @@ static auto on_cnt_write(Gba& gba, u16 cnt) -> void
         scheduler::remove(gba, EVENTS[Number]);
     }
 }
+} // namespace
 
 auto on_cnt0_write(Gba& gba, u16 cnt) -> void
 {

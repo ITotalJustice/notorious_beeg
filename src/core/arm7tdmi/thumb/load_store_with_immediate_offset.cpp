@@ -8,13 +8,14 @@
 #include <bit>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 124 (5.7)
 template<
     bool B, // 0=word, 1=byte
     bool L  // 0=STR, 1=LDR
 >
-static auto load_store_with_immediate_offset(Gba& gba, u16 opcode) -> void
+auto load_store_with_immediate_offset(Gba& gba, u16 opcode) -> void
 {
     const auto Rb = bit::get_range<3, 5>(opcode);
     const auto Rd = bit::get_range<0, 2>(opcode);
@@ -57,4 +58,5 @@ static auto load_store_with_immediate_offset(Gba& gba, u16 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

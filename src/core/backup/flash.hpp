@@ -9,8 +9,7 @@
 #include <span>
 
 // https://dillonbeliveau.com/2020/06/05/GBA-FLASH.html
-namespace gba::backup::flash
-{
+namespace gba::backup::flash {
 
 constexpr auto BANK_SIZE = 1024 * 64;
 
@@ -56,7 +55,7 @@ public:
     auto load_data(std::span<const u8> new_data) -> bool;
     [[nodiscard]] auto get_data() const -> std::span<const u8>;
 
-    auto read(Gba& gba, u32 addr) -> u8;
+    auto read(Gba& gba, u32 addr) const -> u8;
     auto write(Gba& gba, u32 addr, u8 value) -> void;
 
 private:

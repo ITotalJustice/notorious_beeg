@@ -7,8 +7,7 @@
 #include <cstdint>
 #include <span>
 
-namespace gba::backup::eeprom
-{
+namespace gba::backup::eeprom {
 
 enum class State
 {

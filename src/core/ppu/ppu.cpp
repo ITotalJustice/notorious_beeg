@@ -19,15 +19,16 @@
 #include <span>
 
 namespace gba::ppu {
+namespace {
 
-static auto add_event(Gba& gba)
+auto add_event(Gba& gba)
 {
     scheduler::add(gba, scheduler::Event::PPU, on_event, gba.ppu.period_cycles);
 }
 
 #define PPU gba.ppu
 
-static auto update_period_cycles(Gba& gba) -> void
+auto update_period_cycles(Gba& gba) -> void
 {
     switch (PPU.period)
     {
@@ -37,6 +38,110 @@ static auto update_period_cycles(Gba& gba) -> void
         case Period::vblank: PPU.period_cycles = 272; break;
     }
 };
+
+// called during hblank from lines 0-227
+// this means that this is called during vblank as well
+auto on_hblank(Gba& gba)
+{
+    REG_DISPSTAT = bit::set<1>(REG_DISPSTAT, true);
+
+    if (bit::is_set<4>(REG_DISPSTAT))
+    {
+        arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::HBlank);
+    }
+
+    if (PPU.period == Period::hblank)
+    {
+        dma::on_hblank(gba);
+        render(gba);
+    }
+
+    if (gba.hblank_callback != nullptr)
+    {
+        gba.hblank_callback(gba.userdata, REG_VCOUNT);
+    }
+}
+
+// called on line 160
+auto on_vblank(Gba& gba)
+{
+    REG_DISPSTAT = bit::set<0>(REG_DISPSTAT, true);
+    if (bit::is_set<3>(REG_DISPSTAT))
+    {
+        arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::VBlank);
+    }
+    dma::on_vblank(gba);
+
+    if (gba.vblank_callback != nullptr)
+    {
+        gba.vblank_callback(gba.userdata, REG_VCOUNT);
+    }
+}
+
+// called every time vcount is updated
+auto on_vcount_update(Gba& gba, uint16_t new_vcount)
+{
+    REG_VCOUNT = new_vcount;
+    const auto lyc = bit::get_range<8, 15>(REG_DISPSTAT);
+
+    if (REG_VCOUNT == lyc)
+    {
+        REG_DISPSTAT = bit::set<2>(REG_DISPSTAT, true);
+        if (bit::is_set<5>(REG_DISPSTAT))
+        {
+            arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::VCount);
+        }
+    }
+    else
+    {
+        REG_DISPSTAT = bit::set<2>(REG_DISPSTAT, false);
+    }
+}
+
+auto change_period(Gba& gba)
+{
+    switch (PPU.period)
+    {
+        case Period::hdraw:
+            PPU.period = Period::hblank;
+            on_hblank(gba);
+            break;
+
+        case Period::hblank:
+            on_vcount_update(gba, REG_VCOUNT + 1);
+            REG_DISPSTAT = bit::set<1>(REG_DISPSTAT, false);
+            PPU.period = Period::hdraw;
+            if (REG_VCOUNT == 160)
+            {
+                PPU.period = Period::vdraw;
+                on_vblank(gba);
+            }
+            break;
+
+        case Period::vdraw:
+            on_hblank(gba);
+            PPU.period = Period::vblank;
+            break;
+
+        case Period::vblank:
+            on_vcount_update(gba, REG_VCOUNT + 1);
+            PPU.period = Period::vdraw;
+            if (REG_VCOUNT == 227)
+            {
+                REG_DISPSTAT = bit::set<0>(REG_DISPSTAT, false);
+            }
+            if (REG_VCOUNT == 228)
+            {
+                on_vcount_update(gba, 0);
+                PPU.period = Period::hdraw;
+            }
+            break;
+    }
+
+    update_period_cycles(gba);
+}
+
+} // namespace
 
 auto get_mode(Gba& gba) -> u8
 {
@@ -78,108 +183,6 @@ auto reset(Gba& gba, bool skip_bios) -> void
         REG_BG3PA = 0x0100;
         REG_BG3PD = 0x0100;
     }
-}
-
-// called during hblank from lines 0-227
-// this means that this is called during vblank as well
-static auto on_hblank(Gba& gba)
-{
-    REG_DISPSTAT = bit::set<1>(REG_DISPSTAT, true);
-
-    if (bit::is_set<4>(REG_DISPSTAT))
-    {
-        arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::HBlank);
-    }
-
-    if (PPU.period == Period::hblank)
-    {
-        dma::on_hblank(gba);
-        render(gba);
-    }
-
-    if (gba.hblank_callback != nullptr)
-    {
-        gba.hblank_callback(gba.userdata, REG_VCOUNT);
-    }
-}
-
-// called on line 160
-static auto on_vblank(Gba& gba)
-{
-    REG_DISPSTAT = bit::set<0>(REG_DISPSTAT, true);
-    if (bit::is_set<3>(REG_DISPSTAT))
-    {
-        arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::VBlank);
-    }
-    dma::on_vblank(gba);
-
-    if (gba.vblank_callback != nullptr)
-    {
-        gba.vblank_callback(gba.userdata, REG_VCOUNT);
-    }
-}
-
-// called every time vcount is updated
-static auto on_vcount_update(Gba& gba, uint16_t new_vcount)
-{
-    REG_VCOUNT = new_vcount;
-    const auto lyc = bit::get_range<8, 15>(REG_DISPSTAT);
-
-    if (REG_VCOUNT == lyc)
-    {
-        REG_DISPSTAT = bit::set<2>(REG_DISPSTAT, true);
-        if (bit::is_set<5>(REG_DISPSTAT))
-        {
-            arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::VCount);
-        }
-    }
-    else
-    {
-        REG_DISPSTAT = bit::set<2>(REG_DISPSTAT, false);
-    }
-}
-
-static auto change_period(Gba& gba)
-{
-    switch (PPU.period)
-    {
-        case Period::hdraw:
-            PPU.period = Period::hblank;
-            on_hblank(gba);
-            break;
-
-        case Period::hblank:
-            on_vcount_update(gba, REG_VCOUNT + 1);
-            REG_DISPSTAT = bit::set<1>(REG_DISPSTAT, false);
-            PPU.period = Period::hdraw;
-            if (REG_VCOUNT == 160)
-            {
-                PPU.period = Period::vdraw;
-                on_vblank(gba);
-            }
-            break;
-
-        case Period::vdraw:
-            on_hblank(gba);
-            PPU.period = Period::vblank;
-            break;
-
-        case Period::vblank:
-            on_vcount_update(gba, REG_VCOUNT + 1);
-            PPU.period = Period::vdraw;
-            if (REG_VCOUNT == 227)
-            {
-                REG_DISPSTAT = bit::set<0>(REG_DISPSTAT, false);
-            }
-            if (REG_VCOUNT == 228)
-            {
-                on_vcount_update(gba, 0);
-                PPU.period = Period::hdraw;
-            }
-            break;
-    }
-
-    update_period_cycles(gba);
 }
 
 #if ENABLE_SCHEDULER == 0

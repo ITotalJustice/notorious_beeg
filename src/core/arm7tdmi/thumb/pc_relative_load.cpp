@@ -7,9 +7,10 @@
 #include "mem.hpp"
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 122 (5.6)
-static auto pc_relative_load(Gba& gba, u16 opcode) -> void
+auto pc_relative_load(Gba& gba, u16 opcode) -> void
 {
     const auto Rd = bit::get_range<8, 10>(opcode);
     // shifted to 10-bit value (unsigned)
@@ -20,4 +21,5 @@ static auto pc_relative_load(Gba& gba, u16 opcode) -> void
     set_reg_thumb(gba, Rd, result);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

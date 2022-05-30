@@ -27,6 +27,7 @@
 namespace bend = sys::backend::sdl2;
 
 namespace sys {
+namespace {
 
 auto dumpfile(const std::string& path, std::span<const std::uint8_t> data) -> bool
 {
@@ -168,6 +169,19 @@ auto on_hblank_callback(void* user, uint16_t line) -> void
         }
     }
 }
+
+template<int num>
+auto mem_viewer_entry(const char* name, std::span<uint8_t> data) -> void
+{
+    if (ImGui::BeginTabItem(name))
+    {
+        static MemoryEditor editor;
+        editor.DrawContents(data.data(), data.size());
+        ImGui::EndTabItem();
+    }
+}
+
+} // namespace
 
 auto System::render_layers() -> void
 {
@@ -574,17 +588,6 @@ auto System::menubar() -> void
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
-    }
-}
-
-template<int num>
-auto mem_viewer_entry(const char* name, std::span<uint8_t> data) -> void
-{
-    if (ImGui::BeginTabItem(name))
-    {
-        static MemoryEditor editor;
-        editor.DrawContents(data.data(), data.size());
-        ImGui::EndTabItem();
     }
 }
 

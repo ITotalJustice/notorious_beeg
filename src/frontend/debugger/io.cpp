@@ -12,40 +12,8 @@
 #include <cstring>
 #include <span>
 
-// not tested enough to be placed in bit header
-namespace bit {
-
-template <u8 start, u8 end, IntV T> [[nodiscard]]
-constexpr auto unset(const T value) -> T {
-    static_assert(start <= end, "range is inverted! remember its lo, hi");
-    static_assert(end < (sizeof(T) * 8));
-
-    constexpr auto mask = get_mask<start, end, T>();
-
-    return (value & ~mask);
-}
-
-template <u8 start, u8 end, IntV T> [[nodiscard]]
-constexpr auto set(const T value, u32 new_v) -> T {
-    static_assert(start <= end, "range is inverted! remember its lo, hi");
-    static_assert(end < (sizeof(T) * 8));
-
-    constexpr auto mask = bit::get_mask<start, end, T>() >> start;
-    const auto unset_v = unset<start, end>(value);
-
-    return unset_v | ((new_v & mask) << start);
-}
-
-static_assert(unset<6, 7, int>(0xC0) == 0, "fail");
-static_assert(
-    set<6, 7, int>(0, 0x3) == 0xC0 &&
-    set<6, 7, int>(1, 0x3) == 0xC1,
-    "fail"
-);
-
-} // namespace bit
-
 namespace sys::debugger::io {
+namespace {
 
 using io_view_func = void(*)(gba::Gba& gba);
 
@@ -55,7 +23,7 @@ struct IoRegEntry
     io_view_func func;
 };
 
-static auto io_title(auto addr, auto reg) -> void
+auto io_title(auto addr, auto reg) -> void
 {
     ImGui::Text("Addr: 0x%08X Value: 0x%04X", addr, reg);
     ImGui::Separator();
@@ -63,7 +31,7 @@ static auto io_title(auto addr, auto reg) -> void
 }
 
 template<int start, int end>
-static auto io_list(gba::Gba& gba, auto& reg, const char* name, std::span<const char*> items) -> void
+auto io_list(gba::Gba& gba, auto& reg, const char* name, std::span<const char*> items) -> void
 {
     // 2 labels because label1 is the text shows.
     // label2 is the ID of the combo, prefixed with ##
@@ -97,7 +65,7 @@ static auto io_list(gba::Gba& gba, auto& reg, const char* name, std::span<const 
 }
 
 template<int bit>
-static auto io_button(gba::Gba& gba, auto& reg, const char* name) -> void
+auto io_button(gba::Gba& gba, auto& reg, const char* name) -> void
 {
     char label[128]{};
     std::sprintf(label, "[0x%X] %s", bit, name);
@@ -110,7 +78,7 @@ static auto io_button(gba::Gba& gba, auto& reg, const char* name) -> void
 }
 
 template<int start, int end>
-static auto io_button(gba::Gba& gba, auto& reg, const char* name) -> void
+auto io_button(gba::Gba& gba, auto& reg, const char* name) -> void
 {
     static_assert(start < end);
     constexpr auto max = (end-start) * 4;
@@ -137,7 +105,7 @@ static auto io_button(gba::Gba& gba, auto& reg, const char* name) -> void
 }
 
 template<int start, int end, bool sign = false, typename T>
-static auto io_int(gba::Gba& gba, T& reg, const char* name) -> void
+auto io_int(gba::Gba& gba, T& reg, const char* name) -> void
 {
     char label[128]{};
     char label2[128]{};
@@ -182,7 +150,7 @@ static auto io_int(gba::Gba& gba, T& reg, const char* name) -> void
     }
 }
 
-static auto io_dispcnt(gba::Gba& gba) -> void
+auto io_dispcnt(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_DISPCNT, REG_DISPCNT);
 
@@ -214,7 +182,7 @@ static auto io_dispcnt(gba::Gba& gba) -> void
     io_button<0xF>(gba, REG_DISPCNT, "Window OBJ enabled");
 }
 
-static auto io_dispstat(gba::Gba& gba) -> void
+auto io_dispstat(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_DISPSTAT, REG_DISPSTAT);
 
@@ -231,7 +199,7 @@ static auto io_dispstat(gba::Gba& gba) -> void
     io_int<0x8, 0xF>(gba, REG_DISPSTAT, "lyc");
 }
 
-static auto io_vcount(gba::Gba& gba) -> void
+auto io_vcount(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_VCOUNT, REG_VCOUNT);
 
@@ -241,7 +209,7 @@ static auto io_vcount(gba::Gba& gba) -> void
     io_int<0x0, 0x7>(gba, REG_VCOUNT, "vcount");
 }
 
-static auto io_bgXcnt(gba::Gba& gba, auto addr, auto& reg) -> void
+auto io_bgXcnt(gba::Gba& gba, auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
 
@@ -277,74 +245,74 @@ static auto io_bgXcnt(gba::Gba& gba, auto addr, auto& reg) -> void
     }
 }
 
-static auto io_bg0cnt(gba::Gba& gba) -> void
+auto io_bg0cnt(gba::Gba& gba) -> void
 {
     io_bgXcnt(gba, gba::mem::IO_BG0CNT, REG_BG0CNT);
 }
 
-static auto io_bg1cnt(gba::Gba& gba) -> void
+auto io_bg1cnt(gba::Gba& gba) -> void
 {
     io_bgXcnt(gba, gba::mem::IO_BG1CNT, REG_BG1CNT);
 }
 
-static auto io_bg2cnt(gba::Gba& gba) -> void
+auto io_bg2cnt(gba::Gba& gba) -> void
 {
     io_bgXcnt(gba, gba::mem::IO_BG2CNT, REG_BG0CNT);
 }
 
-static auto io_bg3cnt(gba::Gba& gba) -> void
+auto io_bg3cnt(gba::Gba& gba) -> void
 {
     io_bgXcnt(gba, gba::mem::IO_BG3CNT, REG_BG0CNT);
 }
 
-static auto io_bgXHVofs(gba::Gba& gba, auto addr, auto& reg) -> void
+auto io_bgXHVofs(gba::Gba& gba, auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
 
     io_int<0x0, 0x9>(gba, reg, "Scroll value (pixels)");
 }
 
-static auto io_bg0hofs(gba::Gba& gba) -> void
+auto io_bg0hofs(gba::Gba& gba) -> void
 {
     io_bgXHVofs(gba, gba::mem::IO_BG0HOFS, REG_BG0HOFS);
 }
 
-static auto io_bg0vofs(gba::Gba& gba) -> void
+auto io_bg0vofs(gba::Gba& gba) -> void
 {
     io_bgXHVofs(gba, gba::mem::IO_BG0VOFS, REG_BG0VOFS);
 }
 
-static auto io_bg1hofs(gba::Gba& gba) -> void
+auto io_bg1hofs(gba::Gba& gba) -> void
 {
     io_bgXHVofs(gba, gba::mem::IO_BG1HOFS, REG_BG1HOFS);
 }
 
-static auto io_bg1vofs(gba::Gba& gba) -> void
+auto io_bg1vofs(gba::Gba& gba) -> void
 {
     io_bgXHVofs(gba, gba::mem::IO_BG1VOFS, REG_BG1VOFS);
 }
 
-static auto io_bg2hofs(gba::Gba& gba) -> void
+auto io_bg2hofs(gba::Gba& gba) -> void
 {
     io_bgXHVofs(gba, gba::mem::IO_BG2HOFS, REG_BG2HOFS);
 }
 
-static auto io_bg2vofs(gba::Gba& gba) -> void
+auto io_bg2vofs(gba::Gba& gba) -> void
 {
     io_bgXHVofs(gba, gba::mem::IO_BG2VOFS, REG_BG2VOFS);
 }
 
-static auto io_bg3hofs(gba::Gba& gba) -> void
+auto io_bg3hofs(gba::Gba& gba) -> void
 {
     io_bgXHVofs(gba, gba::mem::IO_BG3HOFS, REG_BG3HOFS);
 }
 
-static auto io_bg3vofs(gba::Gba& gba) -> void
+auto io_bg3vofs(gba::Gba& gba) -> void
 {
     io_bgXHVofs(gba, gba::mem::IO_BG3VOFS, REG_BG3VOFS);
 }
 
-static auto io_bg23pabcd(gba::Gba& gba, auto addr, auto& reg) -> void
+auto io_bg23pabcd(gba::Gba& gba, auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
 
@@ -352,7 +320,7 @@ static auto io_bg23pabcd(gba::Gba& gba, auto addr, auto& reg) -> void
     io_int<0x8, 0xF, true>(gba, reg, "Integer"); ImGui::Separator();
 }
 
-static auto io_bg23xy(gba::Gba& gba, auto addr, auto& reg) -> void
+auto io_bg23xy(gba::Gba& gba, auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
 
@@ -360,67 +328,67 @@ static auto io_bg23xy(gba::Gba& gba, auto addr, auto& reg) -> void
     io_int<0x8, 27, true>(gba, reg, "Integer"); ImGui::Separator();
 }
 
-static auto IO_BG2PA(gba::Gba& gba) -> void
+auto IO_BG2PA(gba::Gba& gba) -> void
 {
     io_bg23pabcd(gba, gba::mem::IO_BG2PA, REG_BG2PA);
 }
 
-static auto IO_BG2PB(gba::Gba& gba) -> void
+auto IO_BG2PB(gba::Gba& gba) -> void
 {
     io_bg23pabcd(gba, gba::mem::IO_BG2PB, REG_BG2PB);
 }
 
-static auto IO_BG2PC(gba::Gba& gba) -> void
+auto IO_BG2PC(gba::Gba& gba) -> void
 {
     io_bg23pabcd(gba, gba::mem::IO_BG2PC, REG_BG2PC);
 }
 
-static auto IO_BG2PD(gba::Gba& gba) -> void
+auto IO_BG2PD(gba::Gba& gba) -> void
 {
     io_bg23pabcd(gba, gba::mem::IO_BG2PD, REG_BG2PD);
 }
 
-static auto IO_BG2X(gba::Gba& gba) -> void
+auto IO_BG2X(gba::Gba& gba) -> void
 {
     io_bg23xy(gba, gba::mem::IO_BG2X, REG_BG2X);
 }
 
-static auto IO_BG2Y(gba::Gba& gba) -> void
+auto IO_BG2Y(gba::Gba& gba) -> void
 {
     io_bg23xy(gba, gba::mem::IO_BG2Y, REG_BG2Y);
 }
 
-static auto IO_BG3PA(gba::Gba& gba) -> void
+auto IO_BG3PA(gba::Gba& gba) -> void
 {
     io_bg23pabcd(gba, gba::mem::IO_BG3PA, REG_BG3PA);
 }
 
-static auto IO_BG3PB(gba::Gba& gba) -> void
+auto IO_BG3PB(gba::Gba& gba) -> void
 {
     io_bg23pabcd(gba, gba::mem::IO_BG3PB, REG_BG3PB);
 }
 
-static auto IO_BG3PC(gba::Gba& gba) -> void
+auto IO_BG3PC(gba::Gba& gba) -> void
 {
     io_bg23pabcd(gba, gba::mem::IO_BG3PC, REG_BG3PC);
 }
 
-static auto IO_BG3PD(gba::Gba& gba) -> void
+auto IO_BG3PD(gba::Gba& gba) -> void
 {
     io_bg23pabcd(gba, gba::mem::IO_BG3PD, REG_BG3PD);
 }
 
-static auto IO_BG3X(gba::Gba& gba) -> void
+auto IO_BG3X(gba::Gba& gba) -> void
 {
     io_bg23xy(gba, gba::mem::IO_BG3X, REG_BG3X);
 }
 
-static auto IO_BG3Y(gba::Gba& gba) -> void
+auto IO_BG3Y(gba::Gba& gba) -> void
 {
     io_bg23xy(gba, gba::mem::IO_BG3Y, REG_BG3Y);
 }
 
-static auto io_winXh(gba::Gba& gba, auto addr, auto& reg) -> void
+auto io_winXh(gba::Gba& gba, auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
 
@@ -428,7 +396,7 @@ static auto io_winXh(gba::Gba& gba, auto addr, auto& reg) -> void
     io_int<0x8, 0xF>(gba, reg, "X: Leftmost");
 }
 
-static auto io_winXv(gba::Gba& gba, auto addr, auto& reg) -> void
+auto io_winXv(gba::Gba& gba, auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
 
@@ -436,27 +404,27 @@ static auto io_winXv(gba::Gba& gba, auto addr, auto& reg) -> void
     io_int<0x8, 0xF>(gba, reg, "Y: Top");
 }
 
-static auto io_win0h(gba::Gba& gba) -> void
+auto io_win0h(gba::Gba& gba) -> void
 {
     io_winXh(gba, gba::mem::IO_WIN0H, REG_WIN0H);
 }
 
-static auto io_win1h(gba::Gba& gba) -> void
+auto io_win1h(gba::Gba& gba) -> void
 {
     io_winXh(gba, gba::mem::IO_WIN1H, REG_WIN1H);
 }
 
-static auto io_win0v(gba::Gba& gba) -> void
+auto io_win0v(gba::Gba& gba) -> void
 {
     io_winXv(gba, gba::mem::IO_WIN0V, REG_WIN0V);
 }
 
-static auto io_win1v(gba::Gba& gba) -> void
+auto io_win1v(gba::Gba& gba) -> void
 {
     io_winXv(gba, gba::mem::IO_WIN1V, REG_WIN1V);
 }
 
-static auto io_winin(gba::Gba& gba) -> void
+auto io_winin(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_WININ, REG_WININ);
 
@@ -476,7 +444,7 @@ static auto io_winin(gba::Gba& gba) -> void
     io_button<0xD>(gba, REG_WININ, "Blend in win1");
 }
 
-static auto io_winout(gba::Gba& gba) -> void
+auto io_winout(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_WINOUT, REG_WINOUT);
 
@@ -496,7 +464,7 @@ static auto io_winout(gba::Gba& gba) -> void
     io_button<0xD>(gba, REG_WINOUT, "Blend in OBJ win");
 }
 
-static auto io_mosaic(gba::Gba& gba) -> void
+auto io_mosaic(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_MOSAIC, REG_MOSAIC);
 
@@ -506,7 +474,7 @@ static auto io_mosaic(gba::Gba& gba) -> void
     io_int<0xC, 0xF>(gba, REG_MOSAIC, "OBJ X Size");
 }
 
-static auto io_bldmod(gba::Gba& gba) -> void
+auto io_bldmod(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_BLDMOD, REG_BLDMOD);
 
@@ -530,7 +498,7 @@ static auto io_bldmod(gba::Gba& gba) -> void
     io_button<0xD>(gba, REG_BLDMOD, "Blend backdrop (dst)");
 }
 
-static auto io_colev(gba::Gba& gba) -> void
+auto io_colev(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_COLEV, REG_COLEV);
 
@@ -538,62 +506,62 @@ static auto io_colev(gba::Gba& gba) -> void
     io_int<0x8, 0xC>(gba, REG_COLEV, "dst coeff (layer below)");
 }
 
-static auto io_coley(gba::Gba& gba) -> void
+auto io_coley(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_COLEY, REG_COLEY);
 
     io_int<0x0, 0x4>(gba, REG_COLEY, "lighten/darken value");
 }
 
-static auto IO_DMA0SAD(gba::Gba& gba) -> void
+auto IO_DMA0SAD(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_DMA0SAD, REG_DMA0SAD);
     io_int<0x0, 26>(gba, REG_DMA0SAD, "27-bit source address");
 }
 
-static auto IO_DMA1SAD(gba::Gba& gba) -> void
+auto IO_DMA1SAD(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_DMA1SAD, REG_DMA1SAD);
     io_int<0x0, 27>(gba, REG_DMA1SAD, "28-bit source address");
 }
 
-static auto IO_DMA2SAD(gba::Gba& gba) -> void
+auto IO_DMA2SAD(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_DMA2SAD, REG_DMA2SAD);
     io_int<0x0, 27>(gba, REG_DMA2SAD, "28-bit source address");
 }
 
-static auto IO_DMA3SAD(gba::Gba& gba) -> void
+auto IO_DMA3SAD(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_DMA3SAD, REG_DMA3SAD);
     io_int<0x0, 27>(gba, REG_DMA3SAD, "28-bit source address");
 }
 
-static auto IO_DMA0DAD(gba::Gba& gba) -> void
+auto IO_DMA0DAD(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_DMA0DAD, REG_DMA0DAD);
     io_int<0x0, 26>(gba, REG_DMA0DAD, "27-bit source address");
 }
 
-static auto IO_DMA1DAD(gba::Gba& gba) -> void
+auto IO_DMA1DAD(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_DMA1DAD, REG_DMA1DAD);
     io_int<0x0, 26>(gba, REG_DMA1DAD, "27-bit source address");
 }
 
-static auto IO_DMA2DAD(gba::Gba& gba) -> void
+auto IO_DMA2DAD(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_DMA2DAD, REG_DMA2DAD);
     io_int<0x0, 26>(gba, REG_DMA2DAD, "27-bit source address");
 }
 
-static auto IO_DMA3DAD(gba::Gba& gba) -> void
+auto IO_DMA3DAD(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_DMA3DAD, REG_DMA3DAD);
     io_int<0x0, 27>(gba, REG_DMA3DAD, "27-bit source address");
 }
 
-static auto IO_DMAXCNT(gba::Gba& gba, auto addr, auto& reg) -> void
+auto IO_DMAXCNT(gba::Gba& gba, auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
 
@@ -623,27 +591,27 @@ static auto IO_DMAXCNT(gba::Gba& gba, auto addr, auto& reg) -> void
     io_button<0xF>(gba, reg, "Enable");
 }
 
-static auto IO_DMA0CNT_H(gba::Gba& gba) -> void
+auto IO_DMA0CNT_H(gba::Gba& gba) -> void
 {
     IO_DMAXCNT(gba, gba::mem::IO_DMA0CNT_H, REG_DMA0CNT_H);
 }
 
-static auto IO_DMA1CNT_H(gba::Gba& gba) -> void
+auto IO_DMA1CNT_H(gba::Gba& gba) -> void
 {
     IO_DMAXCNT(gba, gba::mem::IO_DMA1CNT_H, REG_DMA1CNT_H);
 }
 
-static auto IO_DMA2CNT_H(gba::Gba& gba) -> void
+auto IO_DMA2CNT_H(gba::Gba& gba) -> void
 {
     IO_DMAXCNT(gba, gba::mem::IO_DMA2CNT_H, REG_DMA2CNT_H);
 }
 
-static auto IO_DMA3CNT_H(gba::Gba& gba) -> void
+auto IO_DMA3CNT_H(gba::Gba& gba) -> void
 {
     IO_DMAXCNT(gba, gba::mem::IO_DMA3CNT_H, REG_DMA3CNT_H);
 }
 
-static auto IO_TMXCNT(gba::Gba& gba, auto addr, auto& reg) -> void
+auto IO_TMXCNT(gba::Gba& gba, auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
 
@@ -656,27 +624,27 @@ static auto IO_TMXCNT(gba::Gba& gba, auto addr, auto& reg) -> void
     io_button<0x7>(gba, reg, "Enable");
 }
 
-static auto IO_TM0CNT(gba::Gba& gba) -> void
+auto IO_TM0CNT(gba::Gba& gba) -> void
 {
     IO_TMXCNT(gba, gba::mem::IO_TM0CNT, REG_TM0CNT);
 }
 
-static auto IO_TM1CNT(gba::Gba& gba) -> void
+auto IO_TM1CNT(gba::Gba& gba) -> void
 {
     IO_TMXCNT(gba, gba::mem::IO_TM1CNT, REG_TM1CNT);
 }
 
-static auto IO_TM2CNT(gba::Gba& gba) -> void
+auto IO_TM2CNT(gba::Gba& gba) -> void
 {
     IO_TMXCNT(gba, gba::mem::IO_TM2CNT, REG_TM2CNT);
 }
 
-static auto IO_TM3CNT(gba::Gba& gba) -> void
+auto IO_TM3CNT(gba::Gba& gba) -> void
 {
     IO_TMXCNT(gba, gba::mem::IO_TM3CNT, REG_TM3CNT);
 }
 
-static auto io_key(gba::Gba& gba) -> void
+auto io_key(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_KEY, REG_KEY);
 
@@ -692,7 +660,7 @@ static auto io_key(gba::Gba& gba) -> void
     io_button<0x9>(gba, REG_KEY, "Button::R");
 }
 
-static auto io_ie_if(gba::Gba& gba, auto addr, auto& reg) -> void
+auto io_ie_if(gba::Gba& gba, auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
 
@@ -720,17 +688,17 @@ static auto io_ie_if(gba::Gba& gba, auto addr, auto& reg) -> void
     io_button<0xD>(gba, reg, "cassette interrupt");
 }
 
-static auto io_ie(gba::Gba& gba) -> void
+auto io_ie(gba::Gba& gba) -> void
 {
     io_ie_if(gba, gba::mem::IO_IE, REG_IE);
 }
 
-static auto io_if(gba::Gba& gba) -> void
+auto io_if(gba::Gba& gba) -> void
 {
     io_ie_if(gba, gba::mem::IO_IF, REG_IF);
 }
 
-static auto IO_WSCNT(gba::Gba& gba) -> void
+auto IO_WSCNT(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_WSCNT, REG_WSCNT);
 
@@ -755,19 +723,19 @@ static auto IO_WSCNT(gba::Gba& gba) -> void
     io_button<0xE>(gba, REG_WSCNT, "Prefetch");
 }
 
-static auto io_ime(gba::Gba& gba) -> void
+auto io_ime(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_IME, REG_IME);
 
     io_button<0x0>(gba, REG_IME, "Master interrupt enable");
 }
 
-static auto unimpl_io_view(gba::Gba& gba) -> void
+auto unimpl_io_view(gba::Gba& gba) -> void
 {
     ImGui::Text("Unimplemented");
 }
 
-static const std::array IO_NAMES =
+const std::array IO_NAMES =
 {
     IoRegEntry{ "DISPCNT", io_dispcnt },
     IoRegEntry{ "DISPSTAT", io_dispstat },
@@ -864,6 +832,8 @@ static const std::array IO_NAMES =
     IoRegEntry{ "HALTCNT_L", unimpl_io_view },
     IoRegEntry{ "HALTCNT_H", unimpl_io_view },
 };
+
+} // namespace
 
 auto render(gba::Gba& gba, bool* p_open) -> void
 {

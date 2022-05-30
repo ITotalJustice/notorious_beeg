@@ -9,13 +9,14 @@
 #include <cassert>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 138 (5.14)
 template<
     bool L, // 0=push, 1=pop
     bool R  // 0=non, 1=store lr/load pc
 >
-static auto push_pop_registers(Gba& gba, u16 opcode) -> void
+auto push_pop_registers(Gba& gba, u16 opcode) -> void
 {
     u16 Rlist = bit::get_range<0, 7>(opcode);
     auto addr = get_sp(gba);
@@ -72,4 +73,5 @@ static auto push_pop_registers(Gba& gba, u16 opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

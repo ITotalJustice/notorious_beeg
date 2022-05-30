@@ -25,7 +25,7 @@ enum class IncrementType : u8
 	special = 0b11,
 };
 
-enum class SizeType : bool
+enum class SizeType : u8
 {
 	half = 0, // 16bit
 	word = 1, // 32bit
@@ -50,9 +50,10 @@ struct Channel
 	bool enabled;
 };
 
-auto on_event(Gba& gba) -> void;
-auto on_hblank(Gba& gba) -> void;
-auto on_vblank(Gba& gba) -> void;
-auto on_fifo_empty(Gba& gba, u8 num) -> void;
-auto on_cnt_write(Gba& gba, u8 channel_num) -> void;
+STATIC auto on_event(Gba& gba) -> void;
+STATIC auto on_hblank(Gba& gba) -> void;
+STATIC auto on_vblank(Gba& gba) -> void;
+STATIC auto on_fifo_empty(Gba& gba, u8 num) -> void;
+STATIC auto on_cnt_write(Gba& gba, u8 channel_num) -> void;
+
 } // namespace gba::dma

@@ -11,9 +11,10 @@
 #include <cmath>
 
 namespace gba::bios {
+namespace {
 
 // https://problemkaputt.de/gbatek.htm#biosfunctionsummary
-static constexpr const char* SWI_STR[0xFF] =
+constexpr const char* SWI_STR[0xFF] =
 {
    /*[0x00] =*/ "SoftReset",
    /*[0x01] =*/ "RegisterRamReset",
@@ -91,14 +92,14 @@ static constexpr const char* SWI_STR[0xFF] =
 // https://problemkaputt.de/gbatek.htm#biosarithmeticfunctions
 
 // 0x2
-static auto Halt(Gba& gba) -> bool
+auto Halt(Gba& gba) -> bool
 {
     arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::hle_halt);
     return true;
 }
 
 // 0x6
-static auto Div(Gba& gba) -> bool
+auto Div(Gba& gba) -> bool
 {
     const s32 number = arm7tdmi::get_reg(gba, 0);
     const s32 denom = arm7tdmi::get_reg(gba, 1);
@@ -120,7 +121,7 @@ static auto Div(Gba& gba) -> bool
 }
 
 // 0x8
-static auto Sqrt(Gba& gba) -> bool
+auto Sqrt(Gba& gba) -> bool
 {
     const u32 number = arm7tdmi::get_reg(gba, 0);
     const u16 result = std::sqrt(number);
@@ -185,6 +186,8 @@ auto CpuSet(Gba& gba) -> bool
 
     return true;
 }
+
+} // namespace
 
 auto hle(Gba& gba, u8 comment_field) -> bool
 {

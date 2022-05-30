@@ -81,7 +81,7 @@ constexpr auto shift(u32 v, u8 shift_v, const bool old_carry) -> shift_result
         return { v, old_carry };
     }
 
-    if constexpr (static_cast<type>(t) == type::lsl)
+    if constexpr(static_cast<type>(t) == type::lsl)
     {
         // for <= 31 && NOT == 32
         // return { shift_logical_left(v, shift_v), !!(v & (0x80'00'00'00 >> (shift_v-1))) };
@@ -98,7 +98,7 @@ constexpr auto shift(u32 v, u8 shift_v, const bool old_carry) -> shift_result
             return { 0, false };
         }
     }
-    else if constexpr (static_cast<type>(t) == type::lsr)
+    else if constexpr(static_cast<type>(t) == type::lsr)
     {
         if (shift_v <= 31) [[likely]]
         {

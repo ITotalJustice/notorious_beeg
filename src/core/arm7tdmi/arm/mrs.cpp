@@ -7,10 +7,11 @@
 #include <cassert>
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // page 61
 template<bool P> // 0=cpsr, 1=spsr
-static auto mrs(Gba& gba, u32 opcode) -> void
+auto mrs(Gba& gba, u32 opcode) -> void
 {
     const auto Rd = bit::get_range<12, 15>(opcode);
 
@@ -28,4 +29,5 @@ static auto mrs(Gba& gba, u32 opcode) -> void
     set_reg(gba, Rd, value);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

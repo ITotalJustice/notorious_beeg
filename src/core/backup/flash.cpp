@@ -10,8 +10,7 @@
 #include <ranges>
 #include <cassert>
 
-namespace gba::backup::flash
-{
+namespace gba::backup::flash {
 
 using enum Command;
 
@@ -74,7 +73,7 @@ auto Flash::get_device_id() const -> uint8_t
     std::unreachable();
 }
 
-auto Flash::read([[maybe_unused]] Gba& gba, u32 addr) -> u8
+auto Flash::read([[maybe_unused]] Gba& gba, u32 addr) const -> u8
 {
     addr &= 0xFFFF;
 
