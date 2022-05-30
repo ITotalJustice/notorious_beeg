@@ -47,6 +47,7 @@ gba emulator witten in c++23.
 - force align dma r/w.
 - add controller support to frontend.
 - correctly restore r8-12 when leaving fiq. fixes [#72](https://github.com/ITotalJustice/notorious_beeg/issues/72)
+- force bit4 of psr to be set. fixes [#44](https://github.com/ITotalJustice/notorious_beeg/issues/44)
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)

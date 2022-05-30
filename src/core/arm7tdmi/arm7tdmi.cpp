@@ -111,8 +111,27 @@ static auto change_mode_restore_regs(Gba& gba, std::span<const u32> banked_regs,
     }
 }
 
+auto is_valid_mode(u8 mode) -> bool
+{
+    switch (mode)
+    {
+        case MODE_USER:
+        case MODE_SYSTEM:
+        case MODE_FIQ:
+        case MODE_IRQ:
+        case MODE_SUPERVISOR:
+        case MODE_ABORT:
+        case MODE_UNDEFINED:
+            return true;
+    }
+
+    return false;
+}
+
 auto change_mode(Gba& gba, u8 old_mode, u8 new_mode) -> void
 {
+    assert(is_valid_mode(new_mode));
+
     CPU.cpsr.M = new_mode;
 
     // don't swap mode if modes havent changed or going usr->sys or sys->usr
@@ -182,7 +201,6 @@ auto change_mode(Gba& gba, u8 old_mode, u8 new_mode) -> void
     }
 }
 
-
 auto get_u32_from_psr(Psr& psr) -> u32
 {
     u32 value = 0;
@@ -243,6 +261,11 @@ auto load_spsr_into_cpsr(Gba& gba) -> void
 
 auto set_psr_from_u32(Gba& gba, Psr& psr, u32 value, bool flag_write, bool control_write) -> void
 {
+    // bit4 is always set! this means that the lowest
+    // mode value possible is 16.
+    // SEE: https://github.com/ITotalJustice/notorious_beeg/issues/44
+    value = bit::set<4>(value, true);
+
     if (flag_write)
     {
         psr.N = bit::is_set<31>(value);
@@ -256,7 +279,8 @@ auto set_psr_from_u32(Gba& gba, Psr& psr, u32 value, bool flag_write, bool contr
     {
         psr.I = bit::is_set<7>(value);
         psr.T = bit::is_set<5>(value);
-        psr.M = bit::get_range<0, 4>(value);
+        psr.M = bit::get_range<0, 4>(value) | 0b10000;
+        // constexpr auto a = 0b1000;
     }
 }
 
