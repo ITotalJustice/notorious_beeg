@@ -3,6 +3,7 @@
 
 #include "bit.hpp"
 #include "mem.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <imgui.h>
 #include <gba.hpp>
@@ -157,7 +158,7 @@ static auto io_int(gba::Gba& gba, T& reg, const char* name) -> void
 
     auto max = 0;
     auto min = 0;
-    auto old = bit::get_range<start, end>(reg);
+    int old = bit::get_range<start, end>(reg);
 
     if (sign)
     {
@@ -872,10 +873,10 @@ auto render(gba::Gba& gba, bool* p_open) -> void
     if (ImGui::Begin("io viewer", p_open))
     {
         // Left
-        static int selected = 0;
+        static std::size_t selected = 0;
         {
             ImGui::BeginChild("left pane", ImVec2(150, 0), true);
-            for (auto i = 0; i < IO_NAMES.size(); i++)
+            for (std::size_t i = 0; i < IO_NAMES.size(); i++)
             {
                 if (ImGui::Selectable(IO_NAMES[i].name, selected == i))
                 {

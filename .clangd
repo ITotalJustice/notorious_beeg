@@ -3,13 +3,67 @@ CompileFlags:
       # enable c++23 support
       -std=c++2b,
       # constexpr args need to be tweeked a bit
-      -fconstexpr-depth=1000000000, -fconstexpr-steps=1271242]
+      -fconstexpr-depth=1000000000, -fconstexpr-steps=1271242,
+      # warning flags to be enabled
+      -Wall,
+      -Wextra,
+      -Wpedantic,
+      -Wshadow,
+      -Wdouble-promotion,
+      -Wformat=2,
+      -Wundef,
+      -Wmissing-include-dirs,
+      -Wstrict-aliasing,
+      -Wstrict-overflow=5,
+      -Walloca,
+      -Wwrite-strings,
+      -Wdate-time,
+      -Wpacked,
+      -Wnested-externs,
+      -Wcast-qual,
+      -Wcast-align,
+      -Wunused-macros,
+      -Wreserved-id-macro,
+      -Wbad-function-cast,
+      -Wbitfield-enum-conversion,
+      -Wextra-semi-stmt,
+      -Wold-style-cast,
+      -Wcovered-switch-default,
+      -Wmissing-requires,
+      -Wuninitialized,
+      -Wsuggest-final-types,
+      -Wlogical-op,
+      -Wimplicit-fallthrough=5,
+      -Wbitwise-instead-of-logical,
+
+      -Wassign-enum,
+      -Wcomma,
+      -Wcompletion-handler,
+
+      # can try enabling this just to see what breaks (still compiles as of clang 11)
+      # be sure to enable (well, disable) the below flags else a *lot* of "errors"
+      -Weverything,
+      -Wno-c++98-compat,
+      -Wno-c++98-compat-pedantic,
+      -Wno-c++20-compat,
+      # -Wno-missing-braces, # false positive
+      -Wno-unused-parameter,
+      -Wno-unused-variable,
+      -Wno-conversion,
+      -Wno-sign-conversion,
+      -Wno-missing-prototypes,
+      -Wno-padded,
+      -Wno-switch-enum]
+    Remove: [
+      -std=*,
+      -W*]
 
 Diagnostics:
   # Tweak Clang-Tidy checks.
   ClangTidy:
     Add: [performance*, modernize*, readability*]
     Remove: [
+      readability-implicit-bool-conversion,
       readability-else-after-return,
       readability-redundant-access-specifiers,
       readability-magic-numbers,

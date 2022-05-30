@@ -20,4 +20,6 @@ target_link_libraries(backend PRIVATE imgui)
 target_link_libraries(backend PRIVATE SDL2::SDL2)
 target_link_libraries(backend PRIVATE GBA)
 
+set_target_properties(backend PROPERTIES CXX_STANDARD 23)
+
 target_apply_lto_in_release(backend)

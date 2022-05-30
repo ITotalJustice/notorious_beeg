@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.20.0)
 
+project(notorious_beeg
+    VERSION 0.0.1
+    DESCRIPTION "GBA emulator written in c++23"
+    HOMEPAGE_URL "https://github.com/ITotalJustice/notorious_beeg"
+    LANGUAGES C CXX
+)
+
 # fetch imgui
 include(FetchContent)
 
@@ -51,22 +58,22 @@ target_include_directories(imgui INTERFACE ${imgui_club_SOURCE_DIR}/imgui_memory
 # always include backend after fetching imgui
 add_subdirectory(backend)
 
-add_executable(main
+add_executable(notorious_beeg
     main.cpp
     system.cpp
     debugger/io.cpp
 )
 
-target_link_libraries(main PRIVATE GBA)
-target_link_libraries(main PRIVATE imgui imgui_club)
-target_link_libraries(main PRIVATE backend)
+target_link_libraries(notorious_beeg PRIVATE GBA)
+target_link_libraries(notorious_beeg PRIVATE imgui imgui_club)
+target_link_libraries(notorious_beeg PRIVATE backend)
 
 set(FOUND_MINIZIP FALSE)
 
 if (VCPKG_TOOLCHAIN)
     find_package(minizip CONFIG)
     if (DEFINED minizip_FOUND)
-        target_link_libraries(main PRIVATE minizip::minizip)
+        target_link_libraries(notorious_beeg PRIVATE minizip::minizip)
 
         set(FOUND_MINIZIP TRUE)
         message(STATUS "using vcpkg minizip")
@@ -79,8 +86,8 @@ else()
     find_path(minizip_inc minizip)
 
     if (minizip_lib AND minizip_inc)
-        target_link_libraries(main PRIVATE ${minizip_lib})
-        target_include_directories(main PRIVATE ${minizip_inc})
+        target_link_libraries(notorious_beeg PRIVATE ${minizip_lib})
+        target_include_directories(notorious_beeg PRIVATE ${minizip_inc})
 
         set(FOUND_MINIZIP TRUE)
         message(STATUS "using system minizip")
@@ -109,21 +116,26 @@ if (NOT FOUND_MINIZIP)
 
     find_package(ZLIB REQUIRED)
     target_link_libraries(minizip PRIVATE ZLIB::ZLIB)
-    target_link_libraries(main PRIVATE minizip)
+    target_link_libraries(notorious_beeg PRIVATE minizip)
 
     message(STATUS "using github minizip")
 endif()
 
-# target_add_common_cflags(main PRIVATE)
+# target_add_common_cflags(notorious_beeg PRIVATE)
 target_apply_lto_in_release(imgui)
-target_apply_lto_in_release(main)
+target_apply_lto_in_release(notorious_beeg)
 
 option(DUMP_AUDIO "dump audio to a file" OFF)
 option(SPEED_TEST "run uncapped fps, used for perf test" OFF)
 option(DEBUGGER "basic imgui debugger" ON)
 
-target_compile_definitions(main PRIVATE
+target_compile_definitions(notorious_beeg PRIVATE
     SPEED_TEST=$<BOOL:${SPEED_TEST}>
     DUMP_AUDIO=$<BOOL:${DUMP_AUDIO}>
     DEBUGGER=$<BOOL:${DEBUGGER}>
+)
+
+set_target_properties(notorious_beeg PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    CXX_STANDARD 23
 )

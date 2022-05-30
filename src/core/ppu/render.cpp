@@ -1166,7 +1166,7 @@ auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
 
             const auto index = bitmap_mode ? 0 : layer;
 
-            tile_render(gba, lines, (Layers)(1 << layer), false, false);
+            tile_render(gba, lines, static_cast<Layers>(1 << layer), false, false);
             std::ranges::copy(lines[index].pixels, pixels.begin());
         }
     };

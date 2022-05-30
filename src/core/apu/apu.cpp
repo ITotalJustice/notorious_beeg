@@ -52,11 +52,6 @@ static constexpr u8 PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
 // unset to have a range of -15 - +15 (not including wave channel).
 #define UNSIGNED_DMG_CHANNELS 1
 
-// enable to bit crush samples to their correct output
-// ie, for 64k sample rate, the samples are crushed to 8bit
-// this however, sounds pretty bad.
-#define BIT_CRUSH_SAMPLE 0
-
 #if UNSIGNED_DMG_CHANNELS
 static constexpr u8 SQUARE_DUTY_CYCLES[4][8] =
 {

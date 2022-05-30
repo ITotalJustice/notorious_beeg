@@ -5,6 +5,7 @@
 
 #include "bit.hpp"
 #include "fwd.hpp"
+#include <utility>
 
 namespace gba::arm7tdmi::barrel {
 

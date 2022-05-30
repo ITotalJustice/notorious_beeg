@@ -15,3 +15,4 @@ rewind*
 .vs/
 out/
 imgui.ini
+.vscode

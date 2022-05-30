@@ -75,15 +75,17 @@ check_cxx_source_compiles(
     HAVE_STD_UNREACHABLE
 )
 
-target_compile_definitions(GBA PRIVATE
-    GBA_DEBUG=$<BOOL:${GBA_DEBUG}>
-    SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
-    ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
+target_compile_definitions(GBA
+    PRIVATE
+        GBA_DEBUG=$<BOOL:${GBA_DEBUG}>
+        SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
+        ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
+
+    PUBLIC
+        HAVE_STD_UNREACHABLE=$<BOOL:${HAVE_STD_UNREACHABLE}>
 )
 
-target_compile_definitions(GBA PUBLIC
-    HAVE_STD_UNREACHABLE=$<BOOL:${HAVE_STD_UNREACHABLE}>
-)
+set_target_properties(GBA PROPERTIES CXX_STANDARD 23)
 
 # enable LTO (only in release builds)
 # this greatly reduces template bloat as well
