@@ -60,28 +60,28 @@ struct Mem
 
 
 // General Internal Memory
-constexpr auto BIOS_MASK        = 0x00003FFF;
-constexpr auto EWRAM_MASK       = 0x0003FFFF;
-constexpr auto IWRAM_MASK       = 0x00007FFF;
-constexpr auto IO_MASK          = 0x3FF;
+constexpr auto BIOS_MASK    = 0x00003FFF;
+constexpr auto EWRAM_MASK   = 0x0003FFFF;
+constexpr auto IWRAM_MASK   = 0x00007FFF;
+constexpr auto IO_MASK      = 0x3FF;
 // Internal Display Memory
-constexpr auto PRAM_MASK = 0x000003FF;
-constexpr auto VRAM_MASK        = 0x0001FFFF;
-constexpr auto OAM_MASK         = 0x000003FF;
+constexpr auto PRAM_MASK    = 0x000003FF;
+constexpr auto VRAM_MASK    = 0x0001FFFF;
+constexpr auto OAM_MASK     = 0x000003FF;
 // External Memory (Game Pak)
-constexpr auto ROM_MASK         = 0x01FFFFFF;
+constexpr auto ROM_MASK     = 0x01FFFFFF;
 
 // General Internal Memory
-[[maybe_unused]] constexpr auto BIOS_SIZE        = BIOS_MASK + 1;
-[[maybe_unused]] constexpr auto EWRAM_SIZE       = EWRAM_MASK + 1;
-[[maybe_unused]] constexpr auto IWRAM_SIZE       = IWRAM_MASK + 1;
-[[maybe_unused]] constexpr auto IO_SIZE          = IO_MASK + 1;
+[[maybe_unused]] constexpr auto BIOS_SIZE   = BIOS_MASK + 1;
+[[maybe_unused]] constexpr auto EWRAM_SIZE  = EWRAM_MASK + 1;
+[[maybe_unused]] constexpr auto IWRAM_SIZE  = IWRAM_MASK + 1;
+[[maybe_unused]] constexpr auto IO_SIZE     = IO_MASK + 1;
 // Internal Display Memory
-[[maybe_unused]] constexpr auto PRAM_SIZE = PRAM_MASK + 1;
-[[maybe_unused]] constexpr auto VRAM_SIZE        = 0x00017FFF + 1;
-[[maybe_unused]] constexpr auto OAM_SIZE         = OAM_MASK + 1;
+[[maybe_unused]] constexpr auto PRAM_SIZE   = PRAM_MASK + 1;
+[[maybe_unused]] constexpr auto VRAM_SIZE   = 0x00017FFF + 1;
+[[maybe_unused]] constexpr auto OAM_SIZE    = OAM_MASK + 1;
 // External Memory (Game Pak)
-[[maybe_unused]] constexpr auto ROM_SIZE         = ROM_MASK + 1;
+[[maybe_unused]] constexpr auto ROM_SIZE    = ROM_MASK + 1;
 
 
 constexpr auto IO_DISPCNT = 0x04000000;
@@ -390,17 +390,17 @@ STATIC_INLINE auto write16(Gba& gba, u32 addr, u16 value) -> void;
 STATIC_INLINE auto write32(Gba& gba, u32 addr, u32 value) -> void;
 
 template <typename T> [[nodiscard]]
-constexpr auto align_address(u32 addr) -> u32
+constexpr auto align(u32 addr) -> u32
 {
     if constexpr(std::is_same<T, u8>())
     {
         return addr;
     }
-    if constexpr(std::is_same<T, u16>())
+    else if constexpr(std::is_same<T, u16>())
     {
         return addr & ~0x1;
     }
-    if constexpr(std::is_same<T, u32>())
+    else if constexpr(std::is_same<T, u32>())
     {
         return addr & ~0x3;
     }
@@ -410,31 +410,15 @@ constexpr auto align_address(u32 addr) -> u32
 template <typename T> [[nodiscard]]
 STATIC_INLINE constexpr auto read_array(std::span<const u8> array, auto mask, u32 addr) -> T
 {
-    // don't *cast* if it's not needed (likely optimised away anyway)
-    if constexpr(std::is_same<T, u8>())
-    {
-        return array[addr & mask];
-    }
-    else
-    {
-        constexpr auto shift = sizeof(T) >> 1;
-        return reinterpret_cast<const T*>(array.data())[(addr>>shift) & (mask>>shift)];
-    }
+    constexpr auto shift = sizeof(T) >> 1;
+    return reinterpret_cast<const T*>(array.data())[(addr>>shift) & (mask>>shift)];
 }
 
 template <typename T>
 STATIC_INLINE constexpr auto write_array(std::span<u8> array, auto mask, u32 addr, T v) -> void
 {
-    // don't *cast* if it's not needed (likely optimised away anyway)
-    if constexpr(std::is_same<T, u8>())
-    {
-        array[addr & mask] = v;
-    }
-    else
-    {
-        constexpr auto shift = sizeof(T) >> 1;
-        reinterpret_cast<T*>(array.data())[(addr>>shift) & (mask>>shift)] = v;
-    }
+    constexpr auto shift = sizeof(T) >> 1;
+    reinterpret_cast<T*>(array.data())[(addr>>shift) & (mask>>shift)] = v;
 }
 
 } // namespace gba::mem

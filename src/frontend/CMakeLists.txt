@@ -1,12 +1,5 @@
 cmake_minimum_required(VERSION 3.20.0)
 
-project(notorious_beeg
-    VERSION 0.0.1
-    DESCRIPTION "GBA emulator written in c++23"
-    HOMEPAGE_URL "https://github.com/ITotalJustice/notorious_beeg"
-    LANGUAGES C CXX
-)
-
 # fetch imgui
 include(FetchContent)
 

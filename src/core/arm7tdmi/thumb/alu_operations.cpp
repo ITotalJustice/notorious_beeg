@@ -6,7 +6,7 @@
 #include "arm7tdmi/barrel_shifter.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include "mem.hpp"
+#include <tuple>
 
 namespace gba::arm7tdmi::thumb {
 namespace {
@@ -33,7 +33,7 @@ enum class alu_operations_op : u8
 
 // page 146 (5.19)
 template<u8 Op2>
-auto alu_operations(Gba& gba, u16 opcode) -> void
+auto alu_operations(Gba& gba, const u16 opcode) -> void
 {
     constexpr auto Op = static_cast<alu_operations_op>(Op2);
     const auto Rs = bit::get_range<3, 5>(opcode);
@@ -47,13 +47,13 @@ auto alu_operations(Gba& gba, u16 opcode) -> void
     if constexpr(Op == AND)
     {
         const auto result = oprand1 & oprand2;
-        set_logical_flags2<true>(gba, result);
+        set_logical_flags_without_carry<true>(gba, result);
         set_reg_thumb(gba, Rd, result);
     }
     else if constexpr(Op == EOR)
     {
         const auto result = oprand1 ^ oprand2;
-        set_logical_flags2<true>(gba, result);
+        set_logical_flags_without_carry<true>(gba, result);
         set_reg_thumb(gba, Rd, result);
     }
     else if constexpr(Op == LSL)
@@ -93,7 +93,7 @@ auto alu_operations(Gba& gba, u16 opcode) -> void
     else if constexpr(Op == TST)
     {
         const auto result = oprand1 & oprand2;
-        set_logical_flags2<true>(gba, result);
+        set_logical_flags_without_carry<true>(gba, result);
     }
     else if constexpr(Op == NEG)
     {
@@ -102,35 +102,34 @@ auto alu_operations(Gba& gba, u16 opcode) -> void
     }
     else if constexpr(Op == CMP)
     {
-        internal_sub<true>(gba, oprand1, oprand2);
+        std::ignore = internal_sub<true>(gba, oprand1, oprand2);
     }
     else if constexpr(Op == CMN)
     {
-        internal_add<true>(gba, oprand1, oprand2);
+        std::ignore = internal_add<true>(gba, oprand1, oprand2);
     }
     else if constexpr(Op == ORR)
     {
         const auto result = oprand1 | oprand2;
-        set_logical_flags2<true>(gba, result);
+        set_logical_flags_without_carry<true>(gba, result);
         set_reg_thumb(gba, Rd, result);
     }
     else if constexpr(Op == MUL)
     {
         const auto result = oprand1 * oprand2;
-        CPU.cpsr.Z = result == 0;
-        CPU.cpsr.N = bit::is_set<31>(result);
+        set_logical_flags_without_carry<true>(gba, result);
         set_reg_thumb(gba, Rd, result);
     }
     else if constexpr(Op == BIC)
     {
         const auto result = oprand1 & ~oprand2;
-        set_logical_flags2<true>(gba, result);
+        set_logical_flags_without_carry<true>(gba, result);
         set_reg_thumb(gba, Rd, result);
     }
     else if constexpr(Op == MVN)
     {
         const auto result = ~oprand2;
-        set_logical_flags2<true>(gba, result);
+        set_logical_flags_without_carry<true>(gba, result);
         set_reg_thumb(gba, Rd, result);
     }
 }

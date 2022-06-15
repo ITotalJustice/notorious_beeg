@@ -2,17 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "arm7tdmi/arm7tdmi.hpp"
-#include "arm7tdmi/barrel_shifter.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include "mem.hpp"
 
 namespace gba::arm7tdmi::thumb {
 namespace {
 
 // page 146 (5.19)
 template<bool H>
-auto long_branch_with_link(Gba& gba, u16 opcode) -> void
+auto long_branch_with_link(Gba& gba, const u16 opcode) -> void
 {
     const auto pc = get_pc(gba);
 
@@ -26,7 +24,7 @@ auto long_branch_with_link(Gba& gba, u16 opcode) -> void
     else
     {
         auto OffsetHigh = bit::get_range<0, 10>(opcode) << 12;
-        OffsetHigh = bit::sign_extend<23>(OffsetHigh);
+        OffsetHigh = bit::sign_extend<22>(OffsetHigh);
         set_lr(gba, pc + OffsetHigh);
     }
 }

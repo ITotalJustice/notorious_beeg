@@ -9,10 +9,10 @@ namespace gba::arm7tdmi::thumb {
 namespace {
 
 // page 145 (5.18)
-auto unconditional_branch(Gba& gba, u16 opcode) -> void
+auto unconditional_branch(Gba& gba, const u16 opcode) -> void
 {
     auto offset11 = bit::get_range<0, 10>(opcode) << 1;
-    offset11 = bit::sign_extend<12>(offset11);
+    offset11 = bit::sign_extend<11>(offset11);
 
     set_pc(gba, get_pc(gba) + offset11);
 }

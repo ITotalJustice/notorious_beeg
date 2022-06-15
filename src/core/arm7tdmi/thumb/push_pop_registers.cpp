@@ -16,22 +16,18 @@ template<
     bool L, // 0=push, 1=pop
     bool R  // 0=non, 1=store lr/load pc
 >
-auto push_pop_registers(Gba& gba, u16 opcode) -> void
+auto push_pop_registers(Gba& gba, const u16 opcode) -> void
 {
     u16 Rlist = bit::get_range<0, 7>(opcode);
     auto addr = get_sp(gba);
 
-    // assert(Rlist && "empty rlist edge case");
-    if (!Rlist && !R)
-    {
-        gba_log("[push_pop_registers] empty rlist edge case\n");
-    }
+    assert((Rlist || R) && "empty rlist edge case");
 
     if constexpr(L) // pop
     {
         if constexpr(R)
         {
-            Rlist = bit::set<PC_INDEX>(Rlist, true);
+            Rlist = bit::set<PC_INDEX>(Rlist);
         }
 
         while (Rlist)
@@ -51,7 +47,7 @@ auto push_pop_registers(Gba& gba, u16 opcode) -> void
     {
         if constexpr(R)
         {
-            Rlist = bit::set<LR_INDEX>(Rlist, true);
+            Rlist = bit::set<LR_INDEX>(Rlist);
         }
 
         // because pop decrements but loads lowest addr first

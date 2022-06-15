@@ -131,7 +131,7 @@ struct Noise : Base<3>
     u8 clock_shift;
     u8 divisor_code;
 
-    bool width_mode;
+    bool half_width_mode;
 
     auto clock_lfsr(Gba& gba) -> void;
 

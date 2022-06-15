@@ -24,13 +24,15 @@
 
 namespace gba::mem {
 namespace {
-constexpr auto mirror_address(u32 addr) -> u32
+
+[[nodiscard]]
+constexpr auto mirror_address(const u32 addr) -> u32
 {
     return addr & 0x0FFFFFFF;
 }
 
 [[nodiscard]]
-inline auto get_memory_timing(u8 index, u32 addr) -> u8
+inline auto get_memory_timing(const u8 index, const u32 addr) -> u8
 {
     // https://problemkaputt.de/gbatek.htm#gbamemorymap
     static constexpr u8 timings[3][0x10] = // this has to be static otherwise it's slow
@@ -47,9 +49,9 @@ inline auto get_memory_timing(u8 index, u32 addr) -> u8
 u32 bios_openbus_value = 0x0;
 
 template<typename T>
-constexpr auto openbus(Gba& gba, u32 addr) -> T
+constexpr auto openbus(Gba& gba, const u32 addr) -> T
 {
-    std::printf("openbus read: 0x%08X v1: 0x%08X v2: 0x%08X\n", addr, gba.cpu.pipeline[0], gba.cpu.pipeline[1]);
+    // std::printf("openbus read: 0x%08X v1: 0x%08X v2: 0x%08X\n", addr, gba.cpu.pipeline[0], gba.cpu.pipeline[1]);
 
     if (addr <= 0x00003FFF)
     {
@@ -82,7 +84,7 @@ constexpr auto empty_write([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr,
 }
 
 [[nodiscard]]
-constexpr auto read_io16(Gba& gba, u32 addr) -> u16
+constexpr auto read_io16(Gba& gba, const u32 addr) -> u16
 {
     // don't mirror io
     if (addr > 0x40003FF) [[unlikely]]
@@ -104,20 +106,16 @@ constexpr auto read_io16(Gba& gba, u32 addr) -> u16
 
     switch (addr)
     {
-        // todo: fix this for scheduler timers
-        #if ENABLE_SCHEDULER
-        case IO_TM0D: return timer::read_timer(gba, 0);
-        case IO_TM1D: return timer::read_timer(gba, 1);
-        case IO_TM2D: return timer::read_timer(gba, 2);
-        case IO_TM3D: return timer::read_timer(gba, 3);
-        #else
-        case IO_TM0D: return REG_TM0D;
-        case IO_TM1D: return REG_TM1D;
-        case IO_TM2D: return REG_TM2D;
-        case IO_TM3D: return REG_TM3D;
-        #endif
+        case IO_TM0D:
+            return timer::read_timer(gba, 0);
+        case IO_TM1D:
+            return timer::read_timer(gba, 1);
+        case IO_TM2D:
+            return timer::read_timer(gba, 2);
+        case IO_TM3D:
+            return timer::read_timer(gba, 3);
 
-        // write only regs
+        //write only regs
         // todo: use a lut
         case IO_FIFO_A_L:
         case IO_FIFO_A_H:
@@ -358,7 +356,6 @@ constexpr auto read_io16(Gba& gba, u32 addr) -> u16
 
         case IO_IMC_L:
             return REG_IMC_L;
-
         case IO_IMC_H:
             return REG_IMC_H;
 
@@ -369,7 +366,7 @@ constexpr auto read_io16(Gba& gba, u32 addr) -> u16
 }
 
 [[nodiscard]]
-constexpr auto read_io8(Gba& gba, u32 addr) -> u8
+constexpr auto read_io8(Gba& gba, const u32 addr) -> u8
 {
     const auto value = read_io16(gba, addr & ~0x1);
 
@@ -384,7 +381,7 @@ constexpr auto read_io8(Gba& gba, u32 addr) -> u8
 }
 
 [[nodiscard]]
-constexpr auto read_io32(Gba& gba, u32 addr) -> u32
+constexpr auto read_io32(Gba& gba, const u32 addr) -> u32
 {
     // todo: optimise for 32bit regs that games commonly read from
     const u32 lo = read_io16(gba, addr+0) << 0;
@@ -392,7 +389,7 @@ constexpr auto read_io32(Gba& gba, u32 addr) -> u32
     return hi | lo;
 }
 
-constexpr auto write_io16(Gba& gba, u32 addr, u16 value) -> void
+constexpr auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
 {
     // don't mirror io
     if (addr > 0x40003FF) [[unlikely]]
@@ -494,23 +491,28 @@ constexpr auto write_io16(Gba& gba, u32 addr, u16 value) -> void
             apu::write_legacy(gba, addr, value);
             break;
 
-        case IO_TM0CNT: timer::on_cnt0_write(gba, REG_TM0CNT); break;
-        case IO_TM1CNT: timer::on_cnt1_write(gba, REG_TM1CNT); break;
-        case IO_TM2CNT: timer::on_cnt2_write(gba, REG_TM2CNT); break;
-        case IO_TM3CNT: timer::on_cnt3_write(gba, REG_TM3CNT); break;
+        case IO_TM0CNT:
+            timer::on_cnt_write(gba, 0);
+            break;
+        case IO_TM1CNT:
+            timer::on_cnt_write(gba, 1);
+            break;
+        case IO_TM2CNT:
+            timer::on_cnt_write(gba, 2);
+            break;
+        case IO_TM3CNT:
+            timer::on_cnt_write(gba, 3);
+            break;
 
         case IO_DMA0CNT_H:
             dma::on_cnt_write(gba, 0);
             break;
-
         case IO_DMA1CNT_H:
             dma::on_cnt_write(gba, 1);
             break;
-
         case IO_DMA2CNT_H:
             dma::on_cnt_write(gba, 2);
             break;
-
         case IO_DMA3CNT_H:
             dma::on_cnt_write(gba, 3);
             break;
@@ -549,7 +551,7 @@ constexpr auto write_io16(Gba& gba, u32 addr, u16 value) -> void
     }
 }
 
-constexpr auto write_io32(Gba& gba, u32 addr, u32 value) -> void
+constexpr auto write_io32(Gba& gba, const u32 addr, const u32 value) -> void
 {
     // games typically do 32-bit writes to 32-bit registers
 
@@ -611,7 +613,7 @@ constexpr auto write_io32(Gba& gba, u32 addr, u32 value) -> void
     write_io16(gba, addr + 2, value >> 0x10);
 }
 
-constexpr auto write_io8(Gba& gba, u32 addr, u8 value) -> void
+constexpr auto write_io8(Gba& gba, const u32 addr, const u8 value) -> void
 {
     // printf("bit io write to 0x%08X\n", addr);
     switch (addr)
@@ -707,7 +709,7 @@ constexpr auto write_io8(Gba& gba, u32 addr, u8 value) -> void
 template<typename T> [[nodiscard]]
 constexpr auto read_io_region(Gba& gba, u32 addr) -> T
 {
-    addr = align_address<T>(addr);
+    addr = align<T>(addr);
 
     if constexpr(std::is_same<T, u32>())
     {
@@ -724,9 +726,9 @@ constexpr auto read_io_region(Gba& gba, u32 addr) -> T
 }
 
 template<typename T>
-constexpr void write_io_region(Gba& gba, u32 addr, T value)
+constexpr void write_io_region(Gba& gba, u32 addr, const T value)
 {
-    addr = align_address<T>(addr);
+    addr = align<T>(addr);
 
     if constexpr(std::is_same<T, u32>())
     {
@@ -743,7 +745,7 @@ constexpr void write_io_region(Gba& gba, u32 addr, T value)
 }
 
 template<typename T> [[nodiscard]]
-constexpr auto read_bios_region(Gba& gba, u32 addr) -> T
+constexpr auto read_bios_region(Gba& gba, const u32 addr) -> T
 {
     // this isn't perfect, i don't think the bios should be able
     // to read from itself, though the official bios likely doesn't
@@ -761,14 +763,14 @@ constexpr auto read_bios_region(Gba& gba, u32 addr) -> T
 
 // unused, handled in array writes
 template<typename T>
-constexpr auto write_ewram_region(Gba& gba, u32 addr, T value) -> void
+constexpr auto write_ewram_region(Gba& gba, const u32 addr, const T value) -> void
 {
     write_array<T>(MEM.ewram, EWRAM_MASK, addr, value);
 }
 
 // unused, handled in array writes
 template<typename T>
-constexpr auto write_iwram_region(Gba& gba, u32 addr, T value) -> void
+constexpr auto write_iwram_region(Gba& gba, const u32 addr, const T value) -> void
 {
     write_array<T>(MEM.iwram, IWRAM_MASK, addr, value);
 }
@@ -785,7 +787,7 @@ inline auto extra_cycle_if_ppu_access_mem(Gba& gba) -> void
 }
 
 template<typename T>
-constexpr auto read_oam_region(Gba& gba, u32 addr) -> T
+constexpr auto read_oam_region(Gba& gba, const u32 addr) -> T
 {
     extra_cycle_if_ppu_access_mem(gba);
 
@@ -793,7 +795,7 @@ constexpr auto read_oam_region(Gba& gba, u32 addr) -> T
 }
 
 template<typename T>
-constexpr auto write_oam_region(Gba& gba, u32 addr, T value) -> void
+constexpr auto write_oam_region(Gba& gba, const u32 addr, const T value) -> void
 {
     extra_cycle_if_ppu_access_mem(gba);
 
@@ -805,7 +807,8 @@ constexpr auto write_oam_region(Gba& gba, u32 addr, T value) -> void
 }
 
 // https://github.com/mgba-emu/mgba/issues/743 (thanks endrift)
-constexpr auto is_vram_dma_overflow_bug(Gba& gba, u32 addr)
+[[nodiscard]]
+constexpr auto is_vram_dma_overflow_bug(Gba& gba, const u32 addr)
 {
     return addr > VRAM_MASK && (addr & (VRAM_SIZE | 0x14000)) == VRAM_SIZE && ppu::is_bitmap_mode(gba);
 }
@@ -827,7 +830,7 @@ constexpr auto read_vram_region(Gba& gba, u32 addr) -> T
 }
 
 template<typename T>
-constexpr auto write_vram_region(Gba& gba, u32 addr, T value) -> void
+constexpr auto write_vram_region(Gba& gba, u32 addr, const T value) -> void
 {
     extra_cycle_if_ppu_access_mem(gba);
 
@@ -862,7 +865,7 @@ constexpr auto write_vram_region(Gba& gba, u32 addr, T value) -> void
 }
 
 template<typename T>
-constexpr auto read_pram_region(Gba& gba, u32 addr) -> T
+constexpr auto read_pram_region(Gba& gba, const u32 addr) -> T
 {
     extra_cycle_if_ppu_access_mem(gba);
 
@@ -870,7 +873,7 @@ constexpr auto read_pram_region(Gba& gba, u32 addr) -> T
 }
 
 template<typename T>
-constexpr auto write_pram_region(Gba& gba, u32 addr, T value) -> void
+constexpr auto write_pram_region(Gba& gba, u32 addr, const T value) -> void
 {
     extra_cycle_if_ppu_access_mem(gba);
 
@@ -882,8 +885,7 @@ constexpr auto write_pram_region(Gba& gba, u32 addr, T value) -> void
         // where the 8bit value is written as the upper / lower half
         if (addr <= end_region)
         {
-            // align to 16bits
-            addr &= ~0x1;
+            addr = align<u16>(addr);
             const u16 new_value = (value << 8) | value;
 
             write_array<u16>(MEM.pram, PRAM_MASK, addr, new_value);
@@ -896,7 +898,7 @@ constexpr auto write_pram_region(Gba& gba, u32 addr, T value) -> void
 }
 
 template<typename T> [[nodiscard]]
-constexpr auto read_eeprom_region(Gba& gba, u32 addr) -> T
+constexpr auto read_eeprom_region(Gba& gba, const u32 addr) -> T
 {
     if (gba.backup.type == backup::Type::EEPROM)
     {
@@ -925,7 +927,7 @@ constexpr auto read_eeprom_region(Gba& gba, u32 addr) -> T
 }
 
 template<typename T>
-constexpr auto write_eeprom_region(Gba& gba, u32 addr, T value) -> void
+constexpr auto write_eeprom_region(Gba& gba, const u32 addr, const T value) -> void
 {
     if (gba.backup.type == backup::Type::EEPROM)
     {
@@ -949,7 +951,7 @@ constexpr auto write_eeprom_region(Gba& gba, u32 addr, T value) -> void
 }
 
 template<typename T> [[nodiscard]]
-constexpr auto read_sram_region(Gba& gba, u32 addr) -> T
+constexpr auto read_sram_region(Gba& gba, const u32 addr) -> T
 {
     // https://github.com/jsmolka/gba-tests/blob/a6447c5404c8fc2898ddc51f438271f832083b7e/save/none.asm#L21
     T value{0xFF};
@@ -979,7 +981,7 @@ constexpr auto read_sram_region(Gba& gba, u32 addr) -> T
 }
 
 template<typename T>
-constexpr auto write_sram_region(Gba& gba, u32 addr, T value) -> void
+constexpr auto write_sram_region(Gba& gba, const u32 addr, T value) -> void
 {
     // only byte store/loads are supported
     // if not byte transfer, only a single byte is written
@@ -1103,7 +1105,7 @@ auto reset(Gba& gba, bool skip_bios) -> void
     gba.mem = {};
 
     REG_KEY = 0xFFFF; // all keys are up
-    REG_IMC_L = bit::set<5>(REG_IMC_L, true); // always set
+    REG_IMC_L = bit::set<5>(REG_IMC_L); // always set
     REG_IMC_H = 0xD00; // wram 2 waitstates
 
     if (skip_bios)

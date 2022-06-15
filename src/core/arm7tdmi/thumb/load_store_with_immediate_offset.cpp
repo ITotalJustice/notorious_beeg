@@ -15,7 +15,7 @@ template<
     bool B, // 0=word, 1=byte
     bool L  // 0=STR, 1=LDR
 >
-auto load_store_with_immediate_offset(Gba& gba, u16 opcode) -> void
+auto load_store_with_immediate_offset(Gba& gba, const u16 opcode) -> void
 {
     const auto Rb = bit::get_range<3, 5>(opcode);
     const auto Rd = bit::get_range<0, 2>(opcode);

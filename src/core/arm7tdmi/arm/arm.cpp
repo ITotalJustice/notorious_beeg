@@ -41,13 +41,15 @@ enum class Instruction
     software_interrupt,
 };
 
-constexpr auto decode_template(auto opcode)
+[[nodiscard]]
+constexpr auto decode_template(const u32 opcode)
 {
     return (bit::get_range<20, 27>(opcode) << 4) | (bit::get_range<4, 7>(opcode));
 }
 
 // page 44
-consteval auto decode(uint32_t opcode) -> Instruction
+[[nodiscard]]
+consteval auto decode(const u32 opcode) -> Instruction
 {
     constexpr auto data_processing_mask_a = decode_template(0b0000'110'0000'0'0000'0000'000000000000);
     constexpr auto data_processing_mask_b = decode_template(0b0000'000'0000'0'0000'0000'000000000000);
@@ -153,7 +155,7 @@ auto undefined([[maybe_unused]] Gba& gba, u32 opcode) -> void
     assert(!"[arm] undefined");
 }
 
-template<auto b>
+template<auto b> [[nodiscard]]
 consteval auto decoded_is_set(auto v)
 {
     // 27-20 and 7-4
@@ -170,7 +172,7 @@ consteval auto decoded_is_set(auto v)
     }
 }
 
-template<u8 start, u8 end>
+template<u8 start, u8 end> [[nodiscard]]
 consteval auto decoded_get_range(auto v)
 {
     static_assert((start <= 27 && start >= 20) || (start <= 7 && start >= 4), "invalid");
@@ -204,7 +206,7 @@ consteval auto fill_table(auto& table) -> void
 
             if constexpr(I == 0) // reg
             {
-                constexpr auto shift_type = decoded_get_range<5, 6>(i);
+                constexpr auto shift_type = static_cast<barrel::type>(decoded_get_range<5, 6>(i));
                 constexpr auto reg_shift = decoded_is_set<4>(i);
                 table[i] = data_processing_reg<S, Op, shift_type, reg_shift>;
             }
@@ -281,7 +283,7 @@ consteval auto fill_table(auto& table) -> void
             }
             else
             {
-                constexpr auto shift_type = decoded_get_range<5, 6>(i);
+                constexpr auto shift_type = static_cast<barrel::type>(decoded_get_range<5, 6>(i));
                 constexpr auto reg_shift = decoded_is_set<4>(i);
                 table[i] = single_data_transfer_reg<P, U, L, B, W, shift_type, reg_shift>;
             }
@@ -310,19 +312,16 @@ consteval auto fill_table(auto& table) -> void
         } break;
     }
 
-    if constexpr(i == end)
-    {
-        return;
-    }
-    else
+    if constexpr(i < end)
     {
         fill_table<i + 1, end>(table);
     }
 }
 
+[[nodiscard]]
 consteval auto generate_function_table()
 {
-    using func_type = void (*)(Gba&, uint32_t);
+    using func_type = void (*)(Gba&, u32);
     std::array<func_type, 4096> table{};
     table.fill(undefined);
 
@@ -346,8 +345,7 @@ consteval auto generate_function_table()
     return table;
 };
 
-constexpr auto func_table = generate_function_table();
-
+[[nodiscard]]
 auto fetch(Gba& gba)
 {
     const auto opcode = CPU.pipeline[0];
@@ -362,17 +360,16 @@ auto fetch(Gba& gba)
 
 auto execute(Gba& gba) -> void
 {
+    static constexpr auto func_table = generate_function_table();
+
     const auto opcode = fetch(gba);
     const auto cond = bit::get_range<28, 31>(opcode);
 
     // it's highly likely that cond == 0xE, so we optimise for that
     // before hitting the switch (slower).
-    if (cond != COND_AL) [[unlikely]]
+    if (cond != COND_AL && !check_cond(gba, cond)) [[unlikely]]
     {
-        if (!check_cond(gba, cond))
-        {
-            return;
-        }
+        return;
     }
 
     func_table[decode_template(opcode)](gba, opcode);

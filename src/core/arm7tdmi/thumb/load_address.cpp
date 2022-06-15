@@ -13,7 +13,7 @@ namespace {
 template<
     bool SP // 0=PC, 1=SP
 >
-auto load_address(Gba& gba, u16 opcode) -> void
+auto load_address(Gba& gba, const u16 opcode) -> void
 {
     constexpr const auto src_reg = SP ? SP_INDEX : PC_INDEX;
     const auto Rd = bit::get_range<8, 10>(opcode);
@@ -24,7 +24,9 @@ auto load_address(Gba& gba, u16 opcode) -> void
     {
         // fleroviux says it's 32-bit aligned.
         // this is the only way for this to pass: https://github.com/jsmolka/gba-tests/blob/a6447c5404c8fc2898ddc51f438271f832083b7e/thumb/arithmetic.asm#L126
-        src_value &= ~0x2;
+        // src_value &= ~0x2;
+        assert(!bit::is_set<0>(src_value) && "unsetting bit0, this may break something!");
+        src_value = mem::align<u32>(src_value);
     }
 
     const auto result = src_value + word8;

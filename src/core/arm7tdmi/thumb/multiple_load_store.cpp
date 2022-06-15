@@ -6,7 +6,6 @@
 #include "gba.hpp"
 #include "mem.hpp"
 #include <bit>
-#include <cassert>
 
 namespace gba::arm7tdmi::thumb {
 namespace {
@@ -14,7 +13,7 @@ namespace {
 template<
     bool L // 0=store, 1=load
 >
-auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
+auto multiple_load_store_empty_rlist(Gba& gba, const u16 opcode) -> void
 {
     const auto Rb = bit::get_range<8, 10>(opcode); // base
     auto addr = get_reg(gba, Rb);
@@ -38,7 +37,7 @@ auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
 template<
     bool L // 0=store, 1=load
 >
-auto multiple_load_store(Gba& gba, u16 opcode) -> void
+auto multiple_load_store(Gba& gba, const u16 opcode) -> void
 {
     const auto Rb = bit::get_range<8, 10>(opcode); // base
     u16 Rlist = bit::get_range<0, 7>(opcode);

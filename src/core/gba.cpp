@@ -251,26 +251,25 @@ static auto on_frame_event(Gba& gba)
 
 auto Gba::run(u32 _cycles) -> void
 {
-    auto& gba = *this;
-    gba.scheduler.frame_end = false;
+    this->scheduler.frame_end = false;
 
-    scheduler::add(gba, scheduler::Event::FRAME, on_frame_event, _cycles);
+    scheduler::add(*this, scheduler::Event::FRAME, on_frame_event, _cycles);
 
-    if (gba.cpu.halted) [[unlikely]]
+    if (this->cpu.halted) [[unlikely]]
     {
-        arm7tdmi::on_halt_event(gba);
+        arm7tdmi::on_halt_event(*this);
     }
 
-    while (!gba.scheduler.frame_end) [[likely]]
+    while (!this->scheduler.frame_end) [[likely]]
     {
         this->scheduler.elapsed = 0;
-        arm7tdmi::run(gba);
+        arm7tdmi::run(*this);
 
         // tick scheduler
         this->scheduler.cycles += this->scheduler.elapsed;
         if (this->scheduler.next_event_cycles <= this->scheduler.cycles)
         {
-            scheduler::fire(gba);
+            scheduler::fire(*this);
         }
     }
 }

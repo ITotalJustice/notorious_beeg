@@ -189,23 +189,5 @@ function(target_add_common_cflags target scope)
     endif()
 endfunction()
 
-macro(add_static_lib package subdir)
-    message(STATUS "using static ${package} from third-party/${subdir}")
-    set(${package}_CHECKED ON PARENT_SCOPE)
-    add_subdirectory(${CMAKE_SOURCE_DIR}/src/third-party/${subdir} ${CMAKE_BINARY_DIR}/src/third-party/${subdir})
-endmacro()
-
-# helper macro that works exactly like find_package()
-# except that it'll fallback to the static lib if the shared
-# lib is not found!
-macro(find_shared_lib package subdir)
-    find_package(${package} QUIET)
-    if (${package}_FOUND)
-        message(STATUS "using shared ${package}")
-    elseif (NOT ${package}_CHECKED)
-        add_static_lib(${package} ${subdir})
-    endif()
-endmacro()
-
 add_subdirectory(core)
 add_subdirectory(frontend)

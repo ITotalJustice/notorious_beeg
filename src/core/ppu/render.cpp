@@ -7,7 +7,6 @@
 // - bg affine
 // - obj affine
 // - obj mosaic
-// - obj blend alpha flag
 // - window wrapping
 
 // todo:
@@ -61,7 +60,7 @@ enum class Blend
     Black, // fade to black
 };
 
-enum Layer
+enum Layer : u8
 {
     BG0 = 1 << 0,
     BG1 = 1 << 1,
@@ -97,7 +96,7 @@ enum class RenderType
 
 struct BgLine
 {
-    BgLine(u8 _num, RenderType type) :
+    BgLine(const u8 _num, const RenderType type) :
         num{_num},
         render_type{type} {}
 
@@ -111,7 +110,7 @@ struct BgLine
 
 struct BGxCNT
 {
-    constexpr BGxCNT(u16 cnt) :
+    constexpr BGxCNT(const u16 cnt) :
         Pr{static_cast<u16>(bit::get_range<0, 1>(cnt))},
         CBB{static_cast<u16>(bit::get_range<2, 3>(cnt))},
         Mos{static_cast<u16>(bit::is_set<6>(cnt))},
@@ -139,7 +138,7 @@ struct BgMeta
 
 struct WININ
 {
-    constexpr WININ(auto v) :
+    constexpr WININ(const auto v) :
         bg0{bit::is_set<0>(v)},
         bg1{bit::is_set<1>(v)},
         bg2{bit::is_set<2>(v)},
@@ -162,7 +161,7 @@ public:
 
 struct WINOUT
 {
-    constexpr WINOUT(u16 v) :
+    constexpr WINOUT(const u16 v) :
         bg0_out{bit::is_set<0>(v)},
         bg1_out{bit::is_set<1>(v)},
         bg2_out{bit::is_set<2>(v)},
@@ -218,9 +217,9 @@ struct WindowBounds
     auto apply_obj_window(Gba& gba, const ObjLine& obj_line) -> void;
 
     // returns true if the pixel can be drawn
-    [[nodiscard]] auto in_bounds(auto bg_num, auto x) const { return inside[bg_num][x]; }
+    [[nodiscard]] auto in_bounds(const auto bg_num, const auto x) const { return inside[bg_num][x]; }
     // returns true if this pixel can blend
-    [[nodiscard]] auto can_blend(auto x) const { return in_bounds(5, x); }
+    [[nodiscard]] auto can_blend(const auto x) const { return in_bounds(5, x); }
 
 private:
     // bg0, bg1, bg2, bg3, obj, blend
@@ -231,7 +230,7 @@ private:
 
 struct BLDMOD
 {
-    constexpr BLDMOD(u16 v) :
+    constexpr BLDMOD(const u16 v) :
         bg0_src{bit::is_set<0>(v)},
         bg1_src{bit::is_set<1>(v)},
         bg2_src{bit::is_set<2>(v)},
@@ -255,7 +254,7 @@ struct BLDMOD
     }
 
     // check if can blend (does not apply to top layer alpha obj)
-    [[nodiscard]] constexpr auto is_alpha(u8 top_num, u8 bottom_num=0) const
+    [[nodiscard]] constexpr auto is_alpha(const u8 top_num, const u8 bottom_num = 0) const
     {
         switch (this->get_mode())
         {
@@ -269,7 +268,7 @@ struct BLDMOD
     }
 
     // returns true if the bottom layer enabled for bledning
-    [[nodiscard]] constexpr auto is_alpha_bottom(u8 bottom_num) const
+    [[nodiscard]] constexpr auto is_alpha_bottom(const u8 bottom_num) const
     {
         return dst[bottom_num];
     }
@@ -299,7 +298,7 @@ public:
 // NOTE: The affine screen entries are only 8 bits wide and just contain an 8bit tile index.
 struct ScreenEntry
 {
-    constexpr ScreenEntry(u16 screen_entry) :
+    constexpr ScreenEntry(const u16 screen_entry) :
         tile_index{static_cast<u16>(bit::get_range<0, 9>(screen_entry))},
         hflip{static_cast<u16>(bit::is_set<10>(screen_entry))},
         vflip{static_cast<u16>(bit::is_set<11>(screen_entry))},
@@ -313,7 +312,7 @@ struct ScreenEntry
 
 struct Attr0
 {
-    constexpr Attr0(u16 v) :
+    constexpr Attr0(const u16 v) :
         Y{static_cast<u16>(bit::get_range<0, 7>(v))},
         OM{static_cast<u16>(bit::get_range<8, 9>(v))},
         GM{static_cast<u16>(bit::get_range<10, 11>(v))},
@@ -335,7 +334,7 @@ struct Attr0
 
 struct Attr1
 {
-    constexpr Attr1(u16 v) :
+    constexpr Attr1(const u16 v) :
         X{static_cast<s16>(bit::get_range<0, 8>(v))},
         AID{static_cast<u16>(bit::get_range<9, 13>(v))},
         HF{static_cast<u16>(bit::is_set<12>(v))},
@@ -351,7 +350,7 @@ struct Attr1
 
 struct Attr2
 {
-    constexpr Attr2(u16 v) :
+    constexpr Attr2(const u16 v) :
         TID{static_cast<u16>(bit::get_range<0, 9>(v))},
         Pr{static_cast<u16>(bit::get_range<10, 11>(v))},
         PB{static_cast<u16>(bit::get_range<12, 15>(v))}{}
@@ -363,7 +362,7 @@ struct Attr2
 
 struct OBJ_Attr
 {
-    constexpr OBJ_Attr(u64 v) :
+    constexpr OBJ_Attr(const u64 v) :
         attr0{static_cast<u16>(v >> 0)},
         attr1{static_cast<u16>(v >> 16)},
         attr2{static_cast<u16>(v >> 32)},
@@ -417,11 +416,11 @@ enum class Index : bool
 };
 
 template<Index index> [[nodiscard]] // 1=Y, 0=X
-auto get_bg_offset(BGxCNT cnt, auto x) -> u16
+auto get_bg_offset(const BGxCNT cnt, const auto x) -> u16
 {
     constexpr auto PIXEL_MAP_SIZE = 255;
 
-    constexpr u16 mod[2][4] = // [1] = Y, [1] = X
+    static constexpr u16 mod[2][4] = // [1] = Y, [1] = X
     {
         { 256, 512, 256, 512 },
         { 256, 256, 512, 512 },
@@ -442,10 +441,10 @@ auto get_bg_offset(BGxCNT cnt, auto x) -> u16
 }
 
 template<bool Y> [[nodiscard]] // 0=Y, 1=X
-auto get_bg_offset_affine(BGxCNT cnt, auto x) -> u16
+auto get_bg_offset_affine(const BGxCNT cnt, const auto x) -> u16
 {
     constexpr auto PIXEL_MAP_SIZE = 255;
-    constexpr u16 mod[4] = { 128, 256, 512, 1024 };
+    static constexpr u16 mod[4] = { 128, 256, 512, 1024 };
     static constexpr u16 result[2][4] = // [0] = Y, [1] = X
     {
         { 0x800, 0x800, 0x800, 0x800 },
@@ -460,7 +459,7 @@ auto get_bg_offset_affine(BGxCNT cnt, auto x) -> u16
 
 struct Bgr
 {
-    constexpr Bgr(u16 col) :
+    constexpr Bgr(const u16 col) :
         r{static_cast<u8>(bit::get_range<0, 4>(col))},
         g{static_cast<u8>(bit::get_range<5, 9>(col))},
         b{static_cast<u8>(bit::get_range<10, 14>(col))} {}
@@ -479,7 +478,7 @@ struct Bgr
 // NOTE: don't try to apply the coeff directly to the bgr555 colour, it won't work.
 // have to apply it to each b,g,r value.
 // masking the b,g,r is handled by the bitfield.
-constexpr auto blend_alpha(u16 src, u16 dst, u8 coeff_src, u8 coeff_dst) -> u16
+constexpr auto blend_alpha(const u16 src, const u16 dst, const u8 coeff_src, const u8 coeff_dst) -> u16
 {
     assert(coeff_src <= 16);
     assert(coeff_dst <= 16);
@@ -495,7 +494,7 @@ constexpr auto blend_alpha(u16 src, u16 dst, u8 coeff_src, u8 coeff_dst) -> u16
     return fin_col.pack();
 }
 
-constexpr auto blend_white(u16 col, u8 coeff) -> u16
+constexpr auto blend_white(const u16 col, const u8 coeff) -> u16
 {
     assert(coeff <= 16);
 
@@ -510,7 +509,7 @@ constexpr auto blend_white(u16 col, u8 coeff) -> u16
     return fin_col.pack();
 }
 
-constexpr auto blend_black(u16 col, u8 coeff) -> u16
+constexpr auto blend_black(const u16 col, const u8 coeff) -> u16
 {
     assert(coeff <= 16);
 
@@ -1028,7 +1027,7 @@ auto get_bg_meta(Gba& gba, u8 bg_num) -> BgMeta
     std::unreachable();
 }
 
-auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layer layers = Layer::ALL, bool apply_window = true, bool apply_merge = true) -> void
+auto tile_render(Gba& gba, std::span<BgLine> bg_lines, const Layer layers = Layer::ALL, const bool apply_window = true, const bool apply_merge = true) -> void
 {
     // setup inital windowing (using win0 and win1)
     WindowBounds bounds{};
@@ -1055,7 +1054,7 @@ auto tile_render(Gba& gba, std::span<BgLine> bg_lines, Layer layers = Layer::ALL
     for (auto& line : bg_lines)
     {
         // only render bg if enabled
-        if (is_bg_enabled(gba, line.num) && layers & (1 << line.num))
+        if (is_bg_enabled(gba, line.num) && bit::is_set<u8>(layers, line.num))
         {
             const auto meta = get_bg_meta(gba, line.num);
             line.priority = meta.cnt.Pr;
@@ -1110,13 +1109,13 @@ auto render_mode1(Gba& gba) -> void
 //     assert(!"unsupported mode");
 // }
 
-auto render_mode3(Gba& gba) noexcept -> void
+auto render_mode3(Gba& gba) -> void
 {
     BgLine bg_lines[1]{ {2, RenderType::Bitmap3} };
     tile_render(gba, bg_lines);
 }
 
-auto render_mode4(Gba& gba) noexcept -> void
+auto render_mode4(Gba& gba) -> void
 {
     BgLine bg_lines[1]{ {2, RenderType::Bitmap4} };
     tile_render(gba, bg_lines);

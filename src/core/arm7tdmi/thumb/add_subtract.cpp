@@ -3,10 +3,8 @@
 
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "arm7tdmi/helper.hpp"
-#include "arm7tdmi/barrel_shifter.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include "mem.hpp"
 
 namespace gba::arm7tdmi::thumb {
 namespace {
@@ -16,7 +14,7 @@ template<
     bool I, // 0=reg, 1=imm
     bool Op // 0=ADD, 1=SUB
 >
-auto add_subtract(Gba& gba, u16 opcode) -> void
+auto add_subtract(Gba& gba, const u16 opcode) -> void
 {
     const auto Rn = bit::get_range<6, 8>(opcode); // either reg or imm value
     const auto Rs = bit::get_range<3, 5>(opcode);
@@ -25,7 +23,6 @@ auto add_subtract(Gba& gba, u16 opcode) -> void
     const auto oprand1 = get_reg(gba, Rs);
     const auto oprand2 = I ? Rn : get_reg(gba, Rn);
 
-    // std::printf("[%s] Rd: %u Rn: %u Rs: %u oprand1: 0x%04X oprand2: 0x%04X\n", I ? "SUB" : "ADD", Rd, Rn, Rs, oprand1, oprand2);
     u32 result = 0;
 
     if constexpr(Op) // SUB

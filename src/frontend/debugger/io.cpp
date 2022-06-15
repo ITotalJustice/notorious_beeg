@@ -132,7 +132,7 @@ auto io_int(gba::Gba& gba, T& reg, const char* name) -> void
     {
         max = bit::get_mask<start, end-1, T>() >> start;
         min = -max - 1; // eg, min: -128, max: +127
-        old = bit::sign_extend<(end-start)+1>(old);
+        old = bit::sign_extend<end-start>(old);
     }
     else
     {

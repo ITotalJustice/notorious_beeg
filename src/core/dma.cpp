@@ -51,7 +51,7 @@ struct [[nodiscard]] Registers
     u16 dmacnt_l;
 };
 
-auto get_channel_registers(Gba& gba, u8 channel_num) -> Registers
+auto get_channel_registers(Gba& gba, const u8 channel_num) -> Registers
 {
     switch (channel_num)
     {
@@ -65,7 +65,7 @@ auto get_channel_registers(Gba& gba, u8 channel_num) -> Registers
 }
 
 template<bool Special = false>
-auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
+auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
 {
     const auto len = dma.len;
     // const auto src = dma.src_addr;
@@ -73,7 +73,7 @@ auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
 
     if constexpr(Special)
     {
-        dma.src_addr = mem::align_address<u32>(dma.src_addr);
+        dma.src_addr = mem::align<u32>(dma.src_addr);
 
         for (int i = 0; i < 4; i++)
         {
@@ -113,8 +113,8 @@ auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
         switch (dma.size_type)
         {
             case SizeType::half:
-                dma.src_addr = mem::align_address<u16>(dma.src_addr);
-                dma.dst_addr = mem::align_address<u16>(dma.dst_addr);
+                dma.src_addr = mem::align<u16>(dma.src_addr);
+                dma.dst_addr = mem::align<u16>(dma.dst_addr);
 
                 while (dma.len--)
                 {
@@ -130,8 +130,8 @@ auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
                 break;
 
             case SizeType::word:
-                dma.src_addr = mem::align_address<u32>(dma.src_addr);
-                dma.dst_addr = mem::align_address<u32>(dma.dst_addr);
+                dma.src_addr = mem::align<u32>(dma.src_addr);
+                dma.dst_addr = mem::align<u32>(dma.dst_addr);
 
                 while (dma.len--)
                 {
@@ -176,10 +176,10 @@ auto start_dma(Gba& gba, Channel& dma, u8 channel_num) -> void
     {
         switch (channel_num)
         {
-            case 0: REG_DMA0CNT_H = bit::set<15>(REG_DMA0CNT_H, false); break;
-            case 1: REG_DMA1CNT_H = bit::set<15>(REG_DMA1CNT_H, false); break;
-            case 2: REG_DMA2CNT_H = bit::set<15>(REG_DMA2CNT_H, false); break;
-            case 3: REG_DMA3CNT_H = bit::set<15>(REG_DMA3CNT_H, false); break;
+            case 0: REG_DMA0CNT_H = bit::unset<15>(REG_DMA0CNT_H); break;
+            case 1: REG_DMA1CNT_H = bit::unset<15>(REG_DMA1CNT_H); break;
+            case 2: REG_DMA2CNT_H = bit::unset<15>(REG_DMA2CNT_H); break;
+            case 3: REG_DMA3CNT_H = bit::unset<15>(REG_DMA3CNT_H); break;
         }
         dma.enabled = false;
     }
@@ -213,25 +213,25 @@ auto on_vblank(Gba& gba) -> void
 
 auto on_fifo_empty(Gba& gba, u8 num) -> void
 {
-    auto i = num+1;
+    num++;
 
-    if (i == 1 && gba.dma[i].dst_addr != mem::IO_FIFO_A_L && gba.dma[i].mode == Mode::special)
+    if (num == 1 && gba.dma[num].dst_addr != mem::IO_FIFO_A_L && gba.dma[num].mode == Mode::special)
     {
-        gba_log("addr: 0x%08X\n", gba.dma[i].dst_addr);
+        gba_log("addr: 0x%08X\n", gba.dma[num].dst_addr);
         assert(0);
         return;
     }
-    if (i == 2 && gba.dma[i].dst_addr != mem::IO_FIFO_B_L && gba.dma[i].mode == Mode::special)
+    if (num == 2 && gba.dma[num].dst_addr != mem::IO_FIFO_B_L && gba.dma[num].mode == Mode::special)
     {
-        gba_log("addr: 0x%08X\n", gba.dma[i].dst_addr);
+        gba_log("addr: 0x%08X\n", gba.dma[num].dst_addr);
         assert(0);
         return;
     }
 
-    if (gba.dma[i].enabled && gba.dma[i].mode == Mode::special)
+    if (gba.dma[num].enabled && gba.dma[num].mode == Mode::special)
     {
-        // std::printf("firing dma in fifo: %u\n", i-1);
-        start_dma<true>(gba, gba.dma[i], i); // i think we only handle 1 dma at a time?
+        // std::printf("firing dma in fifo: %u\n", num-1);
+        start_dma<true>(gba, gba.dma[num], num); // i think we only handle 1 dma at a time?
     }
 }
 
@@ -246,7 +246,7 @@ auto on_event(Gba& gba) -> void
     }
 }
 
-auto on_cnt_write(Gba& gba, u8 channel_num) -> void
+auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
 {
     assert(channel_num <= 3);
     const auto [sad, dad, cnt_h, cnt_l] = get_channel_registers(gba, channel_num);

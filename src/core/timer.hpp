@@ -25,10 +25,7 @@ STATIC auto on_timer1_event(Gba& gba) -> void;
 STATIC auto on_timer2_event(Gba& gba) -> void;
 STATIC auto on_timer3_event(Gba& gba) -> void;
 
-STATIC auto on_cnt0_write(Gba& gba, u16 cnt) -> void;
-STATIC auto on_cnt1_write(Gba& gba, u16 cnt) -> void;
-STATIC auto on_cnt2_write(Gba& gba, u16 cnt) -> void;
-STATIC auto on_cnt3_write(Gba& gba, u16 cnt) -> void;
+STATIC auto on_cnt_write(Gba& gba, u8 num) -> void;
 
 STATIC auto update_timer(Gba& gba, Timer& timer) -> void;
 STATIC auto read_timer(Gba& gba, u8 num) -> u16;

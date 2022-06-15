@@ -51,7 +51,7 @@ auto Flash::get_data() const -> std::span<const u8>
     return this->data;
 }
 
-auto Flash::get_manufacturer_id() const -> uint8_t
+auto Flash::get_manufacturer_id() const -> u8
 {
     switch (this->type)
     {
@@ -62,7 +62,7 @@ auto Flash::get_manufacturer_id() const -> uint8_t
     std::unreachable();
 }
 
-auto Flash::get_device_id() const -> uint8_t
+auto Flash::get_device_id() const -> u8
 {
     switch (this->type)
     {

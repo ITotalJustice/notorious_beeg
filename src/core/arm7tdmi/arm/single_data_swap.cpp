@@ -14,7 +14,7 @@ namespace {
 template<
     bool B // 0=word, 1=byte
 >
-auto single_data_swap(Gba& gba, u32 opcode) -> void
+auto single_data_swap(Gba& gba, const u32 opcode) -> void
 {
     const auto Rn = bit::get_range<16, 19>(opcode); // base address
     const auto Rd = bit::get_range<12, 15>(opcode); // dst

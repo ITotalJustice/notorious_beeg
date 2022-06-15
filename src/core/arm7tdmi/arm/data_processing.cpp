@@ -7,6 +7,7 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include <cassert>
+#include <tuple>
 
 namespace gba::arm7tdmi::arm {
 namespace {
@@ -36,7 +37,7 @@ template<
     bool S, // 0=no flags, 1=set flags
     u8 Op2
 >
-auto data_processing(Gba& gba, u32 opcode, u32 oprand1, u32 oprand2, bool new_carry) -> void
+auto data_processing(Gba& gba, const u32 opcode, const u32 oprand1, const u32 oprand2, const bool new_carry) -> void
 {
     constexpr auto Op = static_cast<data_processing_op>(Op2);
     const auto Rd = bit::get_range<12, 15>(opcode);
@@ -100,12 +101,12 @@ auto data_processing(Gba& gba, u32 opcode, u32 oprand1, u32 oprand2, bool new_ca
     else if constexpr(Op == CMP)
     {
         assert(S && "S bit not set in CMP");
-        internal_sub<S>(gba, oprand1, oprand2);
+        std::ignore = internal_sub<S>(gba, oprand1, oprand2);
     }
     else if constexpr(Op == CMN)
     {
         assert(S && "S bit not set in CMN");
-        internal_add<S>(gba, oprand1, oprand2);
+        std::ignore = internal_add<S>(gba, oprand1, oprand2);
     }
     else if constexpr(Op == ORR)
     {
@@ -150,13 +151,13 @@ template<
     bool S, // 0=no flags, 1=set flags
     u8 Op
 >
-auto data_processing_imm(Gba& gba, u32 opcode) -> void
+auto data_processing_imm(Gba& gba, const u32 opcode) -> void
 {
     const auto Rn = bit::get_range<16, 19>(opcode);
     const auto oprand1 = get_reg(gba, Rn);
     const auto imm = bit::get_range<0, 7>(opcode);
     const auto rotate = bit::get_range<8, 11>(opcode) * 2;
-    const auto [oprand2, new_carry] = barrel::shift<barrel::ror>(imm, rotate, CPU.cpsr.C);
+    const auto [oprand2, new_carry] = barrel::shift<barrel::type::ror>(imm, rotate, CPU.cpsr.C);
 
     data_processing<S, Op>(gba, opcode, oprand1, oprand2, new_carry);
 }
@@ -164,14 +165,14 @@ auto data_processing_imm(Gba& gba, u32 opcode) -> void
 template<
     bool S, // 0=no flags, 1=set flags
     u8 Op,
-    u8 shift_type, // see barrel_shifter.hpp
+    barrel::type shift_type, // see barrel_shifter.hpp
     bool reg_shift // 0=shift reg by imm, 1=shift reg by reg
 >
-auto data_processing_reg(Gba& gba, u32 opcode) -> void
+auto data_processing_reg(Gba& gba, const u32 opcode) -> void
 {
     const auto Rn = bit::get_range<16, 19>(opcode);
     auto oprand1 = get_reg(gba, Rn);
-    const auto [oprand2, new_carry] = shift_thing2<shift_type, reg_shift>(gba, opcode, oprand1, Rn);
+    const auto [oprand2, new_carry] = data_processing_reg_shift<shift_type, reg_shift>(gba, opcode, oprand1, Rn);
 
     data_processing<S, Op>(gba, opcode, oprand1, oprand2, new_carry);
 }

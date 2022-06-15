@@ -148,6 +148,10 @@ STATIC_INLINE auto set_reg(Gba& gba, u8 reg, u32 value) -> void;
 STATIC_INLINE auto set_reg_data_processing(Gba& gba, u8 reg, u32 value) -> void;
 STATIC_INLINE auto set_reg_thumb(Gba& gba, u8 reg, u32 value) -> void;
 
+// the pc is aligned based on the new mode.
+// eg, for thumb, pc = new_pc & ~0x1.
+STATIC_INLINE auto change_state(Gba& gba, State new_state, u32 new_pc) -> void;
+
 STATIC_INLINE auto run(Gba& gba) -> void;
 
 // on halt event

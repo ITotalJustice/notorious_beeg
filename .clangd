@@ -46,9 +46,8 @@ CompileFlags:
       -Wno-c++98-compat,
       -Wno-c++98-compat-pedantic,
       -Wno-c++20-compat,
-      # -Wno-missing-braces, # false positive
       -Wno-unused-parameter,
-      -Wno-unused-variable,
+      # -Wno-unused-variable,
       -Wno-conversion,
       -Wno-sign-conversion,
       -Wno-missing-prototypes,

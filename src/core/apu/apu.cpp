@@ -43,7 +43,7 @@ constexpr scheduler::callback CALLBACKS[4] =
 // because of this (and to save pointless sampling)
 // we sample at 65536hz
 constexpr auto SAMPLE_RATE = 65536;
-constexpr auto SAMPLE_TICKS = 280896*60/SAMPLE_RATE;
+constexpr auto SAMPLE_TICKS = 280896 * 60 / SAMPLE_RATE;
 
 constexpr u8 PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
 
@@ -70,21 +70,23 @@ constexpr s8 SQUARE_DUTY_CYCLES[4][8] =
 #endif
 
 // this is used when a channel is triggered
-auto is_next_frame_sequencer_step_not_len(const Gba& gba) -> bool
+[[nodiscard]]
+constexpr auto is_next_frame_sequencer_step_not_len(const Gba& gba) -> bool
 {
     // check if the current counter is the len clock, the next one won't be!
     return APU.frame_sequencer.index & 0x1; // same as below code
 }
 
 // this is used when channels 1,2,4 are triggered
-auto is_next_frame_sequencer_step_vol(const Gba& gba) -> bool
+[[nodiscard]]
+constexpr auto is_next_frame_sequencer_step_vol(const Gba& gba) -> bool
 {
     // check if the current counter is the len clock, the next one won't be!
     return APU.frame_sequencer.index == 7;
 }
 
-template<typename T>
-auto get_channel_from_type(Gba& gba) -> auto&
+template<typename T> [[nodiscard]]
+constexpr auto get_channel_from_type(Gba& gba) -> auto&
 {
     if constexpr(std::is_same<T, Square0>())
     {
@@ -117,12 +119,12 @@ auto get_new_freq(auto& channel) -> u16;
 auto do_freq_calc(Gba& gba, auto& channel, bool update_value) -> void;
 auto update_enabled_flag(auto& channel) -> void;
 
-}
+} // namespace sweep
 
 namespace len {
 
 auto clock(Gba& gba, auto& channel);
-auto trigger(Gba& gba, auto& channel, auto reload);
+auto trigger(Gba& gba, auto& channel, u16 reload);
 auto on_nrx4_edge_case_write(Gba& gba, auto& channel, u8 value);
 
 } // namespace len
@@ -135,16 +137,19 @@ auto write(Gba& gba, auto& channel, u8 value);
 
 } // namespace env
 
+[[nodiscard]]
 auto left_volume(Gba& gba)
 {
     return 1 + bit::get_range<0, 2>(REG_SOUNDCNT_L);
 }
 
+[[nodiscard]]
 auto right_volume(Gba& gba)
 {
     return 1 + bit::get_range<4, 6>(REG_SOUNDCNT_L);
 }
 
+[[nodiscard]]
 auto master_volume(Gba& gba)
 {
     static constexpr s8 vols[4] = { 4, 2, 1, 1 };
@@ -198,6 +203,7 @@ auto sweep::trigger(Gba &gba, auto &channel)
     }
 }
 
+[[nodiscard]]
 auto sweep::get_new_freq(auto& channel) -> u16
 {
     auto& sweep = channel.sweep;
@@ -214,7 +220,7 @@ auto sweep::get_new_freq(auto& channel) -> u16
     }
 }
 
-auto sweep::do_freq_calc(Gba& gba, auto& channel, bool update_value) -> void
+auto sweep::do_freq_calc(Gba& gba, auto& channel, const bool update_value) -> void
 {
     auto& sweep = channel.sweep;
     const auto new_freq = get_new_freq(channel);
@@ -254,7 +260,7 @@ auto len::clock(Gba& gba, auto& channel)
     }
 }
 
-auto len::trigger(Gba& gba, auto& channel, auto reload)
+auto len::trigger(Gba& gba, auto& channel, const u16 reload)
 {
     auto& len = channel.len;
 
@@ -439,7 +445,7 @@ auto clock2(Gba& gba, T& channel)
             channel.clock_lfsr(gba);
         }
     }
-    else // square0 | square1
+    else if constexpr(std::is_same<T, Square0>() || std::is_same<T, Square1>())
     {
         channel.duty_index = (channel.duty_index + 1) % 8;
     }
@@ -464,7 +470,7 @@ auto trigger(Gba& gba, T& channel)
 {
     channel.enable(gba);
 
-    constexpr u16 len_reload[4] = { 64, 64, 256, 64 };
+    static constexpr u16 len_reload[4] = { 64, 64, 256, 64 };
     len::trigger(gba, channel, len_reload[channel.num]);
 
     if constexpr(std::is_same_v<T, Wave>)
@@ -577,7 +583,7 @@ auto on_nrx3_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
     if constexpr(std::is_same<T, Noise>())
     {
         channel.clock_shift = bit::get_range<4, 7>(value);
-        channel.width_mode = bit::is_set<3>(value);
+        channel.half_width_mode = bit::is_set<3>(value);
         channel.divisor_code = bit::get_range<0, 2>(value);
     }
     else
@@ -662,13 +668,13 @@ auto on_wave_mem_write(Gba& gba, u32 addr, u8 value)
 template<u8 Number>
 auto Base<Number>::enable(Gba& gba) -> void
 {
-    REG_SOUNDCNT_X = bit::set<num>(REG_SOUNDCNT_X, true);
+    REG_SOUNDCNT_X = bit::set<num>(REG_SOUNDCNT_X);
 }
 
 template<u8 Number>
 auto Base<Number>::disable(Gba& gba) -> void
 {
-    REG_SOUNDCNT_X = bit::set<num>(REG_SOUNDCNT_X, false);
+    REG_SOUNDCNT_X = bit::unset<num>(REG_SOUNDCNT_X);
     scheduler::remove(gba, EVENTS[Number]);
 }
 
@@ -702,6 +708,18 @@ auto Fifo::size() const -> u8
     return count;
 }
 
+#if 0
+auto Fifo::push(u8 value) -> void
+{
+    buf[w_index] = value;
+    w_index = (w_index + 1) % capacity;
+
+    if (count < capacity)
+    {
+        count++;
+    }
+}
+#else
 auto Fifo::push(u8 value) -> void
 {
     if (count < capacity)
@@ -716,6 +734,7 @@ auto Fifo::push(u8 value) -> void
         // assert(0);
     }
 }
+#endif
 
 auto Fifo::pop() -> s8
 {
@@ -887,7 +906,7 @@ auto Noise::sample(Gba& gba) const -> s8
 auto Noise::get_freq() const -> u32
 {
     // indexed using the noise divisor code
-    constexpr u32 NOISE_DIVISOR[8] = { 8, 16, 32, 48, 64, 80, 96, 112 };
+    static constexpr u32 NOISE_DIVISOR[8] = { 8, 16, 32, 48, 64, 80, 96, 112 };
 
     return (NOISE_DIVISOR[divisor_code] << clock_shift) * 8;
 }
@@ -934,9 +953,6 @@ auto write_legacy8(Gba& gba, u32 addr, u8 value) -> void
         case mem::IO_SOUND4CNT_H + 0: on_nrx3_write(gba, APU.noise, value); break;
         case mem::IO_SOUND4CNT_H + 1: on_nrx4_write(gba, APU.noise, value); break;
 
-            // nr5X are already handled
-        case 0x24: case 0x25: case 0x26: break;
-
         case mem::IO_WAVE_RAM0_L + 0:
         case mem::IO_WAVE_RAM0_L + 1:
         case mem::IO_WAVE_RAM0_H + 0:
@@ -961,85 +977,18 @@ auto write_legacy8(Gba& gba, u32 addr, u8 value) -> void
 // todo: rewrite the nrxx functions so accept 16bit values
 auto write_legacy(Gba& gba, u32 addr, u16 value) -> void
 {
-    // nr52 is always writeable
-    if (addr == mem::IO_SOUNDCNT_X)
-    {
-        on_nr52_write(gba, value);
-        return;
-    }
-    // otherwise ignore writes if apu is disabled
-    else if (!is_apu_enabled(gba))
-    {
-        return;
-    }
-
-    switch (addr)
-    {
-        case mem::IO_SOUND1CNT_L:
-            on_nrx0_write(gba, APU.square0, value);
-            break;
-        case mem::IO_SOUND1CNT_H:
-            on_nrx1_write(gba, APU.square0, value);
-            on_nrx2_write(gba, APU.square0, value >> 8);
-            break;
-        case mem::IO_SOUND1CNT_X:
-            on_nrx3_write(gba, APU.square0, value);
-            on_nrx4_write(gba, APU.square0, value >> 8);
-            break;
-
-        case mem::IO_SOUND2CNT_L:
-            on_nrx1_write(gba, APU.square1, value);
-            on_nrx2_write(gba, APU.square1, value >> 8);
-            break;
-        case mem::IO_SOUND2CNT_H:
-            on_nrx3_write(gba, APU.square1, value);
-            on_nrx4_write(gba, APU.square1, value >> 8);
-            break;
-
-        case mem::IO_SOUND3CNT_L:
-            on_nrx0_write(gba, APU.wave, value);
-            break;
-        case mem::IO_SOUND3CNT_H:
-            on_nrx1_write(gba, APU.wave, value);
-            on_nrx2_write(gba, APU.wave, value >> 8);
-            break;
-        case mem::IO_SOUND3CNT_X:
-            on_nrx3_write(gba, APU.wave, value);
-            on_nrx4_write(gba, APU.wave, value >> 8);
-            break;
-
-        case mem::IO_SOUND4CNT_L:
-            on_nrx1_write(gba, APU.noise, value);
-            on_nrx2_write(gba, APU.noise, value >> 8);
-            break;
-        case mem::IO_SOUND4CNT_H:
-            on_nrx3_write(gba, APU.noise, value);
-            on_nrx4_write(gba, APU.noise, value >> 8);
-            break;
-
-            // nr5X are already handled
-        case 0x24: case 0x25: case 0x26:
-            break;
-
-        case mem::IO_WAVE_RAM0_L:
-        case mem::IO_WAVE_RAM0_H:
-        case mem::IO_WAVE_RAM1_L:
-        case mem::IO_WAVE_RAM1_H:
-        case mem::IO_WAVE_RAM2_L:
-        case mem::IO_WAVE_RAM2_H:
-        case mem::IO_WAVE_RAM3_L:
-        case mem::IO_WAVE_RAM3_H:
-            on_wave_mem_write(gba, addr + 0, value >> 0);
-            on_wave_mem_write(gba, addr + 1, value >> 8);
-            break;
-    }
+    write_legacy8(gba, addr+0, value >> 0);
+    write_legacy8(gba, addr+1, value >> 8);
 }
 
 auto reset(Gba& gba, bool skip_bios) -> void
 {
     gba.apu = {};
 
-    // todo: reset al apu regs properly if skipping bios
+    // on init, all bits of the lfsr are set
+    APU.noise.lfsr = 0x7FFF;
+
+    // todo: reset all apu regs properly if skipping bios
     APU.fifo[0].reset();
     APU.fifo[1].reset();
     scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, SAMPLE_TICKS);
@@ -1057,46 +1006,50 @@ auto FrameSequencer::clock(Gba& gba) -> void
     // return;
     assert(is_apu_enabled(gba) && "clocking fs when apu is disabled");
 
-    switch (index)
+    switch (this->index)
     {
-    case 0: // len
-    case 4:
-        clock_len(gba);
-        break;
+        case 0: // len
+        case 4:
+            clock_len(gba);
+            break;
 
-    case 2: // len, sweep
-    case 6:
-        clock_len(gba);
-        clock_sweep(gba);
-        break;
+        case 2: // len, sweep
+        case 6:
+            clock_len(gba);
+            clock_sweep(gba);
+            break;
 
-    case 7: // vol
-        clock_env(gba);
-        break;
+        case 7: // vol
+            clock_env(gba);
+            break;
     }
 
-    index = (index + 1) % 8;
+    this->index = (this->index + 1) % 8;
 }
 
 auto Noise::clock_lfsr([[maybe_unused]] Gba& gba) -> void
 {
-    const auto bit0 = this->lfsr & 0x1;
-    const auto bit1 = (this->lfsr >> 1) & 0x1;
+    const auto bit0 = bit::is_set<0>(this->lfsr);
+    const auto bit1 = bit::is_set<1>(this->lfsr);
     const auto result = bit1 ^ bit0;
 
     // now we shift the lfsr BEFORE setting the value!
     this->lfsr >>= 1;
 
-    // now set bit 15
-    this->lfsr |= (result << 14);
-
-    // set bit-6 if the width is half-mode
-    if (this->width_mode == 1)
+    // NOTE: i am not 100% sure if this is correct
+    if (result)
     {
-        // unset it first!
-        this->lfsr &= ~(1 << 6);
-        this->lfsr |= (result << 6);
+        if (this->half_width_mode)
+        {
+            this->lfsr = bit::set<6>(this->lfsr); // sets 0x40
+        }
+        else
+        {
+            this->lfsr = bit::set<14>(this->lfsr); // sets 0x4000
+        }
     }
+
+    assert(this->lfsr != 0 && "noise lfsr should never be zero!");
 }
 
 void Wave::advance_position_counter([[maybe_unused]] Gba& gba)
@@ -1136,7 +1089,7 @@ auto sample(Gba& gba)
     // before pushing, assert that this is actuall modes 0-1
     // if not, we are resampling far lower that required
     // and aliasing will happen due to this.
-    [[maybe_unused]] const auto resample_mode = bit::get_range<0xE, 0xF>(REG_SOUNDBIAS);
+    const auto resample_mode = bit::get_range<0xE, 0xF>(REG_SOUNDBIAS);
     assert((resample_mode == 0 || resample_mode == 1) && "resample mode is not currently supported");
 
     s16 sample_left = 0;
@@ -1176,7 +1129,7 @@ auto sample(Gba& gba)
     sample_right += fifo1_sample * APU.fifo[1].enable_right;
 
     // apply bias
-    const s16 bias = bit::get_range<1, 9>(REG_SOUNDBIAS);
+    const auto bias = bit::get_range<1, 9>(REG_SOUNDBIAS);
     sample_left += bias;
     sample_right += bias;
 
@@ -1196,12 +1149,12 @@ auto sample(Gba& gba)
     else
     {
         // the bit-depth differs based on the resample mode
-        constexpr s16 divs[4] = { 2, 3, 4, 5 }; // 9bit, 8bit, 7bit, 6bit
+        static constexpr s16 divs[4] = { 2, 3, 4, 5 }; // 9bit, 8bit, 7bit, 6bit
         sample_left >>= divs[resample_mode];
         sample_right >>= divs[resample_mode];
 
         // we now need to scale to to 16bit range
-        constexpr s16 scales[4] = { 7, 8, 9, 10 }; // 9bit, 8bit, 7bit, 6bit
+        static constexpr s16 scales[4] = { 7, 8, 9, 10 }; // 9bit, 8bit, 7bit, 6bit
         sample_left <<= scales[resample_mode];
         sample_right <<= scales[resample_mode];
     }

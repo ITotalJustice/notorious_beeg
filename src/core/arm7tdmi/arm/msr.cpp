@@ -4,6 +4,7 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
+#include <bit>
 #include <cassert>
 
 // https://problemkaputt.de/gbatek.htm#armopcodespsrtransfermrsmsr
@@ -17,7 +18,7 @@ template<
     bool I, // 0=reg, 1=imm
     bool P  // 0=cpsr, 1=spsr
 >
-auto msr(Gba& gba, u32 opcode) -> void
+auto msr(Gba& gba, const u32 opcode) -> void
 {
     const auto F = bit::is_set<19>(opcode); // write to flags
     const auto C = bit::is_set<16>(opcode); // write to control

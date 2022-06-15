@@ -10,10 +10,10 @@ namespace {
 
 // [4.4]
 template<bool L> // 0=branch, 1=branch with link
-auto branch(Gba& gba, u32 opcode) -> void
+auto branch(Gba& gba, const u32 opcode) -> void
 {
     s32 offset = bit::get_range<0, 23>(opcode) << 2;
-    offset = bit::sign_extend<26>(offset);
+    offset = bit::sign_extend<25>(offset);
     const auto pc = get_pc(gba);
 
     if constexpr(L) // with link

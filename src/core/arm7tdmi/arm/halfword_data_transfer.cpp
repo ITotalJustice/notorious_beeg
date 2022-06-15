@@ -4,20 +4,23 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
+#include "mem.hpp"
+#include <bit>
 #include <cassert>
 
 namespace gba::arm7tdmi::arm {
 namespace {
 
+// [4.10] (LDRH/STRH/LDRSB/LDRSH) page 76
 template<
-    bool P,
-    bool U,
-    bool W,
-    bool L,
-    bool S,
-    bool H
+    bool P, // 0=post, 1=pre
+    bool U, // 0=down, 1=up
+    bool W, // 0=non, 1=write-back addr to base reg
+    bool L, // 0=store, 1=load
+    bool S, // 0=unsigned, 1=signed
+    bool H  // 0=byte, 1=halfword
 >
-auto halfword_data_transfer(Gba& gba, u32 opcode, u32 offset) -> void
+auto halfword_data_transfer(Gba& gba, const u32 opcode, const u32 offset) -> void
 {
     const auto Rd = bit::get_range<12, 15>(opcode);
     const auto Rn = bit::get_range<16, 19>(opcode);
@@ -57,11 +60,11 @@ auto halfword_data_transfer(Gba& gba, u32 opcode, u32 offset) -> void
                 if (addr & 1) [[unlikely]]
                 {
                     result = mem::read8(gba, addr);
-                    result = bit::sign_extend<8>(result);
+                    result = bit::sign_extend<7>(result);
                 }
                 else
                 {
-                    result = bit::sign_extend<16>(result);
+                    result = bit::sign_extend<15>(result);
                 }
             }
             else
@@ -75,7 +78,7 @@ auto halfword_data_transfer(Gba& gba, u32 opcode, u32 offset) -> void
             result = mem::read8(gba, addr);
             if constexpr(S)
             {
-                result = bit::sign_extend<8>(result);
+                result = bit::sign_extend<7>(result);
             }
         }
 
@@ -104,9 +107,8 @@ auto halfword_data_transfer(Gba& gba, u32 opcode, u32 offset) -> void
     }
 }
 
-// [4.10] (LDRH/STRH/LDRSB/LDRSH)
 template<bool P, bool U, bool W, bool L, bool S, bool H>
-auto halfword_data_transfer_register_offset(Gba& gba, u32 opcode) -> void
+auto halfword_data_transfer_register_offset(Gba& gba, const u32 opcode) -> void
 {
     const auto Rm = bit::get_range<0, 3>(opcode);
     const auto offset = get_reg(gba, Rm);
@@ -115,7 +117,7 @@ auto halfword_data_transfer_register_offset(Gba& gba, u32 opcode) -> void
 }
 
 template<bool P, bool U, bool W, bool L, bool S, bool H>
-auto halfword_data_transfer_immediate_offset(Gba& gba, u32 opcode) -> void
+auto halfword_data_transfer_immediate_offset(Gba& gba, const u32 opcode) -> void
 {
     const auto lo = bit::get_range<0, 3>(opcode);
     const auto hi = bit::get_range<8, 11>(opcode);

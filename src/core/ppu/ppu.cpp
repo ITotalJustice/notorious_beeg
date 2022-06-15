@@ -43,7 +43,7 @@ auto update_period_cycles(Gba& gba) -> void
 // this means that this is called during vblank as well
 auto on_hblank(Gba& gba)
 {
-    REG_DISPSTAT = bit::set<1>(REG_DISPSTAT, true);
+    REG_DISPSTAT = bit::set<1>(REG_DISPSTAT);
 
     if (bit::is_set<4>(REG_DISPSTAT))
     {
@@ -65,7 +65,7 @@ auto on_hblank(Gba& gba)
 // called on line 160
 auto on_vblank(Gba& gba)
 {
-    REG_DISPSTAT = bit::set<0>(REG_DISPSTAT, true);
+    REG_DISPSTAT = bit::set<0>(REG_DISPSTAT);
     if (bit::is_set<3>(REG_DISPSTAT))
     {
         arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::VBlank);
@@ -79,14 +79,14 @@ auto on_vblank(Gba& gba)
 }
 
 // called every time vcount is updated
-auto on_vcount_update(Gba& gba, uint16_t new_vcount)
+auto on_vcount_update(Gba& gba, const u16 new_vcount)
 {
     REG_VCOUNT = new_vcount;
     const auto lyc = bit::get_range<8, 15>(REG_DISPSTAT);
 
     if (REG_VCOUNT == lyc)
     {
-        REG_DISPSTAT = bit::set<2>(REG_DISPSTAT, true);
+        REG_DISPSTAT = bit::set<2>(REG_DISPSTAT);
         if (bit::is_set<5>(REG_DISPSTAT))
         {
             arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::VCount);
@@ -94,7 +94,7 @@ auto on_vcount_update(Gba& gba, uint16_t new_vcount)
     }
     else
     {
-        REG_DISPSTAT = bit::set<2>(REG_DISPSTAT, false);
+        REG_DISPSTAT = bit::unset<2>(REG_DISPSTAT);
     }
 }
 
@@ -109,7 +109,7 @@ auto change_period(Gba& gba)
 
         case Period::hblank:
             on_vcount_update(gba, REG_VCOUNT + 1);
-            REG_DISPSTAT = bit::set<1>(REG_DISPSTAT, false);
+            REG_DISPSTAT = bit::unset<1>(REG_DISPSTAT);
             PPU.period = Period::hdraw;
             if (REG_VCOUNT == 160)
             {
@@ -128,7 +128,7 @@ auto change_period(Gba& gba)
             PPU.period = Period::vdraw;
             if (REG_VCOUNT == 227)
             {
-                REG_DISPSTAT = bit::set<0>(REG_DISPSTAT, false);
+                REG_DISPSTAT = bit::unset<0>(REG_DISPSTAT);
             }
             if (REG_VCOUNT == 228)
             {
@@ -148,7 +148,7 @@ auto get_mode(Gba& gba) -> u8
     return bit::get_range<0, 2>(REG_DISPCNT);
 }
 
-auto is_bitmap_mode(Gba & gba) -> bool
+auto is_bitmap_mode(Gba& gba) -> bool
 {
     const auto mode = get_mode(gba);
     return mode == 3 || mode == 4 || mode == 5;

@@ -36,11 +36,10 @@ constexpr scheduler::callback CALLBACKS[4] =
     on_timer3_event,
 };
 
-template<u8 Number>
-auto add_timer_event(Gba& gba, Timer& timer, auto offset) -> void
+auto add_timer_event(Gba& gba, Timer& timer, u8 num, auto offset) -> void
 {
     // don't add timer if cascade is enabled (and not timer0)
-    if (Number != 0 && timer.cascade)
+    if (num != 0 && timer.cascade)
     {
         return;
     }
@@ -49,7 +48,7 @@ auto add_timer_event(Gba& gba, Timer& timer, auto offset) -> void
     assert(value >= 1);
     assert(timer.counter <= 0xFFFF);
     timer.event_time = gba.scheduler.cycles;
-    scheduler::add(gba, EVENTS[Number], CALLBACKS[Number], value + offset);
+    scheduler::add(gba, EVENTS[num], CALLBACKS[num], value + offset);
 }
 
 template<u8 Number>
@@ -88,26 +87,43 @@ auto on_overflow(Gba& gba) -> void
         arm7tdmi::fire_interrupt(gba, INTERRUPT[Number]);
     }
 
-    add_timer_event<Number>(gba, timer, 0);
+    add_timer_event(gba, timer, Number, 0);
 }
 
-template<u8 Number>
-auto on_cnt_write(Gba& gba, u16 cnt) -> void
+auto get_tmxcnt(Gba& gba, const u8 num)
 {
-    constexpr u16 freq_table[4] = {1, 64, 256, 1024};
+    switch (num)
+    {
+        case 0: return REG_TM0CNT;
+        case 1: return REG_TM1CNT;
+        case 2: return REG_TM2CNT;
+        case 3: return REG_TM3CNT;
+    }
 
+    std::unreachable();
+}
+
+} // namespace
+
+auto on_cnt_write(Gba& gba, const u8 num) -> void
+{
+    assert(num <= 3 && "invalid timer");
+
+    static constexpr u16 freq_table[4] = {1, 64, 256, 1024};
+
+    const auto cnt = get_tmxcnt(gba, num);
     const auto F = bit::get_range<0, 1>(cnt); // freq
     const auto C = bit::is_set<2>(cnt); // cascade
     const auto I = bit::is_set<6>(cnt); // irq
     const auto E = bit::is_set<7>(cnt); // enable
 
-    auto& timer = gba.timer[Number];
+    auto& timer = gba.timer[num];
 
     // if timer is enabled, reload
     if (!timer.enable && E)
     {
         #if ENABLE_SCHEDULER == 0
-        switch (Number)
+        switch (num)
         {
             case 0: REG_TM0D = timer.reload; break;
             case 1: REG_TM1D = timer.reload; break;
@@ -127,33 +143,12 @@ auto on_cnt_write(Gba& gba, u16 cnt) -> void
     {
         // searching on emudev discord about timers mention that they
         // have a 2 cycle delay on startup (but not on overflow)
-        add_timer_event<Number>(gba, timer, 2);
+        add_timer_event(gba, timer, num, 2);
     }
     else
     {
-        scheduler::remove(gba, EVENTS[Number]);
+        scheduler::remove(gba, EVENTS[num]);
     }
-}
-} // namespace
-
-auto on_cnt0_write(Gba& gba, u16 cnt) -> void
-{
-    on_cnt_write<0>(gba, cnt);
-}
-
-auto on_cnt1_write(Gba& gba, u16 cnt) -> void
-{
-    on_cnt_write<1>(gba, cnt);
-}
-
-auto on_cnt2_write(Gba& gba, u16 cnt) -> void
-{
-    on_cnt_write<2>(gba, cnt);
-}
-
-auto on_cnt3_write(Gba& gba, u16 cnt) -> void
-{
-    on_cnt_write<3>(gba, cnt);
 }
 
 auto on_timer0_event(Gba& gba) -> void

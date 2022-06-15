@@ -95,7 +95,7 @@ auto on_reset_event(Gba& gba) -> void
 auto find_next_event(Gba& gba, bool fire)
 {
     u32 next_cycles = UINT32_MAX;
-    std::uint8_t index = 0;
+    u8 index = 0;
     bool want_halt = false;
 
     if (fire)

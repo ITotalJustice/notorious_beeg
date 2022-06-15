@@ -4,7 +4,6 @@
 #pragma once
 
 #include "fwd.hpp"
-#include <cstdint>
 #include <span>
 
 namespace gba::backup::eeprom {
@@ -52,8 +51,8 @@ public:
     auto load_data(std::span<const u8> new_data) -> bool;
     [[nodiscard]] auto get_data() const -> std::span<const u8>;
 
-    auto read(Gba& gba, std::uint32_t addr) -> u8;
-    auto write(Gba& gba, std::uint32_t addr, u8 value) -> void;
+    auto read(Gba& gba, u32 addr) -> u8;
+    auto write(Gba& gba, u32 addr, u8 value) -> void;
 
 private:
     auto on_state_change(State new_state) -> void;
