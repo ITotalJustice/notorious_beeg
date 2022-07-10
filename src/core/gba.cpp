@@ -13,9 +13,58 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstring>
 #include <ranges>
+#include <numeric>
 
 namespace gba {
+
+Header::Header(std::span<const u8> rom)
+{
+    if (rom.size() >= sizeof(*this))
+    {
+        std::memcpy(this->raw(), rom.data(), sizeof(*this));
+    }
+}
+
+auto Header::validate_checksum() const -> u8
+{
+    constexpr auto CHECKSUM_OFFSET = 0xA0;
+    constexpr auto CHECKSUM_SIZE = 0x1D;
+
+    const auto check_data = this->span().subspan(CHECKSUM_OFFSET, CHECKSUM_SIZE);
+
+    // perform checksum, sub all entries (with 0xFF wrapping)
+    const auto checksum = std::accumulate(
+        check_data.begin(), check_data.end(),
+        -0x19, std::minus<u8>{}
+    );
+
+    return checksum == this->complement_check;
+}
+
+auto Header::validate_fixed_value() const -> bool
+{
+    constexpr auto FIXED_VALUE = 0x96;
+    return this->fixed_value == FIXED_VALUE;
+}
+
+auto Header::validate_all() const -> bool
+{
+    if (!validate_checksum())
+    {
+        std::printf("failed to validate checksum\n");
+        return false;
+    }
+
+    if (!validate_fixed_value())
+    {
+        std::printf("failed to validate fixed value\n");
+        return false;
+    }
+
+    return true;
+}
 
 auto Gba::reset() -> void
 {
@@ -39,6 +88,14 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
     if (new_rom.size() > sizeof(this->rom))
     {
         assert(!"rom is way too beeg");
+        return false;
+    }
+
+    const Header header{new_rom};
+
+    if (!header.validate_all())
+    {
+        assert(!"rom failed to validate rom header!");
         return false;
     }
 
@@ -139,21 +196,25 @@ auto Gba::setkeys(u16 buttons, bool down) -> void
     }
 }
 
-constexpr auto STATE_MAGIC = 0xFACADE;
-constexpr auto STATE_VERSION = 0x1;
-constexpr auto STATE_SIZE = sizeof(State);
+namespace state {
+
+constexpr auto MAGIC = 0xFACADE;
+constexpr auto VERSION = 0x1;
+constexpr auto SIZE = sizeof(State);
+
+} // namespace state
 
 auto Gba::loadstate(const State& state) -> bool
 {
-    if (state.magic != STATE_MAGIC)
+    if (state.magic != state::MAGIC)
     {
         return false;
     }
-    if (state.version != STATE_VERSION)
+    if (state.version != state::VERSION)
     {
         return false;
     }
-    if (state.size != STATE_SIZE)
+    if (state.size != state::SIZE)
     {
         return false;
     }
@@ -184,9 +245,9 @@ auto Gba::loadstate(const State& state) -> bool
 
 auto Gba::savestate(State& state) const -> bool
 {
-    state.magic = STATE_MAGIC;
-    state.version = STATE_VERSION;
-    state.size = STATE_SIZE;
+    state.magic = state::MAGIC;
+    state.version = state::VERSION;
+    state.size = state::SIZE;
     state.crc = 0;
 
     state.scheduler = this->scheduler;

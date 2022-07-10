@@ -36,6 +36,8 @@ enum Button : u16
 };
 
 struct State;
+struct Header;
+
 using AudioCallback = void(*)(void* user, s16 left, s16 right);
 using VblankCallback = void(*)(void* user, u16 line);
 using HblankCallback = void(*)(void* user, u16 line);
@@ -117,5 +119,48 @@ struct State
     timer::Timer timer[4];
     backup::Backup backup;
 };
+
+struct Header
+{
+    Header() = default;
+    Header(std::span<const u8> rom);
+
+    u32 rom_entry_point{};
+    u8 nintendo_logo[156]{};
+    // uppercase ascii
+    char game_title[12]{};
+    char game_code[4]{};
+    char maker_code[2]{};
+    // this has to be 0x96
+    u8 fixed_value{};
+    // should be 0x00
+    u8 main_unit_code{};
+    u8 device_type{};
+    // should be all zero
+    u8 _reserved_area[7]{};
+    // should be 0
+    u8 software_version{};
+    // header checksum
+    u8 complement_check{};
+    // should be all zero
+    u8 _reserved_area2[2]{};
+
+    [[nodiscard]] auto raw() const { return reinterpret_cast<const u8*>(this); }
+    [[nodiscard]] auto span() const { return std::span{raw(), sizeof(*this)}; }
+
+    [[nodiscard]] auto raw() { return reinterpret_cast<u8*>(this); }
+    [[nodiscard]] auto span() { return std::span{raw(), sizeof(*this)}; }
+
+
+    [[nodiscard]] auto validate_checksum() const -> u8;
+    [[nodiscard]] auto validate_fixed_value() const -> bool;
+    [[nodiscard]] auto validate_all() const -> bool;
+
+};
+
+static_assert(
+    sizeof(Header) == 192,
+    "Header size has changed!"
+);
 
 } // namespace gba
