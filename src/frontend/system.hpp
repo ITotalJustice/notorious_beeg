@@ -86,11 +86,11 @@ struct System
 
     static inline Layer layers[4]{ {TextureID::layer0}, {TextureID::layer1}, {TextureID::layer2}, {TextureID::layer3} };
 
-    #ifdef NDEBUG
+#if DEBUGGER == 0
     static constexpr inline bool debug_mode{false};
-    #else
+#else
     static constexpr inline bool debug_mode{true};
-    #endif
+#endif
 
     static inline bool viewer_io{false};
 

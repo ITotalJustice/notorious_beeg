@@ -50,23 +50,23 @@ auto dumpfile(const std::string& path, std::span<const std::uint8_t> data) -> bo
 auto loadzip(const std::string& path) -> std::vector<std::uint8_t>
 {
     std::vector<std::uint8_t> data;
-    auto zf = unzOpen(path.c_str());
+    auto zf = unzOpen64(path.c_str());
 
     if (zf != nullptr)
     {
-        unz_global_info global_info;
-        if (UNZ_OK == unzGetGlobalInfo(zf, &global_info))
+        unz_global_info64 global_info;
+        if (UNZ_OK == unzGetGlobalInfo64(zf, &global_info))
         {
             bool found = false;
 
-            for (auto i = 0; !found && i < global_info.number_entry; i++)
+            for (std::uint32_t i = 0; !found && i < global_info.number_entry; i++)
             {
                 if (UNZ_OK == unzOpenCurrentFile(zf))
                 {
-                    unz_file_info file_info;
-                    char name[0x304];
+                    unz_file_info64 file_info{};
+                    char name[256]{};
 
-                    if (UNZ_OK == unzGetCurrentFileInfo(zf, &file_info, name, sizeof(name), nullptr, 0, nullptr, 0))
+                    if (UNZ_OK == unzGetCurrentFileInfo64(zf, &file_info, name, sizeof(name), nullptr, 0, nullptr, 0))
                     {
                         if (std::string_view{ name }.ends_with(".gba"))
                         {
@@ -77,6 +77,12 @@ auto loadzip(const std::string& path) -> std::vector<std::uint8_t>
                     }
 
                     unzCloseCurrentFile(zf);
+                }
+
+                // advance to the next file (if there is one)
+                if (i + 1 < global_info.number_entry)
+                {
+                    unzGoToNextFile(zf); // todo: error handling
                 }
             }
         }
@@ -91,6 +97,7 @@ auto loadfile(const std::string& path) -> std::vector<std::uint8_t>
 {
     if (path.ends_with(".zip"))
     {
+        printf("attempting to load via zip\n");
         // load zip
         return loadzip(path);
     }

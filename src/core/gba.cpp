@@ -196,6 +196,16 @@ auto Gba::setkeys(u16 buttons, bool down) -> void
     }
 }
 
+auto Gba::get_render_mode() -> u8
+{
+    return ppu::get_mode(*this);
+}
+
+auto Gba::render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> u8
+{
+    return ppu::render_bg_mode(*this, mode, layer, pixels);
+}
+
 namespace state {
 
 constexpr auto MAGIC = 0xFACADE;

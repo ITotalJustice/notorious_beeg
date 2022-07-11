@@ -7,7 +7,7 @@ Set(FETCHCONTENT_QUIET FALSE)
 
 FetchContent_Declare(imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG        v1.87
+    GIT_TAG        v1.88
     GIT_PROGRESS   TRUE
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
@@ -21,7 +21,6 @@ FetchContent_Declare(imgui_club
     BUILD_COMMAND ""
 )
 
-# todo: use this if minizip is not installed
 FetchContent_Declare(minizip
     GIT_REPOSITORY https://github.com/madler/zlib.git
     GIT_TAG        v1.2.12
@@ -64,6 +63,7 @@ target_link_libraries(notorious_beeg PRIVATE backend)
 set(FOUND_MINIZIP FALSE)
 
 if (VCPKG_TOOLCHAIN)
+    set(DISABLE_INSTALL_TOOLS ON)
     find_package(minizip CONFIG)
     if (DEFINED minizip_FOUND)
         target_link_libraries(notorious_beeg PRIVATE minizip::minizip)

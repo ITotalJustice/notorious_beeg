@@ -84,16 +84,9 @@ struct Gba
     auto set_vblank_callback(VblankCallback cb) { this->vblank_callback = cb; }
     auto set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
 
-    [[nodiscard]] auto get_render_mode() -> u8
-    {
-        return ppu::get_mode(*this);
-    }
-
+    [[nodiscard]] auto get_render_mode() -> u8;
     // returns the priority of the layer
-    [[nodiscard]] auto render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> u8
-    {
-        return ppu::render_bg_mode(*this, mode, layer, pixels);
-    }
+    [[nodiscard]] auto render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> u8;
 
     bool bit_crushing{false};
 

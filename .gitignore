@@ -16,3 +16,4 @@ rewind*
 out/
 imgui.ini
 .vscode
+CMakeUserPresets.json
