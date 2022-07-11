@@ -1,0 +1,12 @@
+{
+    "name": "notorious-beeg",
+    "version-string": "0.0.3",
+    "homepage": "https://github.com/ITotalJustice/notorious_beeg",
+    "description": "gba emulator written in c++23",
+    "license": "GPL-3.0-only",
+    "dependencies": [
+      "sdl2",
+      "zlib",
+      "minizip"
+    ]
+  }

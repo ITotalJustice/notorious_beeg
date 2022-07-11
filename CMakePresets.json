@@ -1,0 +1,38 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "imgui",
+            "displayName": "imgui",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SINGLE_FILE": true
+            }
+        },
+        {
+            "name": "imgui-dev",
+            "displayName": "imgui-dev",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "GBA_DEV": true
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "imgui",
+            "configurePreset": "imgui"
+        },
+        {
+            "name": "imgui-dev",
+            "configurePreset": "imgui-dev"
+        }
+    ]
+}
