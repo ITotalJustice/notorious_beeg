@@ -1174,53 +1174,5 @@ auto on_frame_sequencer_event(Gba& gba) -> void
     scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, APU.frame_sequencer.tick_rate);
 }
 
-#if ENABLE_SCHEDULER == 0
-template<typename T>
-auto clock(Gba& gba, T& channel, u8 cycles)
-{
-    if (channel.is_enabled(gba))
-    {
-        const auto freq = channel.get_freq();
-
-        if (channel.timer > 0 || freq)
-        {
-            channel.timer -= cycles;
-            while (channel.timer <= 0)
-            {
-                assert(freq != 0 && "endless loop in apu");
-                channel.timer += freq;
-                clock2<T>(gba, channel);
-            }
-        }
-    }
-}
-
-auto run(Gba& gba, u8 cycles) -> void
-{
-    if (is_apu_enabled(gba))
-    {
-        clock(gba, APU.square0, cycles);
-        clock(gba, APU.square1, cycles);
-        clock(gba, APU.wave, cycles);
-        clock(gba, APU.noise, cycles);
-
-        // check if we need to tick the frame sequencer!
-        APU.frame_sequencer.cycles += cycles;
-        while (APU.frame_sequencer.cycles >= APU.frame_sequencer.tick_rate)
-        {
-            APU.frame_sequencer.cycles -= APU.frame_sequencer.tick_rate;
-            APU.frame_sequencer.clock(gba);
-        }
-    }
-
-    APU.cycles += cycles;
-    if (APU.cycles >= SAMPLE_TICKS)
-    {
-        APU.cycles -= SAMPLE_TICKS;
-        sample(gba);
-    }
-}
-#endif
-
 #undef APU
 } // namespace gba::apu

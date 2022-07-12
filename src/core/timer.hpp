@@ -30,6 +30,4 @@ STATIC auto on_cnt_write(Gba& gba, u8 num) -> void;
 STATIC auto update_timer(Gba& gba, Timer& timer) -> void;
 STATIC auto read_timer(Gba& gba, u8 num) -> u16;
 
-STATIC auto run(Gba& gba, u8 cycles) -> void;
-
 } // namespace gba::timer

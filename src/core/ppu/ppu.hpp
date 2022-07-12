@@ -39,6 +39,5 @@ STATIC auto is_screen_visible(Gba& gba) -> bool;
 
 STATIC auto on_event(Gba& gba) -> void;
 STATIC auto reset(Gba& gba, bool skip_bios) -> void;
-STATIC auto run(Gba& gba, u8 cycles) -> void;
 
 } // namespace gba::ppu

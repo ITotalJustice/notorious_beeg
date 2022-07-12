@@ -86,6 +86,7 @@ gba emulator witten in c++23.
 - add sprite rendering.
 - add bg layer viewer to frontend.
 - fix interrupts not being enabled in scheduler build on cpsr=spsr and cpsr=u32. see [#54](https://github.com/ITotalJustice/notorious_beeg/issues/54), [#60](https://github.com/ITotalJustice/notorious_beeg/issues/60), [#58](https://github.com/ITotalJustice/notorious_beeg/issues/58) and [#47](https://github.com/ITotalJustice/notorious_beeg/issues/47).
+- remove non-scheduler build.
 
 0.0.1
 - added readme

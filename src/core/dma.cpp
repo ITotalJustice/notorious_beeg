@@ -369,12 +369,8 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
     if (dma.mode == Mode::immediate)
     {
         // dmas are delayed
-        #if ENABLE_SCHEDULER
         // start_dma(gba, dma, channel_num);
         scheduler::add(gba, scheduler::Event::DMA, on_event, 0);
-        #else
-        start_dma(gba, dma, channel_num);
-        #endif
     }
 }
 

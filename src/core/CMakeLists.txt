@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.20.0)
 
 
-# huge speedup, disable if encounter bug
-option(ENABLE_SCHEDULER "huge speedup, but can cause timing bugs" ON)
 # compiler basically inlines everything
 option(SINGLE_FILE "compile everything as a single file" OFF)
 # enable sanitizers
@@ -69,7 +67,6 @@ endif()
 target_compile_definitions(GBA PRIVATE
     GBA_DEBUG=$<BOOL:${GBA_DEBUG}>
     SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
-    ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
 )
 
 set_target_properties(GBA PROPERTIES CXX_STANDARD 23)

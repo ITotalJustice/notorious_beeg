@@ -185,19 +185,6 @@ auto reset(Gba& gba, bool skip_bios) -> void
     }
 }
 
-#if ENABLE_SCHEDULER == 0
-auto run(Gba& gba, u8 cycles) -> void
-{
-    PPU.cycles += cycles;
-
-    if (PPU.cycles >= PPU.period_cycles)
-    {
-        PPU.cycles -= PPU.period_cycles;
-        change_period(gba);
-    }
-}
-#endif
-
 #undef PPU
 
 auto on_event(Gba& gba) -> void

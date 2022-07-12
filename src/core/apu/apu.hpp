@@ -196,6 +196,5 @@ STATIC auto on_frame_sequencer_event(Gba& gba) -> void;
 STATIC auto on_sample_event(Gba& gba) -> void;
 
 STATIC auto reset(Gba& gba, bool skip_bios) -> void;
-STATIC auto run(Gba& gba, u8 cycles) -> void;
 
 } // namespace gba::apu

@@ -122,15 +122,6 @@ auto on_cnt_write(Gba& gba, const u8 num) -> void
     // if timer is enabled, reload
     if (!timer.enable && E)
     {
-        #if ENABLE_SCHEDULER == 0
-        switch (num)
-        {
-            case 0: REG_TM0D = timer.reload; break;
-            case 1: REG_TM1D = timer.reload; break;
-            case 2: REG_TM2D = timer.reload; break;
-            case 3: REG_TM3D = timer.reload; break;
-        }
-        #endif
         timer.counter = timer.reload;
     }
 
@@ -188,9 +179,7 @@ auto update_timer(Gba& gba, Timer& timer) -> void
 auto read_timer(Gba& gba, u8 num) -> u16
 {
     auto& timer = gba.timer[num];
-    #if ENABLE_SCHEDULER == 0
-    return timer.counter;
-    #else
+
     if (!timer.enable)
     {
         return timer.reload;
@@ -204,63 +193,6 @@ auto read_timer(Gba& gba, u8 num) -> u16
         update_timer(gba, timer);
         return timer.counter;
     }
-    #endif
 }
-
-#if ENABLE_SCHEDULER == 0
-// returns true if overflowed
-template<u8 Number>
-static auto tick(Gba& gba, u16& data, u8 cycles)
-{
-    auto& timer = gba.timer[Number];
-
-    const auto func = [&]()
-    {
-        data++;
-        if (data == 0)
-        {
-            if constexpr(Number == 0)
-            {
-                // std::printf("[timer0] overflow at %u\n", gba.scheduler.cycles);
-            }
-            data = timer.reload;
-            on_overflow<Number>(gba);
-        }
-    };
-
-    // check if enabled, return early if disabled
-    if (!timer.enable)
-    {
-        return;
-    }
-
-    if (timer.cascade)
-    {
-        return;
-    }
-
-    timer.cycles += cycles;
-
-    if (timer.cycles >= timer.freq)
-    {
-        while (timer.cycles >= timer.freq)
-        {
-            timer.cycles -= timer.freq;
-            func();
-        }
-        timer.cycles = 0;
-    }
-
-    return;
-}
-
-auto run(Gba& gba, u8 cycles) -> void
-{
-    tick<0>(gba, REG_TM0D, cycles);
-    tick<1>(gba, REG_TM1D, cycles);
-    tick<2>(gba, REG_TM2D, cycles);
-    tick<3>(gba, REG_TM3D, cycles);
-}
-#endif
 
 } // namespace gba::timer

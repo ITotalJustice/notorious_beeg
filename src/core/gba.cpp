@@ -314,7 +314,6 @@ auto Gba::getsave() const -> std::span<const u8>
     std::unreachable();
 }
 
-#if ENABLE_SCHEDULER
 static auto on_frame_event(Gba& gba)
 {
     gba.scheduler.frame_end = true;
@@ -344,26 +343,5 @@ auto Gba::run(u32 _cycles) -> void
         }
     }
 }
-#else
-auto Gba::run(u32 _cycles) -> void
-{
-    auto& gba = *this;
-
-    while (this->scheduler.cycles < _cycles) [[likely]]
-    {
-        this->scheduler.elapsed = 0;
-
-        arm7tdmi::run(gba);
-
-        this->scheduler.cycles += this->scheduler.elapsed;
-
-        ppu::run(gba, this->scheduler.elapsed);
-        apu::run(gba, this->scheduler.elapsed);
-        timer::run(gba, this->scheduler.elapsed);
-    }
-
-    this->scheduler.cycles -= _cycles;
-}
-#endif
 
 } // namespace gba

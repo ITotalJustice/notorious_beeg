@@ -203,21 +203,6 @@ auto on_interrupt(Gba& gba)
     exception(gba, Exception::IRQ);
 }
 
-#if ENABLE_SCHEDULER == 0
-auto poll_interrupts(Gba& gba) -> void
-{
-    if (REG_IE & REG_IF & 0b11'1111'1111'1111)
-    {
-        CPU.halted = false;
-
-        if (REG_IME&1 && !CPU.cpsr.I)
-        {
-            on_interrupt(gba);
-        }
-    }
-}
-#endif
-
 } // namespace
 
 auto reset(Gba& gba, const bool skip_bios) -> void
@@ -605,16 +590,6 @@ auto on_halt_trigger(Gba& gba, const HaltType type) -> void
 
 auto run(Gba& gba) -> void
 {
-    #if ENABLE_SCHEDULER == 0
-    poll_interrupts(gba);
-
-    if (CPU.halted) [[unlikely]]
-    {
-        gba.scheduler.tick(1);
-        return;
-    }
-    #endif
-
     // get which state (ARM, THUMB) we are in
     switch (get_state(gba))
     {
