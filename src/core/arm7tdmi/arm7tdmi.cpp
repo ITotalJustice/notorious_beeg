@@ -107,6 +107,8 @@ auto set_psr_from_u32(Gba& gba, Psr& psr, u32 value, const bool flag_write, cons
         psr.I = bit::is_set<7>(value);
         psr.T = bit::is_set<5>(value);
         psr.M = bit::get_range<0, 4>(value);
+
+        schedule_interrupt(gba); // I may now be unset, enabling interrupts
     }
 }
 
@@ -403,6 +405,7 @@ auto load_spsr_into_cpsr(Gba& gba) -> void
     {
         CPU.cpsr = CPU.spsr;
         change_mode(gba, old_mode, new_mode);
+        schedule_interrupt(gba); // I may now be unset, enabling interrupts
     }
 }
 
@@ -539,6 +542,7 @@ auto fire_interrupt(Gba& gba, const Interrupt i) -> void
 auto disable_interrupts(Gba& gba) -> void
 {
     CPU.cpsr.I = true; // 1=off
+    scheduler::remove(gba, scheduler::Event::INTERRUPT);
 }
 
 auto on_interrupt_event(Gba& gba) -> void
