@@ -20,6 +20,7 @@ else ()
         bios.cpp
         bios_hle.cpp
         scheduler.cpp
+        rtc.cpp
 
         backup/backup.cpp
         backup/eeprom.cpp

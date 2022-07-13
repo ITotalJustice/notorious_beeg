@@ -11,6 +11,7 @@
 #include "timer.hpp"
 #include "scheduler.hpp"
 #include "backup/backup.hpp"
+#include "gpio.hpp"
 #include "fwd.hpp"
 #include <span>
 #include <string_view>
@@ -52,6 +53,7 @@ struct Gba
     dma::Channel dma[4];
     timer::Timer timer[4];
     backup::Backup backup;
+    gpio::Gpio gpio;
 
     // these are not not part of the mem struct because we do not
     // want to savestate this :harold:
@@ -99,7 +101,7 @@ struct Gba
 struct State
 {
     u32 magic; // 0xFACADE
-    u32 version; // 0x1
+    u32 version; // 0x2
     u32 size; // size of state struct
     u32 crc; // crc of game
 
@@ -111,6 +113,7 @@ struct State
     dma::Channel dma[4];
     timer::Timer timer[4];
     backup::Backup backup;
+    gpio::Gpio gpio;
 };
 
 struct Header

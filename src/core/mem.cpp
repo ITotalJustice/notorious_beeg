@@ -435,7 +435,7 @@ constexpr auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
             const auto old_value = REG_WSCNT;
             const auto new_value = value;
 
-            std::printf("[IO_WSCNT] 0x%04X\n", value);
+            // std::printf("[IO_WSCNT] 0x%04X\n", value);
             REG_WSCNT = value;
 
             if (old_value != new_value)
@@ -806,6 +806,70 @@ constexpr auto write_oam_region(Gba& gba, const u32 addr, const T value) -> void
     }
 }
 
+template<typename T>
+constexpr auto read_gpio(Gba& gba, const u32 addr) -> T
+{
+    assert(gba.gpio.rw && "this handler should only be called when gpio is rw");
+
+    switch (addr)
+    {
+        case 0x80000C4: // I/O Port Data (rw or W)
+            return gba.gpio.data & gba.gpio.read_mask;
+
+        case 0x80000C6: // I/O Port Direction (rw or W)
+            return gba.gpio.write_mask; // remember we modify the rmask
+
+        case 0x80000C8: // I/O Port Control (rw or W)
+            return gba.gpio.rw;
+
+        default:
+            return read_array<T>(gba.rom, ROM_MASK, addr);
+    }
+}
+
+template<typename T>
+constexpr auto write_gpio(Gba& gba, const u32 addr, const T value)
+{
+    switch (addr)
+    {
+        case 0x80000C4: // I/O Port Data (rw or W)
+            // std::printf("[GPIO] data: 0x%02X\n", value);
+            gba.gpio.data = value & gba.gpio.write_mask;
+            gba.gpio.rtc.write(gba, addr, value & gba.gpio.write_mask);
+            // gba.gpio.data = value & gba.gpio.write_mask;
+            break;
+
+        case 0x80000C6: // I/O Port Direction (rw or W)
+            // std::printf("[GPIO] direction: 0x%02X\n", value);
+            // the direction port acts as a mask for r/w bits
+            // bitX = 0, read only (in)
+            // bitX = 1, write only (out)
+            gba.gpio.read_mask = bit::get_range<0, 4>(~value);
+            gba.gpio.write_mask = bit::get_range<0, 4>(value);
+            break;
+
+        case 0x80000C8: // I/O Port Control (rw or W)
+            gba.gpio.rw = bit::is_set<0>(value);
+
+            std::printf("[GPIO] control: %s\n", gba.gpio.rw ? "rw" : "w only");
+            if (gba.gpio.rw)
+            {
+                // for speed, unmap the rom from [0x8]
+                // this will cause the function ptr handler to be called instead
+                // which will handle the reads to gpio and rom
+                MEM.rmap_32[0x8] = MEM.rmap_16[0x8] = MEM.rmap_8[0x8] = {};
+            }
+            else
+            {
+                // gpio is now write only
+                // remap rom array for faster reads
+                std::printf("unammped rom handler\n");
+                MEM.rmap_32[0x8] = MEM.rmap_16[0x8] = MEM.rmap_8[0x8] = {gba.rom, ROM_MASK};
+            }
+            break;
+    }
+}
+
 // https://github.com/mgba-emu/mgba/issues/743 (thanks endrift)
 [[nodiscard]]
 constexpr auto is_vram_dma_overflow_bug(Gba& gba, const u32 addr)
@@ -1023,7 +1087,7 @@ constexpr ReadFunction<T> READ_FUNCTION[0x10] =
     /*[0x5] =*/ read_pram_region<T>,
     /*[0x6] =*/ read_vram_region<T>,
     /*[0x7] =*/ read_oam_region<T>,
-    /*[0x8] =*/ openbus, // todo: add this
+    /*[0x8] =*/ read_gpio, // called when gpio is rw (w only default)
     /*[0x9] =*/ openbus, // todo: add this
     /*[0xA] =*/ openbus, // todo: add this
     /*[0xB] =*/ openbus, // todo: add this
@@ -1044,7 +1108,7 @@ constexpr WriteFunction<T> WRITE_FUNCTION[0x10] =
     /*[0x5] =*/ write_pram_region<T>,
     /*[0x6] =*/ write_vram_region<T>,
     /*[0x7] =*/ write_oam_region<T>,
-    /*[0x8] =*/ empty_write,
+    /*[0x8] =*/ write_gpio,
     /*[0x9] =*/ empty_write,
     /*[0xA] =*/ empty_write,
     /*[0xB] =*/ empty_write,
@@ -1081,6 +1145,12 @@ auto setup_tables(Gba& gba) -> void
     MEM.wmap_16[0x3] = {gba.mem.iwram, IWRAM_MASK};
     // MEM.wmap_16[0x5] = {gba.mem.pram, PRAM_MASK};
     // MEM.wmap_16[0x7] = {gba.mem.oam, OAM_MASK};
+
+    // unmap rom array from 0x8 and let the func fallback handle it
+    if (gba.gpio.rw)
+    {
+        MEM.rmap_16[0x8] = {};
+    }
 
     // this will be handled by the function handlers
     if (gba.backup.type == backup::Type::EEPROM)

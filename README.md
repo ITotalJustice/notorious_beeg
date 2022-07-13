@@ -50,6 +50,8 @@ gba emulator witten in c++23.
 - force bit4 of psr to be set. fixes [#44](https://github.com/ITotalJustice/notorious_beeg/issues/44)
 - constify most of the code.
 - start cpu in supervisor mode.
+- fix interrupts not being enabled in scheduler build on cpsr=spsr and cpsr=u32. see [#54](https://github.com/ITotalJustice/notorious_beeg/issues/54), [#60](https://github.com/ITotalJustice/notorious_beeg/issues/60), [#58](https://github.com/ITotalJustice/notorious_beeg/issues/58) and [#47](https://github.com/ITotalJustice/notorious_beeg/issues/47).
+- add rtc support [#36](https://github.com/ITotalJustice/notorious_beeg/issues/36).
 
 0.0.2
 - fixed neg flags being treated as logical flags, rather instead of sub. fixes [#1](https://github.com/ITotalJustice/notorious_beeg/issues/1)
@@ -85,8 +87,6 @@ gba emulator witten in c++23.
 - add imgui frontend.
 - add sprite rendering.
 - add bg layer viewer to frontend.
-- fix interrupts not being enabled in scheduler build on cpsr=spsr and cpsr=u32. see [#54](https://github.com/ITotalJustice/notorious_beeg/issues/54), [#60](https://github.com/ITotalJustice/notorious_beeg/issues/60), [#58](https://github.com/ITotalJustice/notorious_beeg/issues/58) and [#47](https://github.com/ITotalJustice/notorious_beeg/issues/47).
-- remove non-scheduler build.
 
 0.0.1
 - added readme
@@ -120,6 +120,8 @@ gba emulator witten in c++23.
 ## done
 - arm
 - thumb
+- ppu mode 0
+- ppu mode 1
 - ppu mode 3
 - ppu mode 4
 - apu (mostly, write only regs, no apu disabled, wrong fifo)
@@ -127,15 +129,22 @@ gba emulator witten in c++23.
 - timers (mostly, no cascade)
 - eeprom
 - sram
+- rtc
 
 ## not impl
 - dma3 special
 - unused bits
 - unused region read
 - bios read (when pc is not in bios)
-- delayed dma
 - proper r/w timing access
 - proper fifo <https://github.com/mgba-emu/mgba/issues/1847>
+- obj in obj window
+- obj not in obj window
+- bg affine
+- obj affine
+- obj mosaic
+- window wrapping
+- obj 4bpp
 
 ## misc
 - doom runs at 13k fps (title) 800 fps (in-game)
@@ -186,3 +195,5 @@ gba emulator witten in c++23.
 - ocornut for imgui_club <https://github.com/ocornut/imgui_club>
 - everyone that has contributed to the bios decomp <https://github.com/Gericom/gba_bios>
 - xproger for openlara (fixed several bugs in my emu) <https://github.com/XProger/OpenLara>
+- zayd for info on rtc <https://beanmachine.alt.icu/post/rtc/>
+- pokeemerald for a being a good reference <https://github.com/pret/pokeemerald>

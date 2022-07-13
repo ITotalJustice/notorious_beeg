@@ -272,4 +272,62 @@ static_assert(
     "bit::set is broken!"
 );
 
+// reverses the bits
+template<IntV T> [[nodiscard]]
+constexpr auto reverse(const T data)
+{
+    constexpr auto bit_width = sizeof(T) * 8;
+    T output{};
+
+    for (std::size_t i = 0; i < bit_width; i++)
+    {
+        output |= bit::is_set(data, bit_width - 1 - i) << i;
+    }
+
+    return output;
+}
+
+// same as above but without a loop (recursion is compile-time only)
+template<IntV T, u8 Counter = 0> [[nodiscard]]
+constexpr auto reverse2(const T data, T output = 0)
+{
+    constexpr auto bit_width = sizeof(T) * 8;
+
+    if constexpr (Counter == bit_width)
+    {
+        return output;
+    }
+    else
+    {
+        const auto result = bit::is_set<bit_width - 1 - Counter>(data);
+        output = bit::set<Counter>(output, result);
+        return reverse2<T, Counter + 1>(data, output);
+    }
+}
+
+static_assert(
+    bit::reverse<u8>(0b0000'0001) == 0b1000'0000 &&
+    bit::reverse<u8>(0b1000'0000) == 0b0000'0001 &&
+
+    bit::reverse<u8>(0b0000'1111) == 0b1111'0000 &&
+    bit::reverse<u8>(0b1111'0000) == 0b0000'1111 &&
+
+    bit::reverse<u8>(0b0000'0110) == 0b0110'0000 &&
+    bit::reverse<u8>(0b0110'0000) == 0b0000'0110,
+
+    "bit::reverse is broken!"
+);
+
+static_assert(
+    bit::reverse2<u8>(0b0000'0001) == 0b1000'0000 &&
+    bit::reverse2<u8>(0b1000'0000) == 0b0000'0001 &&
+
+    bit::reverse2<u8>(0b0000'1111) == 0b1111'0000 &&
+    bit::reverse2<u8>(0b1111'0000) == 0b0000'1111 &&
+
+    bit::reverse2<u8>(0b0000'0110) == 0b0110'0000 &&
+    bit::reverse2<u8>(0b0110'0000) == 0b0000'0110,
+
+    "bit::reverse2 is broken!"
+);
 } // namespace bit

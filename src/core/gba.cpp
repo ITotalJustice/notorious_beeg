@@ -209,7 +209,7 @@ auto Gba::render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> u8
 namespace state {
 
 constexpr auto MAGIC = 0xFACADE;
-constexpr auto VERSION = 0x1;
+constexpr auto VERSION = 0x2;
 constexpr auto SIZE = sizeof(State);
 
 } // namespace state
@@ -247,6 +247,8 @@ auto Gba::loadstate(const State& state) -> bool
     this->timer[2] = state.timer[2];
     this->timer[3] = state.timer[3];
     this->backup = state.backup;
+    this->gpio = state.gpio;
+
     mem::setup_tables(*this);
     scheduler::on_loadstate(*this);
 
@@ -274,6 +276,7 @@ auto Gba::savestate(State& state) const -> bool
     state.timer[2] = this->timer[2];
     state.timer[3] = this->timer[3];
     state.backup = this->backup;
+    state.gpio = this->gpio;
 
     return true;
 }
