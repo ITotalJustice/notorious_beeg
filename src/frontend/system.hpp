@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <string>
 #include <chrono>
+#include <rewind.h>
 
 namespace sys {
 
@@ -51,6 +52,8 @@ struct System
 
     static inline Rect emu_rect{};
 
+    static inline Rewind rw;
+
     // used for padding the size of the window to fit both the
     // menubar and the emu screen.
     static inline int menubar_height{0};
@@ -65,6 +68,8 @@ struct System
     static inline bool show_debug_window{false};
     static inline bool show_demo_window{false};
     static inline bool show_menubar{true};
+    static inline bool enabled_rewind{false};
+    static inline bool emu_rewind{false};
     // inputs are ignored if not pressed inside window
     static inline bool inside_emu_window{true};
 
@@ -76,7 +81,7 @@ struct System
 
     struct Layer
     {
-        Layer(TextureID i) : id{i} {};
+        Layer(TextureID i) : id{i} {}
 
         const TextureID id;
         uint16_t pixels[160][240];

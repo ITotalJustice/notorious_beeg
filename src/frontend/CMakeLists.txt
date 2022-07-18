@@ -29,6 +29,15 @@ FetchContent_Declare(minizip
     BUILD_COMMAND ""
 )
 
+SET(COMPRESSOR_ZLIB ON)
+
+FetchContent_Declare(rewind
+    GIT_REPOSITORY https://github.com/ITotalJustice/librewind.git
+    GIT_TAG        master
+    GIT_PROGRESS   TRUE
+)
+
+FetchContent_MakeAvailable(rewind)
 FetchContent_MakeAvailable(imgui)
 FetchContent_MakeAvailable(imgui_club)
 
@@ -59,6 +68,10 @@ add_executable(notorious_beeg
 target_link_libraries(notorious_beeg PRIVATE GBA)
 target_link_libraries(notorious_beeg PRIVATE imgui imgui_club)
 target_link_libraries(notorious_beeg PRIVATE backend)
+target_link_libraries(notorious_beeg PRIVATE
+    rewind
+    compressor_zlib
+)
 
 set(FOUND_MINIZIP FALSE)
 

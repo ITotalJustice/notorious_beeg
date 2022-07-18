@@ -3,7 +3,6 @@
 
 #include "system.hpp"
 #include "debugger/io.hpp"
-#include "gba.hpp"
 #include "trim_font.hpp"
 #include "icon.hpp"
 
@@ -21,6 +20,10 @@
 
 #include <imgui.h>
 #include <imgui_memory_editor.h>
+
+#include <gba.hpp>
+#include <rewind.h>
+#include <compressor_zlib.h>
 
 #include "backend/sdl2/backend_sdl2.hpp"
 
@@ -399,7 +402,33 @@ auto System::run_emu() -> void
 {
     if (emu_run)
     {
-        gameboy_advance.run();
+        if (enabled_rewind && emu_rewind)
+        {
+            gba::State state;
+            if (rewind_pop(&System::rw, &state, sizeof(state)))
+            {
+                if (gameboy_advance.loadstate(state))
+                {
+                }
+            }
+        }
+        else
+        {
+            gameboy_advance.run();
+
+            // save once every other frame, looks better when rewinding
+            // todo: have slider for this in gui
+            static size_t a = 0;
+            if (enabled_rewind && !emu_rewind && a & 1)
+            {
+                gba::State state;
+                if (gameboy_advance.savestate(state))
+                {
+                    rewind_push(&System::rw, &state, sizeof(state));
+                }
+            }
+            a++;
+        }
     }
 }
 
@@ -478,8 +507,20 @@ auto System::menubar_tab_emulation() -> void
     }
     ImGui::Separator();
 
-    if (ImGui::MenuItem("Fast Forward")) {}
-    if (ImGui::MenuItem("Rewind")) {}
+    if (ImGui::MenuItem("Rewind Enabled", nullptr, &enabled_rewind))
+    {
+        if (enabled_rewind)
+        {
+            constexpr auto rewind_time = 60*60*10; // 10mins
+            rewind_init(&System::rw, compressor_zlib, compressor_zlib_size, rewind_time);
+        }
+        else
+        {
+            rewind_close(&System::rw);
+            emu_rewind = false;
+        }
+    }
+    if (ImGui::MenuItem("Rewind", "Ctrl+R", &emu_rewind, enabled_rewind)) {}
 }
 
 auto System::menubar_tab_options() -> void

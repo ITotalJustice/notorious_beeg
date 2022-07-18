@@ -95,6 +95,13 @@ auto on_key_event(const SDL_KeyboardEvent& e) -> void
                     System::emu_run ^= 1;
                     break;
 
+                case SDL_SCANCODE_R:
+                    if (System::enabled_rewind)
+                    {
+                        System::emu_rewind ^= 1;
+                    }
+                    break;
+
                 case SDL_SCANCODE_S:
                     System::savestate(System::rom_path);
                     break;

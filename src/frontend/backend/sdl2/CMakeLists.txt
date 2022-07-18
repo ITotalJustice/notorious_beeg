@@ -19,6 +19,7 @@ find_package(SDL2 CONFIG REQUIRED)
 target_link_libraries(backend PRIVATE imgui)
 target_link_libraries(backend PRIVATE SDL2::SDL2)
 target_link_libraries(backend PRIVATE GBA)
+target_link_libraries(backend PRIVATE rewind) # todo: remove this
 
 set_target_properties(backend PROPERTIES CXX_STANDARD 23)
 
