@@ -58,180 +58,194 @@ struct Mem
     alignas(u32) u8 imc[4];
 };
 
+enum GeneralInternalMemory
+{
+    BIOS_MASK  = 0x00003FFF,
+    EWRAM_MASK = 0x0003FFFF,
+    IWRAM_MASK = 0x00007FFF,
+    IO_MASK    = 0x3FF,
 
-// General Internal Memory
-constexpr auto BIOS_MASK    = 0x00003FFF;
-constexpr auto EWRAM_MASK   = 0x0003FFFF;
-constexpr auto IWRAM_MASK   = 0x00007FFF;
-constexpr auto IO_MASK      = 0x3FF;
-// Internal Display Memory
-constexpr auto PRAM_MASK    = 0x000003FF;
-constexpr auto VRAM_MASK    = 0x0001FFFF;
-constexpr auto OAM_MASK     = 0x000003FF;
-// External Memory (Game Pak)
-constexpr auto ROM_MASK     = 0x01FFFFFF;
+    BIOS_SIZE  = BIOS_MASK + 1,
+    EWRAM_SIZE = EWRAM_MASK + 1,
+    IWRAM_SIZE = IWRAM_MASK + 1,
+    IO_SIZE    = IO_MASK + 1,
+};
 
-// General Internal Memory
-[[maybe_unused]] constexpr auto BIOS_SIZE   = BIOS_MASK + 1;
-[[maybe_unused]] constexpr auto EWRAM_SIZE  = EWRAM_MASK + 1;
-[[maybe_unused]] constexpr auto IWRAM_SIZE  = IWRAM_MASK + 1;
-[[maybe_unused]] constexpr auto IO_SIZE     = IO_MASK + 1;
-// Internal Display Memory
-[[maybe_unused]] constexpr auto PRAM_SIZE   = PRAM_MASK + 1;
-[[maybe_unused]] constexpr auto VRAM_SIZE   = 0x00017FFF + 1;
-[[maybe_unused]] constexpr auto OAM_SIZE    = OAM_MASK + 1;
-// External Memory (Game Pak)
-[[maybe_unused]] constexpr auto ROM_SIZE    = ROM_MASK + 1;
+enum InternalDisplayMemory
+{
+    PRAM_MASK = 0x000003FF,
+    VRAM_MASK = 0x0001FFFF,
+    OAM_MASK  = 0x000003FF,
 
+    PRAM_SIZE = PRAM_MASK + 1,
+    VRAM_SIZE = 0x00017FFF + 1,
+    OAM_SIZE  = OAM_MASK + 1,
+};
 
-constexpr auto IO_DISPCNT = 0x04000000;
-constexpr auto IO_DISPSTAT = 0x04000004;
-constexpr auto IO_VCOUNT = 0x04000006;
+enum ExternalMemory // (Game Pak)
+{
+    ROM_MASK = 0x01FFFFFF,
+    ROM_SIZE = ROM_MASK + 1,
+};
 
-constexpr auto IO_BG0CNT = 0x04000008;
-constexpr auto IO_BG1CNT = 0x0400000A;
-constexpr auto IO_BG2CNT = 0x0400000C;
-constexpr auto IO_BG3CNT = 0x0400000E;
+enum GPIOAddr
+{
+    GPIO_DATA = 0x80000C4,
+    GPIO_DIRECTION = 0x80000C6,
+    GPIO_CONTROL = 0x80000C8,
+};
 
-constexpr auto IO_BG0HOFS = 0x04000010; // (w)
-constexpr auto IO_BG0VOFS = 0x04000012; // (w)
-constexpr auto IO_BG1HOFS = 0x04000014; // (w)
-constexpr auto IO_BG1VOFS = 0x04000016; // (w)
-constexpr auto IO_BG2HOFS = 0x04000018; // (w)
-constexpr auto IO_BG2VOFS = 0x0400001A; // (w)
-constexpr auto IO_BG3HOFS = 0x0400001C; // (w)
-constexpr auto IO_BG3VOFS = 0x0400001E; // (w)
+enum IOAddr
+{
+    IO_DISPCNT = 0x04000000,
+    IO_DISPSTAT = 0x04000004,
+    IO_VCOUNT = 0x04000006,
 
-constexpr auto IO_BG2PA = 0x04000020; // (w)
-constexpr auto IO_BG2PB = 0x04000022; // (w)
-constexpr auto IO_BG2PC = 0x04000024; // (w)
-constexpr auto IO_BG2PD = 0x04000026; // (w)
-constexpr auto IO_BG2X = 0x04000028; // (w)
-constexpr auto IO_BG2Y = 0x0400002C; // (w)
+    IO_BG0CNT = 0x04000008,
+    IO_BG1CNT = 0x0400000A,
+    IO_BG2CNT = 0x0400000C,
+    IO_BG3CNT = 0x0400000E,
 
-constexpr auto IO_BG3PA = 0x04000030; // (w)
-constexpr auto IO_BG3PB = 0x04000032; // (w)
-constexpr auto IO_BG3PC = 0x04000034; // (w)
-constexpr auto IO_BG3PD = 0x04000036; // (w)
-constexpr auto IO_BG3X = 0x04000038; // (w)
-constexpr auto IO_BG3Y = 0x0400003C; // (w)
+    IO_BG0HOFS = 0x04000010, // (w)
+    IO_BG0VOFS = 0x04000012, // (w)
+    IO_BG1HOFS = 0x04000014, // (w)
+    IO_BG1VOFS = 0x04000016, // (w)
+    IO_BG2HOFS = 0x04000018, // (w)
+    IO_BG2VOFS = 0x0400001A, // (w)
+    IO_BG3HOFS = 0x0400001C, // (w)
+    IO_BG3VOFS = 0x0400001E, // (w)
 
-constexpr auto IO_BG2X_LO = 0x04000028; // (w)
-constexpr auto IO_BG2X_HI = 0x0400002A; // (w)
-constexpr auto IO_BG2Y_LO = 0x0400002C; // (w)
-constexpr auto IO_BG2Y_HI = 0x0400002E; // (w)
-constexpr auto IO_BG3X_LO = 0x04000038; // (w)
-constexpr auto IO_BG3X_HI = 0x0400003A; // (w)
-constexpr auto IO_BG3Y_LO = 0x0400003C; // (w)
-constexpr auto IO_BG3Y_HI = 0x0400003E; // (w)
+    IO_BG2PA = 0x04000020, // (w)
+    IO_BG2PB = 0x04000022, // (w)
+    IO_BG2PC = 0x04000024, // (w)
+    IO_BG2PD = 0x04000026, // (w)
+    IO_BG2X = 0x04000028, // (w)
+    IO_BG2Y = 0x0400002C, // (w)
 
-constexpr auto IO_WIN0H = 0x4000040; // (w)
-constexpr auto IO_WIN1H = 0x4000042; // (w)
-constexpr auto IO_WIN0V = 0x4000044; // (w)
-constexpr auto IO_WIN1V = 0x4000046; // (w)
-constexpr auto IO_WININ = 0x4000048; // (r+w)
-constexpr auto IO_WINOUT = 0x400004A; // (r+w)
+    IO_BG3PA = 0x04000030, // (w)
+    IO_BG3PB = 0x04000032, // (w)
+    IO_BG3PC = 0x04000034, // (w)
+    IO_BG3PD = 0x04000036, // (w)
+    IO_BG3X = 0x04000038, // (w)
+    IO_BG3Y = 0x0400003C, // (w)
 
-constexpr auto IO_MOSAIC = 0x400004C; // (w)
-constexpr auto IO_BLDMOD = 0x4000050; // (r+w)
-constexpr auto IO_COLEV = 0x4000052; // (w)
-constexpr auto IO_COLEY = 0x4000054; // (w)
+    IO_BG2X_LO = 0x04000028, // (w)
+    IO_BG2X_HI = 0x0400002A, // (w)
+    IO_BG2Y_LO = 0x0400002C, // (w)
+    IO_BG2Y_HI = 0x0400002E, // (w)
+    IO_BG3X_LO = 0x04000038, // (w)
+    IO_BG3X_HI = 0x0400003A, // (w)
+    IO_BG3Y_LO = 0x0400003C, // (w)
+    IO_BG3Y_HI = 0x0400003E, // (w)
 
-constexpr auto IO_SOUND1CNT_L = 0x04000060;
-constexpr auto IO_SOUND1CNT_H = 0x04000062;
-constexpr auto IO_SOUND1CNT_X = 0x04000064;
-constexpr auto IO_SOUND2CNT_L = 0x04000068;
-constexpr auto IO_SOUND2CNT_H = 0x0400006C;
-constexpr auto IO_SOUND3CNT_L = 0x04000070;
-constexpr auto IO_SOUND3CNT_H = 0x04000072;
-constexpr auto IO_SOUND3CNT_X = 0x04000074;
-constexpr auto IO_SOUND4CNT_L = 0x04000078;
-constexpr auto IO_SOUND4CNT_H = 0x0400007C;
-constexpr auto IO_SOUNDCNT_L = 0x04000080;
-constexpr auto IO_SOUNDCNT_H = 0x04000082;
-constexpr auto IO_SOUNDCNT_X = 0x04000084;
-constexpr auto IO_SOUNDBIAS = 0x04000088;
-constexpr auto IO_WAVE_RAM0_L = 0x04000090;
-constexpr auto IO_WAVE_RAM0_H = 0x04000092;
-constexpr auto IO_WAVE_RAM1_L = 0x04000094;
-constexpr auto IO_WAVE_RAM1_H = 0x04000096;
-constexpr auto IO_WAVE_RAM2_L = 0x04000098;
-constexpr auto IO_WAVE_RAM2_H = 0x0400009A;
-constexpr auto IO_WAVE_RAM3_L = 0x0400009C;
-constexpr auto IO_WAVE_RAM3_H = 0x0400009E;
-constexpr auto IO_FIFO_A_L = 0x040000A0; // (w)
-constexpr auto IO_FIFO_A_H = 0x040000A2; // (w)
-constexpr auto IO_FIFO_B_L = 0x040000A4; // (w)
-constexpr auto IO_FIFO_B_H = 0x040000A6; // (w)
+    IO_WIN0H = 0x4000040, // (w)
+    IO_WIN1H = 0x4000042, // (w)
+    IO_WIN0V = 0x4000044, // (w)
+    IO_WIN1V = 0x4000046, // (w)
+    IO_WININ = 0x4000048, // (r+w)
+    IO_WINOUT = 0x400004A, // (r+w)
 
-// https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#DMA%20Source%20Registers
-constexpr auto IO_DMA0SAD = 0x40000B0; // 27bit (w)
-constexpr auto IO_DMA1SAD = 0x40000BC; // 28bit (w)
-constexpr auto IO_DMA2SAD = 0x40000C8; // 28bit (w)
-constexpr auto IO_DMA3SAD = 0x40000D4; // 28bit (w)
+    IO_MOSAIC = 0x400004C, // (w)
+    IO_BLDMOD = 0x4000050, // (r+w)
+    IO_COLEV = 0x4000052, // (w)
+    IO_COLEY = 0x4000054, // (w)
 
-constexpr auto IO_DMA0DAD = 0x40000B4; // 27bit (w)
-constexpr auto IO_DMA1DAD = 0x40000C0; // 27bit (w)
-constexpr auto IO_DMA2DAD = 0x40000CC; // 27bit (w)
-constexpr auto IO_DMA3DAD = 0x40000D8; // 28bit (w)
+    IO_SOUND1CNT_L = 0x04000060,
+    IO_SOUND1CNT_H = 0x04000062,
+    IO_SOUND1CNT_X = 0x04000064,
+    IO_SOUND2CNT_L = 0x04000068,
+    IO_SOUND2CNT_H = 0x0400006C,
+    IO_SOUND3CNT_L = 0x04000070,
+    IO_SOUND3CNT_H = 0x04000072,
+    IO_SOUND3CNT_X = 0x04000074,
+    IO_SOUND4CNT_L = 0x04000078,
+    IO_SOUND4CNT_H = 0x0400007C,
+    IO_SOUNDCNT_L = 0x04000080,
+    IO_SOUNDCNT_H = 0x04000082,
+    IO_SOUNDCNT_X = 0x04000084,
+    IO_SOUNDBIAS = 0x04000088,
+    IO_WAVE_RAM0_L = 0x04000090,
+    IO_WAVE_RAM0_H = 0x04000092,
+    IO_WAVE_RAM1_L = 0x04000094,
+    IO_WAVE_RAM1_H = 0x04000096,
+    IO_WAVE_RAM2_L = 0x04000098,
+    IO_WAVE_RAM2_H = 0x0400009A,
+    IO_WAVE_RAM3_L = 0x0400009C,
+    IO_WAVE_RAM3_H = 0x0400009E,
+    IO_FIFO_A_L = 0x040000A0, // (w)
+    IO_FIFO_A_H = 0x040000A2, // (w)
+    IO_FIFO_B_L = 0x040000A4, // (w)
+    IO_FIFO_B_H = 0x040000A6, // (w)
 
-constexpr auto IO_DMA0SAD_LO = 0x40000B0; // (w)
-constexpr auto IO_DMA0SAD_HI = 0x40000B2; // (w)
-constexpr auto IO_DMA1SAD_LO = 0x40000BC; // (w)
-constexpr auto IO_DMA1SAD_HI = 0x40000BE; // (w)
-constexpr auto IO_DMA2SAD_LO = 0x40000C8; // (w)
-constexpr auto IO_DMA2SAD_HI = 0x40000CA; // (w)
-constexpr auto IO_DMA3SAD_LO = 0x40000D4; // (w)
-constexpr auto IO_DMA3SAD_HI = 0x40000D6; // (w)
+    // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#DMA%20Source%20Registers
+    IO_DMA0SAD = 0x40000B0, // 27bit (w)
+    IO_DMA1SAD = 0x40000BC, // 28bit (w)
+    IO_DMA2SAD = 0x40000C8, // 28bit (w)
+    IO_DMA3SAD = 0x40000D4, // 28bit (w)
 
-constexpr auto IO_DMA0DAD_LO = 0x40000B4; // (w)
-constexpr auto IO_DMA0DAD_HI = 0x40000B6; // (w)
-constexpr auto IO_DMA1DAD_LO = 0x40000C0; // (w)
-constexpr auto IO_DMA1DAD_HI = 0x40000C2; // (w)
-constexpr auto IO_DMA2DAD_LO = 0x40000CC; // (w)
-constexpr auto IO_DMA2DAD_HI = 0x40000CE; // (w)
-constexpr auto IO_DMA3DAD_LO = 0x40000D8; // (w)
-constexpr auto IO_DMA3DAD_HI = 0x40000DA; // (w)
+    IO_DMA0DAD = 0x40000B4, // 27bit (w)
+    IO_DMA1DAD = 0x40000C0, // 27bit (w)
+    IO_DMA2DAD = 0x40000CC, // 27bit (w)
+    IO_DMA3DAD = 0x40000D8, // 28bit (w)
 
-constexpr auto IO_DMA0CNT = 0x40000B8; // (DMA0 Count Register)
-constexpr auto IO_DMA1CNT = 0x40000C4; // (DMA1 Count Register)
-constexpr auto IO_DMA2CNT = 0x40000D0; // (DMA2 Count Register)
-constexpr auto IO_DMA3CNT = 0x40000DC; // (DMA3 Count Register)
+    IO_DMA0SAD_LO = 0x40000B0, // (w)
+    IO_DMA0SAD_HI = 0x40000B2, // (w)
+    IO_DMA1SAD_LO = 0x40000BC, // (w)
+    IO_DMA1SAD_HI = 0x40000BE, // (w)
+    IO_DMA2SAD_LO = 0x40000C8, // (w)
+    IO_DMA2SAD_HI = 0x40000CA, // (w)
+    IO_DMA3SAD_LO = 0x40000D4, // (w)
+    IO_DMA3SAD_HI = 0x40000D6, // (w)
 
-// same as above, but 16-bit (cowbite docs refer to them as such)
-constexpr auto IO_DMA0CNT_L = 0x40000B8; // (DMA0 Count Register) (w)
-constexpr auto IO_DMA1CNT_L = 0x40000C4; // (DMA1 Count Register) (w)
-constexpr auto IO_DMA2CNT_L = 0x40000D0; // (DMA2 Count Register) (w)
-constexpr auto IO_DMA3CNT_L = 0x40000DC; // (DMA3 Count Register) (w)
+    IO_DMA0DAD_LO = 0x40000B4, // (w)
+    IO_DMA0DAD_HI = 0x40000B6, // (w)
+    IO_DMA1DAD_LO = 0x40000C0, // (w)
+    IO_DMA1DAD_HI = 0x40000C2, // (w)
+    IO_DMA2DAD_LO = 0x40000CC, // (w)
+    IO_DMA2DAD_HI = 0x40000CE, // (w)
+    IO_DMA3DAD_LO = 0x40000D8, // (w)
+    IO_DMA3DAD_HI = 0x40000DA, // (w)
 
-constexpr auto IO_DMA0CNT_H = 0x40000BA; // (DMA0 Control Register)
-constexpr auto IO_DMA1CNT_H = 0x40000C6; // (DMA1 Control Register)
-constexpr auto IO_DMA2CNT_H = 0x40000D2; // (DMA2 Control Register)
-constexpr auto IO_DMA3CNT_H = 0x40000DE; // (DMA3 Control Register)
+    IO_DMA0CNT = 0x40000B8, // (DMA0 Count Register)
+    IO_DMA1CNT = 0x40000C4, // (DMA1 Count Register)
+    IO_DMA2CNT = 0x40000D0, // (DMA2 Count Register)
+    IO_DMA3CNT = 0x40000DC, // (DMA3 Count Register)
 
-constexpr auto IO_TM0D = 0x4000100; // (Timer 0 Data)
-constexpr auto IO_TM1D = 0x4000104; // (Timer 1 Data)
-constexpr auto IO_TM2D = 0x4000108; // (Timer 2 Data)
-constexpr auto IO_TM3D = 0x400010C; // (Timer 3 Data)
+    // same as above, but 16-bit (cowbite docs refer to them as such)
+    IO_DMA0CNT_L = 0x40000B8, // (DMA0 Count Register) (w)
+    IO_DMA1CNT_L = 0x40000C4, // (DMA1 Count Register) (w)
+    IO_DMA2CNT_L = 0x40000D0, // (DMA2 Count Register) (w)
+    IO_DMA3CNT_L = 0x40000DC, // (DMA3 Count Register) (w)
 
-constexpr auto IO_TM0CNT = 0x4000102; // (Timer 0 Control)
-constexpr auto IO_TM1CNT = 0x4000106; // (Timer 1 Control)
-constexpr auto IO_TM2CNT = 0x400010A; // (Timer 2 Control)
-constexpr auto IO_TM3CNT = 0x400010E; // (Timer 3 Control)
+    IO_DMA0CNT_H = 0x40000BA, // (DMA0 Control Register)
+    IO_DMA1CNT_H = 0x40000C6, // (DMA1 Control Register)
+    IO_DMA2CNT_H = 0x40000D2, // (DMA2 Control Register)
+    IO_DMA3CNT_H = 0x40000DE, // (DMA3 Control Register)
 
-constexpr auto IO_KEY = 0x04000130; // (The input register)(Read Only)
-constexpr auto IO_RCNT = 0x04000134;
+    IO_TM0D = 0x4000100, // (Timer 0 Data)
+    IO_TM1D = 0x4000104, // (Timer 1 Data)
+    IO_TM2D = 0x4000108, // (Timer 2 Data)
+    IO_TM3D = 0x400010C, // (Timer 3 Data)
 
-constexpr auto IO_IE = 0x04000200; // (Interrupt Enable Register)
-constexpr auto IO_IF = 0x04000202; // (Interrupt Flags Regster)
-constexpr auto IO_WSCNT = 0x4000204; // (Wait State Control)
-constexpr auto IO_IME = 0x4000208; // (Interrupt Master Enable)
+    IO_TM0CNT = 0x4000102, // (Timer 0 Control)
+    IO_TM1CNT = 0x4000106, // (Timer 1 Control)
+    IO_TM2CNT = 0x400010A, // (Timer 2 Control)
+    IO_TM3CNT = 0x400010E, // (Timer 3 Control)
 
-constexpr auto IO_HALTCNT_L = 0x4000300; // (LFirst Boot/Debug Control)
-constexpr auto IO_HALTCNT_H = 0x4000301; // (Low Power Mode Control)
+    IO_KEY = 0x04000130, // (The input register)(Read Only)
+    IO_RCNT = 0x04000134,
 
-constexpr auto IO_IMC_L = 0x4000800; // (Internal Memory Control)
-constexpr auto IO_IMC_H = 0x4000802; // (Internal Memory Control)
+    IO_IE = 0x04000200, // (Interrupt Enable Register)
+    IO_IF = 0x04000202, // (Interrupt Flags Regster)
+    IO_WSCNT = 0x4000204, // (Wait State Control)
+    IO_IME = 0x4000208, // (Interrupt Master Enable)
+
+    IO_HALTCNT_L = 0x4000300, // (LFirst Boot/Debug Control)
+    IO_HALTCNT_H = 0x4000301, // (Low Power Mode Control)
+
+    IO_IMC_L = 0x4000800, // (Internal Memory Control)
+    IO_IMC_H = 0x4000802, // (Internal Memory Control)
+};
 
 #define REG_DISPCNT  *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DISPCNT & 0x3FF))
 #define REG_DISPSTAT *reinterpret_cast<std::uint16_t*>(gba.mem.io + (gba::mem::IO_DISPSTAT & 0x3FF))

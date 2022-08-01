@@ -29,28 +29,43 @@
 namespace gba::ppu {
 namespace {
 
-constexpr auto CHARBLOCK_SIZE = 0x4000;
-constexpr auto SCREENBLOCK_SIZE = 0x800;
+enum BlockSize
+{
+    CHARBLOCK_SIZE = 0x4000,
+    SCREENBLOCK_SIZE = 0x800,
+};
 
-constexpr auto BG_4BPP = 0;
-[[maybe_unused]] constexpr auto BG_8BPP = 1;
+enum ObjBpp
+{
+    BG_4BPP = 0,
+    BG_8BPP = 1,
+};
 
-[[maybe_unused]] constexpr auto BG0_NUM = 0;
-[[maybe_unused]] constexpr auto BG1_NUM = 1;
-[[maybe_unused]] constexpr auto BG2_NUM = 2;
-[[maybe_unused]] constexpr auto BG3_NUM = 3;
-constexpr auto OBJ_NUM = 4;
-constexpr auto BACKDROP_NUM = 5;
+enum LayerNumber
+{
+    BG0_NUM = 0,
+    BG1_NUM = 1,
+    BG2_NUM = 2,
+    BG3_NUM = 3,
+    OBJ_NUM = 4,
+    BACKDROP_NUM = 5,
+};
 
-[[maybe_unused]] constexpr auto PRIORITY_0 = 0;
-[[maybe_unused]] constexpr auto PRIORITY_1 = 1;
-[[maybe_unused]] constexpr auto PRIORITY_2 = 2;
-[[maybe_unused]] constexpr auto PRIORITY_3 = 3;
-constexpr auto PRIORITY_BACKDROP = 4;
+enum LayerPriority
+{
+    PRIORITY_0 = 0,
+    PRIORITY_1 = 1,
+    PRIORITY_2 = 2,
+    PRIORITY_3 = 3,
+    PRIORITY_BACKDROP = 4,
+};
 
-constexpr auto WIN0_PRIORITY = 0;
-constexpr auto WIN1_PRIORITY = 1;
-constexpr auto WIN_OBJ_PRIORITY = 2;
+enum WindowPriority
+{
+    WIN0_PRIORITY = 0,
+    WIN1_PRIORITY = 1,
+    WIN_OBJ_PRIORITY = 2,
+};
 
 enum class Blend
 {

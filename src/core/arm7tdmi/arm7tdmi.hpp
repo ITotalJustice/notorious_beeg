@@ -7,33 +7,42 @@
 
 namespace gba::arm7tdmi {
 
-constexpr auto SP_INDEX = 13; // stack pointer
-constexpr auto LR_INDEX = 14; // gets set to r15 during branch and links
-constexpr auto PC_INDEX = 15; // bits 0-1 are zero in arm state, bit-0 is zero in thumb
+enum RegIndex
+{
+    SP_INDEX = 13, // stack pointer
+    LR_INDEX = 14, // gets set to r15 during branch and links
+    PC_INDEX = 15, // bits 0-1 are zero in arm state, bit-0 is zero in thumb
+};
 
-constexpr auto MODE_USER       = 16;
-constexpr auto MODE_FIQ        = 17;
-constexpr auto MODE_IRQ        = 18;
-constexpr auto MODE_SUPERVISOR = 19;
-constexpr auto MODE_ABORT      = 23;
-constexpr auto MODE_UNDEFINED  = 27;
-constexpr auto MODE_SYSTEM     = 31;
+enum Modes
+{
+    MODE_USER       = 16,
+    MODE_FIQ        = 17,
+    MODE_IRQ        = 18,
+    MODE_SUPERVISOR = 19,
+    MODE_ABORT      = 23,
+    MODE_UNDEFINED  = 27,
+    MODE_SYSTEM     = 31,
+};
 
-constexpr auto COND_EQ = 0x0; // Z set
-constexpr auto COND_NE = 0x1; // Z clear
-constexpr auto COND_CS = 0x2; // C set
-constexpr auto COND_CC = 0x3; // C clear
-constexpr auto COND_MI = 0x4; // N set
-constexpr auto COND_PL = 0x5; // N clear
-constexpr auto COND_VS = 0x6; // V set
-constexpr auto COND_VC = 0x7; // V clear
-constexpr auto COND_HI = 0x8; // C set and Z clear
-constexpr auto COND_LS = 0x9; // C clear or Z set
-constexpr auto COND_GE = 0xA; // N equals V
-constexpr auto COND_LT = 0xB; // N not equal to V
-constexpr auto COND_GT = 0xC; // Z clear and N equals V
-constexpr auto COND_LE = 0xD; // Z set or N not equal to V
-constexpr auto COND_AL = 0xE; // ignored (AL = always)
+enum Conditions
+{
+    COND_EQ = 0x0, // Z set
+    COND_NE = 0x1, // Z clear
+    COND_CS = 0x2, // C set
+    COND_CC = 0x3, // C clear
+    COND_MI = 0x4, // N set
+    COND_PL = 0x5, // N clear
+    COND_VS = 0x6, // V set
+    COND_VC = 0x7, // V clear
+    COND_HI = 0x8, // C set and Z clear
+    COND_LS = 0x9, // C clear or Z set
+    COND_GE = 0xA, // N equals V
+    COND_LT = 0xB, // N not equal to V
+    COND_GT = 0xC, // Z clear and N equals V
+    COND_LE = 0xD, // Z set or N not equal to V
+    COND_AL = 0xE, // ignored (AL = always)
+};
 
 enum class State : bool
 {

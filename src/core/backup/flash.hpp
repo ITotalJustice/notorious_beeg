@@ -11,7 +11,10 @@
 // https://dillonbeliveau.com/2020/06/05/GBA-FLASH.html
 namespace gba::backup::flash {
 
-constexpr auto BANK_SIZE = 1024 * 64;
+enum
+{
+    BANK_SIZE = 1024 * 64,
+};
 
 enum class Type : u32
 {

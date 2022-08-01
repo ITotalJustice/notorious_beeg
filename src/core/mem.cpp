@@ -813,13 +813,13 @@ constexpr auto read_gpio(Gba& gba, const u32 addr) -> T
 
     switch (addr)
     {
-        case 0x80000C4: // I/O Port Data (rw or W)
+        case GPIO_DATA: // I/O Port Data (rw or W)
             return gba.gpio.data & gba.gpio.read_mask;
 
-        case 0x80000C6: // I/O Port Direction (rw or W)
+        case GPIO_DIRECTION: // I/O Port Direction (rw or W)
             return gba.gpio.write_mask; // remember we modify the rmask
 
-        case 0x80000C8: // I/O Port Control (rw or W)
+        case GPIO_CONTROL: // I/O Port Control (rw or W)
             return gba.gpio.rw;
 
         default:
@@ -832,14 +832,14 @@ constexpr auto write_gpio(Gba& gba, const u32 addr, const T value)
 {
     switch (addr)
     {
-        case 0x80000C4: // I/O Port Data (rw or W)
+        case GPIO_DATA: // I/O Port Data (rw or W)
             // std::printf("[GPIO] data: 0x%02X\n", value);
             gba.gpio.data = value & gba.gpio.write_mask;
             gba.gpio.rtc.write(gba, addr, value & gba.gpio.write_mask);
             // gba.gpio.data = value & gba.gpio.write_mask;
             break;
 
-        case 0x80000C6: // I/O Port Direction (rw or W)
+        case GPIO_DIRECTION: // I/O Port Direction (rw or W)
             // std::printf("[GPIO] direction: 0x%02X\n", value);
             // the direction port acts as a mask for r/w bits
             // bitX = 0, read only (in)
@@ -848,7 +848,7 @@ constexpr auto write_gpio(Gba& gba, const u32 addr, const T value)
             gba.gpio.write_mask = bit::get_range<0, 4>(value);
             break;
 
-        case 0x80000C8: // I/O Port Control (rw or W)
+        case GPIO_CONTROL: // I/O Port Control (rw or W)
             gba.gpio.rw = bit::is_set<0>(value);
 
             std::printf("[GPIO] control: %s\n", gba.gpio.rw ? "rw" : "w only");
