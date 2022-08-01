@@ -41,11 +41,12 @@ struct Rtc
     u8 bit_counter; // bit position
     bool pending_bit; // pending bit that's been written
 
-    u8 control{0b0100'0000}; // enable 24h, thats it
+    u8 control; // enable 12/24h, thats it
 
-    State state{State::init1};
+    State state;
     Command command;
 
+    auto init() -> void;
     auto write(Gba& gba, u32 addr, u8 value) -> void;
 };
 

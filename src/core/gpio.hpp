@@ -12,10 +12,12 @@ struct Gpio
 {
     rtc::Rtc rtc;
 
-    u8 data{}; // 4 bit
-    u8 read_mask{0b0000};
-    u8 write_mask{0b111};
-    bool rw{false};
+    u8 data; // 4 bit
+    u8 read_mask;
+    u8 write_mask;
+    bool rw;
 };
+
+auto reset(Gba& gba, bool skip_bios) -> void;
 
 } // namespace gba::gpio

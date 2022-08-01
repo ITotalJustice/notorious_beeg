@@ -59,7 +59,7 @@ struct Gba
     // want to savestate this :harold:
 
     // 16kb, 32-bus
-    alignas(u32) u8 bios[1024 * 16]{};
+    alignas(u32) u8 bios[1024 * 16];
     // 32mb(max), 16-bus
     alignas(u32) u8 rom[0x2000000];
 

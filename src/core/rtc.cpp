@@ -51,6 +51,18 @@ constexpr auto bcd(u8 value) -> u64
 
 } // namespace
 
+auto Rtc::init() -> void
+{
+    this->bits = 0; // bits shifted in / out
+    this->bit_counter = 0; // bit position
+    this->pending_bit = false; // pending bit that's been written
+
+    this->control = 0b0100'0000; // enable 24h, thats it
+
+    this->state = State::init1;
+    this->command = Command::unused;
+}
+
 auto Rtc::write(Gba& gba, u32 addr, u8 value) -> void
 {
     const auto SCK = bit::is_set<0>(value);

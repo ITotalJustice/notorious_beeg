@@ -78,9 +78,10 @@ auto Gba::reset() -> void
 
     scheduler::reset(*this);
     mem::reset(*this, skip_bios); // this needed to be before arm::reset because memtables
-    arm7tdmi::reset(*this, skip_bios);
     ppu::reset(*this, skip_bios);
     apu::reset(*this, skip_bios);
+    gpio::reset(*this, skip_bios);
+    arm7tdmi::reset(*this, skip_bios);
 }
 
 auto Gba::loadrom(std::span<const u8> new_rom) -> bool

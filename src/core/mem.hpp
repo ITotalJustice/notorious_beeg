@@ -29,30 +29,30 @@ struct WriteArray
 // this will remove casting in most common cases.
 struct Mem
 {
-    ReadArray rmap_8[16]{};
-    ReadArray rmap_16[16]{};
-    ReadArray rmap_32[16]{};
-    WriteArray wmap_8[16]{};
-    WriteArray wmap_16[16]{};
-    WriteArray wmap_32[16]{};
+    ReadArray rmap_8[16];
+    ReadArray rmap_16[16];
+    ReadArray rmap_32[16];
+    WriteArray wmap_8[16];
+    WriteArray wmap_16[16];
+    WriteArray wmap_32[16];
 
     // 256kb, 16-bit bus
-    alignas(u32) u8 ewram[1024 * 256]{};
+    alignas(u32) u8 ewram[1024 * 256];
 
     // 32kb, 32-bit bus
-    alignas(u32) u8 iwram[1024 * 32]{};
+    alignas(u32) u8 iwram[1024 * 32];
 
     // 1kb, 16-bit
-    alignas(u32) u8 pram[1024 * 1]{};
+    alignas(u32) u8 pram[1024 * 1];
 
     // 96kb, 16-bit bus
-    alignas(u32) u8 vram[1024 * 96]{};
+    alignas(u32) u8 vram[1024 * 96];
 
     // 1kb, 32-bit
-    alignas(u64) u8 oam[1024 * 1]{};
+    alignas(u64) u8 oam[1024 * 1];
 
     // 1kb, 16/32-bit
-    alignas(u32) u8 io[1024 * 1]{};
+    alignas(u32) u8 io[1024 * 1];
 
     // internal memory control
     alignas(u32) u8 imc[4];

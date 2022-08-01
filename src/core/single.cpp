@@ -17,6 +17,7 @@
     #include "bios.cpp"
     #include "bios_hle.cpp"
     #include "scheduler.cpp"
+    #include "gpio.cpp"
     #include "rtc.cpp"
 
     #include "backup/backup.cpp"
