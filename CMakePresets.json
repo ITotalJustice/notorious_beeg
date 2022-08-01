@@ -23,6 +23,25 @@
                 "CMAKE_BUILD_TYPE": "Debug",
                 "GBA_DEV": true
             }
+        },
+        {
+            "name": "vcpkg",
+            "displayName": "vcpkg",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SINGLE_FILE": true
+            }
+        },
+        {
+            "name": "vcpkg-dev",
+            "displayName": "vcpkg-dev",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
         }
     ],
     "buildPresets": [
@@ -33,6 +52,14 @@
         {
             "name": "imgui-dev",
             "configurePreset": "imgui-dev"
+        },
+        {
+            "name": "vcpkg",
+            "configurePreset": "vcpkg"
+        },
+        {
+            "name": "vcpkg-dev",
+            "configurePreset": "vcpkg-dev"
         }
     ]
 }
