@@ -3,8 +3,8 @@
 
 namespace gba { struct Gba; }
 
-namespace sys::debugger::io {
+namespace debugger::io {
 
 auto render(gba::Gba& gba, bool* p_open) -> void;
 
-} // namespace sys::debugger::io
+} // namespace debugger::io

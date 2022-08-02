@@ -19,4 +19,8 @@ endif()
 message(STATUS "SYSTEM: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "COMPILER: ${CMAKE_CXX_COMPILER_ID}")
 
+option(FRONTEND "enable frontend build" ON)
+option(SDL2 "basic sdl2 frontend" OFF)
+option(IMGUI "imgui frontend" OFF)
+
 add_subdirectory(src)

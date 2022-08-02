@@ -12,7 +12,8 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "SINGLE_FILE": true
+                "SINGLE_FILE": true,
+                "IMGUI": true
             }
         },
         {
@@ -21,7 +22,8 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "GBA_DEV": true
+                "GBA_DEV": true,
+                "IMGUI": true
             }
         },
         {
@@ -31,7 +33,8 @@
             "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "SINGLE_FILE": true
+                "SINGLE_FILE": true,
+                "IMGUI": true
             }
         },
         {
@@ -40,7 +43,18 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "IMGUI": true
+            }
+        },
+        {
+            "name": "sdl2",
+            "displayName": "sdl2",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SINGLE_FILE": true,
+                "SDL2": true
             }
         }
     ],
@@ -60,6 +74,10 @@
         {
             "name": "vcpkg-dev",
             "configurePreset": "vcpkg-dev"
+        },
+        {
+            "name": "sdl2",
+            "configurePreset": "sdl2"
         }
     ]
 }

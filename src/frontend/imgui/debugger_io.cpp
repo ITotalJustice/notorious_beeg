@@ -1,18 +1,17 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include "bit.hpp"
-#include "mem.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <imgui.h>
 #include <gba.hpp>
+#include <bit.hpp>
 #include <array>
 #include <cstdio>
 #include <cstring>
 #include <span>
 
-namespace sys::debugger::io {
+namespace debugger::io {
 namespace {
 
 using io_view_func = void(*)(gba::Gba& gba);
@@ -871,4 +870,4 @@ auto render(gba::Gba& gba, bool* p_open) -> void
     ImGui::End();
 }
 
-} // namespace sys::debugger::io
+} // namespace debugger::io

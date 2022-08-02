@@ -40,7 +40,7 @@ list(APPEND gcc_flags
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND gcc_flags -Og) # always enable otherwise debug builds would be too slow
 else()
-    list(APPEND gcc_flags -fno-rtti -Ofast)
+    list(APPEND gcc_flags -Ofast)
 endif()
 
 list(APPEND clang_flags
@@ -96,7 +96,7 @@ list(APPEND clang_flags
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND clang_flags -Og) # always enable otherwise debug builds would be too slow
 else()
-    list(APPEND clang_flags -fno-rtti -Ofast)
+    list(APPEND clang_flags -Ofast)
 endif()
 
 list(APPEND msvc_flags
@@ -190,4 +190,7 @@ function(target_add_common_cflags target scope)
 endfunction()
 
 add_subdirectory(core)
-add_subdirectory(frontend)
+
+if (FRONTEND)
+    add_subdirectory(frontend)
+endif()
