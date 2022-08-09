@@ -25,7 +25,7 @@
 #endif
 
 #if SINGLE_FILE == 1
-    #define STATIC_INLINE [[gnu::always_inline, gnu::hot, msvc::forceinline]] static inline
+    #define STATIC_INLINE [[gnu::always_inline, gnu::hot]] static inline
     #define STATIC static
 #else
     #define STATIC_INLINE

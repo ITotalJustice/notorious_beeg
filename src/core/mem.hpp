@@ -270,15 +270,11 @@ enum IOAddr
 #define REG_BG2PB gba.mem.io[(gba::mem::IO_BG2PB & 0x3FF) >> 1]
 #define REG_BG2PC gba.mem.io[(gba::mem::IO_BG2PC & 0x3FF) >> 1]
 #define REG_BG2PD gba.mem.io[(gba::mem::IO_BG2PD & 0x3FF) >> 1]
-// #define REG_BG2X *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_BG2X & 0x3FF))
-// #define REG_BG2Y *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_BG2Y & 0x3FF))
 
 #define REG_BG3PA gba.mem.io[(gba::mem::IO_BG3PA & 0x3FF) >> 1]
 #define REG_BG3PB gba.mem.io[(gba::mem::IO_BG3PB & 0x3FF) >> 1]
 #define REG_BG3PC gba.mem.io[(gba::mem::IO_BG3PC & 0x3FF) >> 1]
 #define REG_BG3PD gba.mem.io[(gba::mem::IO_BG3PD & 0x3FF) >> 1]
-// #define REG_BG3X *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_BG3X & 0x3FF))
-// #define REG_BG3Y *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_BG3Y & 0x3FF))
 
 #define REG_WIN0H gba.mem.io[(gba::mem::IO_WIN0H & 0x3FF) >> 1]
 #define REG_WIN1H gba.mem.io[(gba::mem::IO_WIN1H & 0x3FF) >> 1]
@@ -408,21 +404,71 @@ constexpr auto align(u32 addr) -> u32
     {
         return addr & ~0x3;
     }
+    else if constexpr(std::is_same<T, u64>())
+    {
+        return addr & ~0x7;
+    }
 }
 
 // helpers for read / write arrays.
 template <typename T> [[nodiscard]]
 STATIC_INLINE constexpr auto read_array(std::span<const u8> array, auto mask, u32 addr) -> T
 {
+    #ifdef N64
+    addr = align<T>(addr);
+
+    if constexpr(sizeof(T) == sizeof(u8)) { // u8
+        return array[addr & mask];
+    }
+    if constexpr(sizeof(T) == sizeof(u16)) { // u16
+        const auto hi = array[(addr + 0) & mask];
+        const auto lo = array[(addr + 1) & mask];
+
+        return (lo << 8) | hi;
+    }
+    if constexpr(sizeof(T) == sizeof(u32)) { // u32
+        const auto hi_word_hi = array[(addr + 0) & mask];
+        const auto hi_word_lo = array[(addr + 1) & mask];
+        const auto lo_word_hi = array[(addr + 2) & mask];
+        const auto lo_word_lo = array[(addr + 3) & mask];
+
+        return (lo_word_lo << 24) | (lo_word_hi << 16) | (hi_word_lo << 8) | hi_word_hi;
+    }
+    if constexpr(sizeof(T) == sizeof(u64)) { // u64
+        const u64 lo = read_array<u32>(array, mask, addr);
+        const u64 hi = read_array<u32>(array.subspan(4), mask, addr+4);
+
+        return hi << 32 | lo;
+    }
+    #else
     constexpr auto shift = sizeof(T) >> 1;
     return reinterpret_cast<const T*>(array.data())[(addr>>shift) & (mask>>shift)];
+    #endif
 }
 
 template <typename T>
 STATIC_INLINE constexpr auto write_array(std::span<u8> array, auto mask, u32 addr, T v) -> void
 {
+    #ifdef N64
+    addr = align<T>(addr);
+
+    if constexpr(sizeof(T) == sizeof(u8)) { // u8
+        array[addr & mask] = v;
+    }
+    if constexpr(sizeof(T) == sizeof(u16)) { // u16
+        array[(addr + 0) & mask] = (v >> 0) & 0xFF;
+        array[(addr + 1) & mask] = (v >> 8) & 0xFF;
+    }
+    if constexpr(sizeof(T) == sizeof(u32)) { // u32
+        array[(addr + 0) & mask] = (v >> 0) & 0xFF;
+        array[(addr + 1) & mask] = (v >> 8) & 0xFF;
+        array[(addr + 2) & mask] = (v >> 16) & 0xFF;
+        array[(addr + 3) & mask] = (v >> 24) & 0xFF;
+    }
+    #else
     constexpr auto shift = sizeof(T) >> 1;
     reinterpret_cast<T*>(array.data())[(addr>>shift) & (mask>>shift)] = v;
+    #endif
 }
 
 } // namespace gba::mem

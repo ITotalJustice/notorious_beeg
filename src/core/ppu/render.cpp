@@ -548,16 +548,16 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
     // ovram is the last 2 entries of the charblock in vram.
     // in tile modes, this allows for 1024 tiles in total.
     // in bitmap modes, this allows for 512 tiles in total.
-    const auto ovram = reinterpret_cast<const u8*>(gba.mem.vram + 4 * CHARBLOCK_SIZE);
-    const auto pram = reinterpret_cast<const u16*>(gba.mem.pram + 512);
-    const auto oam = reinterpret_cast<const u64*>(gba.mem.oam);
+    const auto ovram = std::span{gba.mem.vram}.subspan(4 * CHARBLOCK_SIZE);
+    const auto pram = std::span{gba.mem.pram}.subspan(512);
+    const auto oam = std::span{gba.mem.oam};
     const auto vcount = REG_VCOUNT;
     const auto is_1D_layout = bit::is_set<6>(REG_DISPCNT);
 
     // 1024 entries in oam, each entry is 64bytes, 1024/64=128
     for (auto i = 0; i < 128; i++)
     {
-        const OBJ_Attr obj = oam[i];
+        const OBJ_Attr obj = mem::read_array<u64>(oam, 0xFFFFFFFF, i * 8);
 
         if (obj.attr0.is_disabled())
         {
@@ -668,7 +668,7 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                         line.is_opaque[pixel_x] = true;
                         line.priority[pixel_x] = obj.attr2.Pr;
                         line.is_alpha[pixel_x] = obj.attr0.GM == 0b01;
-                        line.pixels[pixel_x] = pram[pram_addr / 2];
+                        line.pixels[pixel_x] = mem::read_array<u16>(pram, 0xFFFFFFFF, pram_addr);
                     }
                 }
             }
@@ -682,11 +682,11 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
     //
     const auto y = (meta.yscroll + vcount) % 256;
     // pal_mem
-    const auto pram = reinterpret_cast<const u16*>(gba.mem.pram);
+    const auto pram = std::span{gba.mem.pram};
     // tile_mem (where the tiles/tilesets are)
-    const auto charblock = reinterpret_cast<const u8*>(gba.mem.vram + meta.cnt.CBB * CHARBLOCK_SIZE);
+    const auto charblock = std::span{gba.mem.vram}.subspan(meta.cnt.CBB * CHARBLOCK_SIZE);
     // se_mem (where the tilemaps are)
-    const auto screenblock = reinterpret_cast<const u16*>(gba.mem.vram + (meta.cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(meta.cnt, meta.yscroll + vcount) + ((y / 8) * 64));
+    const auto screenblock = std::span{gba.mem.vram}.subspan((meta.cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(meta.cnt, meta.yscroll + vcount) + ((y / 8) * 64));
 
     for (auto x = 0; x < 240; x++)
     {
@@ -698,7 +698,7 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
 
         const auto tx = (x + meta.xscroll) % 256;
         const auto se_number = (tx / 8) + (get_bg_offset<Index::X>(meta.cnt, x + meta.xscroll) / 2); // SE-number n = tx+ty·tw,
-        const ScreenEntry se = screenblock[se_number];
+        const ScreenEntry se = mem::read_array<u16>(screenblock, 0xFFFFFFFF, se_number * 2);
 
         const auto tile_x = se.hflip ? 7 - (tx & 7) : tx & 7;
         const auto tile_y = se.vflip ? 7 - (y & 7) : y & 7;
@@ -730,14 +730,14 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
         if (pixel != 0) // don't render transparent pixel
         {
             line.is_opaque[x] = true;
-            line.pixels[x] = pram[pram_addr / 2];
+            line.pixels[x] = mem::read_array<u16>(pram, 0xFFFFFFFF, pram_addr);
         }
     }
 }
 
 auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
 {
-    const auto vram = reinterpret_cast<const u16*>(gba.mem.vram + (240 * REG_VCOUNT * 2));
+    const auto vram = std::span{gba.mem.vram}.subspan(240 * REG_VCOUNT * 2);
 
     for (auto x = 0; x < 240; x++)
     {
@@ -748,7 +748,7 @@ auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, 
         }
 
         // i don't think mode3 can have transparent tiles?
-        const auto pixel = vram[x];
+        const auto pixel = mem::read_array<u16>(vram, 0xFFFFFFFF, x * 2);
         line.is_opaque[x] = true;
         line.pixels[x] = pixel;
     }
@@ -757,8 +757,8 @@ auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, 
 auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
 {
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
-    const auto pram = reinterpret_cast<const u16*>(gba.mem.pram);
-    const auto vram = gba.mem.vram + page + (240 * REG_VCOUNT);
+    const auto pram = std::span{gba.mem.pram};
+    const auto vram = std::span{gba.mem.vram}.subspan(page + (240 * REG_VCOUNT));
 
     for (auto x = 0; x < 240; x++)
     {
@@ -773,7 +773,7 @@ auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, 
         if (pixel != 0) // don't render transparent pixel
         {
             line.is_opaque[x] = true;
-            line.pixels[x] = pram[pixel];
+            line.pixels[x] = mem::read_array<u16>(pram, 0xFFFFFFFF, pixel * 2);
         }
     }
 }
@@ -1017,6 +1017,10 @@ auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, std::spa
         }
 
         pixels[x] = layers.get_pixel();
+        if (pixels[x])
+        {
+            // pixels[x] = 0xFFFF;
+        }
     }
 }
 
@@ -1141,11 +1145,17 @@ auto render_mode4(Gba& gba) -> void
 auto render(Gba& gba) -> void
 {
     // if forced blanking is enabled, the screen is black
-    if (is_screen_blanked(gba)) [[unlikely]]
-    {
-        std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], 0);
-        return;
-    }
+    // if (is_screen_blanked(gba)) [[unlikely]]
+    // static int a = 0;
+    // {
+    //     a++;
+    //     if (a < 320) std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], 0xFFFF);
+    //     else if (a < 640) std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], 0x5555);
+    //     else if (a < 1280) std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], 0x33FF);
+    //     else a = 0;
+    //     // std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], 0xFFFF);
+    //     return;
+    // }
 
     const auto mode = get_mode(gba);
 

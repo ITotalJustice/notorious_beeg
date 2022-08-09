@@ -61,7 +61,11 @@ struct Gba
     // 16kb, 32-bus
     alignas(u32) u8 bios[1024 * 16];
     // 32mb(max), 16-bus
+    #ifndef N64
     alignas(u32) u8 rom[0x2000000];
+    #else
+    alignas(u32) u8 rom[1024*1024*2+40000];
+    #endif
 
     bool has_bios;
 

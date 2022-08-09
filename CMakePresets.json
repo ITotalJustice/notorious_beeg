@@ -56,6 +56,18 @@
                 "SINGLE_FILE": true,
                 "SDL2": true
             }
+        },
+        {
+            "name": "n64",
+            "displayName": "n64",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "${sourceDir}/cmake/toolchain/n64.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "LTO": true,
+                "SINGLE_FILE": true,
+                "FRONTEND": false
+            }
         }
     ],
     "buildPresets": [
@@ -78,6 +90,10 @@
         {
             "name": "sdl2",
             "configurePreset": "sdl2"
+        },
+        {
+            "name": "n64",
+            "configurePreset": "n64"
         }
     ]
 }

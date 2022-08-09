@@ -191,6 +191,11 @@ endfunction()
 
 add_subdirectory(core)
 
+if (N64)
+    add_subdirectory(frontend/n64)
+    set(FRONTEND OFF)
+endif()
+
 if (FRONTEND)
     add_subdirectory(frontend)
 endif()

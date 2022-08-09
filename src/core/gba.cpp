@@ -129,13 +129,13 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
             break;
     }
 
-    constexpr auto SIZE_32MiB = 1024*1024*32;
+    // constexpr auto SIZE_32MiB = 1024*1024*32;
 
-    // pre-calc the OOB rom read values, which is addr >> 1
-    for (auto i = 0; i < SIZE_32MiB; i++)
-    {
-        this->rom[i] = i >> 1;
-    }
+    // // pre-calc the OOB rom read values, which is addr >> 1
+    // for (auto i = 0; i < SIZE_32MiB; i++)
+    // {
+    //     this->rom[i] = i >> 1;
+    // }
 
     std::ranges::copy(new_rom, this->rom);
 
