@@ -397,12 +397,6 @@ auto clock_env(Gba& gba)
     env::clock(gba, APU.noise);
 }
 
-auto is_apu_enabled(Gba& gba) -> bool
-{
-    assert(APU.enabled == bit::is_set<7>(REG_SOUNDCNT_X) && "apu enabled missmatch");
-    return APU.enabled;
-}
-
 auto apu_on_enabled(Gba& gba) -> void
 {
     gba_log("[APU] enabling...\n");
@@ -665,6 +659,12 @@ auto on_wave_mem_write(Gba& gba, u32 addr, u8 value)
 
 } // namespace
 
+auto is_apu_enabled(Gba& gba) -> bool
+{
+    assert(APU.enabled == bit::is_set<7>(REG_SOUNDCNT_X) && "apu enabled missmatch");
+    return APU.enabled;
+}
+
 template<u8 Number>
 auto Base<Number>::enable(Gba& gba) -> void
 {
@@ -921,56 +921,58 @@ auto write_legacy8(Gba& gba, u32 addr, u8 value) -> void
     if (addr == mem::IO_SOUNDCNT_X)
     {
         on_nr52_write(gba, value);
-        return;
     }
-    // otherwise ignore writes if apu is disabled
-    else if (!is_apu_enabled(gba))
+    else
     {
-        return;
-    }
+        assert(is_apu_enabled(gba) && "writes to apu should only happen when enabled!");
 
-    switch (addr)
-    {
-        case mem::IO_SOUND1CNT_L + 0: on_nrx0_write(gba, APU.square0, value); break;
-        case mem::IO_SOUND1CNT_H + 0: on_nrx1_write(gba, APU.square0, value); break;
-        case mem::IO_SOUND1CNT_H + 1: on_nrx2_write(gba, APU.square0, value); break;
-        case mem::IO_SOUND1CNT_X + 0: on_nrx3_write(gba, APU.square0, value); break;
-        case mem::IO_SOUND1CNT_X + 1: on_nrx4_write(gba, APU.square0, value); break;
+        switch (addr)
+        {
+            case mem::IO_SOUND1CNT_L + 0: on_nrx0_write(gba, APU.square0, value); break;
+            case mem::IO_SOUND1CNT_H + 0: on_nrx1_write(gba, APU.square0, value); break;
+            case mem::IO_SOUND1CNT_H + 1: on_nrx2_write(gba, APU.square0, value); break;
+            case mem::IO_SOUND1CNT_X + 0: on_nrx3_write(gba, APU.square0, value); break;
+            case mem::IO_SOUND1CNT_X + 1: on_nrx4_write(gba, APU.square0, value); break;
 
-        case mem::IO_SOUND2CNT_L + 0: on_nrx1_write(gba, APU.square1, value); break;
-        case mem::IO_SOUND2CNT_L + 1: on_nrx2_write(gba, APU.square1, value); break;
-        case mem::IO_SOUND2CNT_H + 0: on_nrx3_write(gba, APU.square1, value); break;
-        case mem::IO_SOUND2CNT_H + 1: on_nrx4_write(gba, APU.square1, value); break;
+            case mem::IO_SOUND2CNT_L + 0: on_nrx1_write(gba, APU.square1, value); break;
+            case mem::IO_SOUND2CNT_L + 1: on_nrx2_write(gba, APU.square1, value); break;
+            case mem::IO_SOUND2CNT_H + 0: on_nrx3_write(gba, APU.square1, value); break;
+            case mem::IO_SOUND2CNT_H + 1: on_nrx4_write(gba, APU.square1, value); break;
 
-        case mem::IO_SOUND3CNT_L + 0: on_nrx0_write(gba, APU.wave, value); break;
-        case mem::IO_SOUND3CNT_H + 0: on_nrx1_write(gba, APU.wave, value); break;
-        case mem::IO_SOUND3CNT_H + 1: on_nrx2_write(gba, APU.wave, value); break;
-        case mem::IO_SOUND3CNT_X + 0: on_nrx3_write(gba, APU.wave, value); break;
-        case mem::IO_SOUND3CNT_X + 1: on_nrx4_write(gba, APU.wave, value); break;
+            case mem::IO_SOUND3CNT_L + 0: on_nrx0_write(gba, APU.wave, value); break;
+            case mem::IO_SOUND3CNT_H + 0: on_nrx1_write(gba, APU.wave, value); break;
+            case mem::IO_SOUND3CNT_H + 1: on_nrx2_write(gba, APU.wave, value); break;
+            case mem::IO_SOUND3CNT_X + 0: on_nrx3_write(gba, APU.wave, value); break;
+            case mem::IO_SOUND3CNT_X + 1: on_nrx4_write(gba, APU.wave, value); break;
 
-        case mem::IO_SOUND4CNT_L + 0: on_nrx1_write(gba, APU.noise, value); break;
-        case mem::IO_SOUND4CNT_L + 1: on_nrx2_write(gba, APU.noise, value); break;
-        case mem::IO_SOUND4CNT_H + 0: on_nrx3_write(gba, APU.noise, value); break;
-        case mem::IO_SOUND4CNT_H + 1: on_nrx4_write(gba, APU.noise, value); break;
+            case mem::IO_SOUND4CNT_L + 0: on_nrx1_write(gba, APU.noise, value); break;
+            case mem::IO_SOUND4CNT_L + 1: on_nrx2_write(gba, APU.noise, value); break;
+            case mem::IO_SOUND4CNT_H + 0: on_nrx3_write(gba, APU.noise, value); break;
+            case mem::IO_SOUND4CNT_H + 1: on_nrx4_write(gba, APU.noise, value); break;
 
-        case mem::IO_WAVE_RAM0_L + 0:
-        case mem::IO_WAVE_RAM0_L + 1:
-        case mem::IO_WAVE_RAM0_H + 0:
-        case mem::IO_WAVE_RAM0_H + 1:
-        case mem::IO_WAVE_RAM1_L + 0:
-        case mem::IO_WAVE_RAM1_L + 1:
-        case mem::IO_WAVE_RAM1_H + 0:
-        case mem::IO_WAVE_RAM1_H + 1:
-        case mem::IO_WAVE_RAM2_L + 0:
-        case mem::IO_WAVE_RAM2_L + 1:
-        case mem::IO_WAVE_RAM2_H + 0:
-        case mem::IO_WAVE_RAM2_H + 1:
-        case mem::IO_WAVE_RAM3_L + 0:
-        case mem::IO_WAVE_RAM3_L + 1:
-        case mem::IO_WAVE_RAM3_H + 0:
-        case mem::IO_WAVE_RAM3_H + 1:
-            on_wave_mem_write(gba, addr, value);
-            break;
+            case mem::IO_WAVE_RAM0_L + 0:
+            case mem::IO_WAVE_RAM0_L + 1:
+            case mem::IO_WAVE_RAM0_H + 0:
+            case mem::IO_WAVE_RAM0_H + 1:
+            case mem::IO_WAVE_RAM1_L + 0:
+            case mem::IO_WAVE_RAM1_L + 1:
+            case mem::IO_WAVE_RAM1_H + 0:
+            case mem::IO_WAVE_RAM1_H + 1:
+            case mem::IO_WAVE_RAM2_L + 0:
+            case mem::IO_WAVE_RAM2_L + 1:
+            case mem::IO_WAVE_RAM2_H + 0:
+            case mem::IO_WAVE_RAM2_H + 1:
+            case mem::IO_WAVE_RAM3_L + 0:
+            case mem::IO_WAVE_RAM3_L + 1:
+            case mem::IO_WAVE_RAM3_H + 0:
+            case mem::IO_WAVE_RAM3_H + 1:
+                on_wave_mem_write(gba, addr, value);
+                break;
+
+            default:
+                assert(!"invalid apu write!");
+                break;
+        }
     }
 }
 

@@ -55,10 +55,10 @@ auto get_channel_registers(Gba& gba, const u8 channel_num) -> Registers
 {
     switch (channel_num)
     {
-        case 0: return { REG_DMA0SAD, REG_DMA0DAD, REG_DMA0CNT_H, REG_DMA0CNT_L };
-        case 1: return { REG_DMA1SAD, REG_DMA1DAD, REG_DMA1CNT_H, REG_DMA1CNT_L };
-        case 2: return { REG_DMA2SAD, REG_DMA2DAD, REG_DMA2CNT_H, REG_DMA2CNT_L };
-        case 3: return { REG_DMA3SAD, REG_DMA3DAD, REG_DMA3CNT_H, REG_DMA3CNT_L };
+        case 0: return { static_cast<u32>((REG_DMA0SAD_HI << 16) | REG_DMA0SAD_LO), static_cast<u32>((REG_DMA0DAD_HI << 16) | REG_DMA0DAD_LO), REG_DMA0CNT_H, REG_DMA0CNT_L };
+        case 1: return { static_cast<u32>((REG_DMA1SAD_HI << 16) | REG_DMA1SAD_LO), static_cast<u32>((REG_DMA1DAD_HI << 16) | REG_DMA1DAD_LO), REG_DMA1CNT_H, REG_DMA1CNT_L };
+        case 2: return { static_cast<u32>((REG_DMA2SAD_HI << 16) | REG_DMA2SAD_LO), static_cast<u32>((REG_DMA2DAD_HI << 16) | REG_DMA2DAD_LO), REG_DMA2CNT_H, REG_DMA2CNT_L };
+        case 3: return { static_cast<u32>((REG_DMA3SAD_HI << 16) | REG_DMA3SAD_LO), static_cast<u32>((REG_DMA3DAD_HI << 16) | REG_DMA3DAD_LO), REG_DMA3CNT_H, REG_DMA3CNT_L };
     }
 
     std::unreachable();

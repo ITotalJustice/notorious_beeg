@@ -47,13 +47,13 @@ auto on_hblank_callback(void* user, std::uint16_t line) -> void
     // }
 }
 
-template<int num>
-auto mem_viewer_entry(const char* name, std::span<uint8_t> data) -> void
+template<int num, typename T>
+auto mem_viewer_entry(const char* name, std::span<T> data) -> void
 {
     if (ImGui::BeginTabItem(name))
     {
         static MemoryEditor editor;
-        editor.DrawContents(data.data(), data.size());
+        editor.DrawContents(data.data(), data.size_bytes());
         ImGui::EndTabItem();
     }
 }
@@ -424,13 +424,13 @@ auto ImguiBase::im_debug_window() -> void
 
         ImGui::BeginTabBar("Mem editor");
         {
-            mem_viewer_entry<0>("256kb ewram", gameboy_advance.mem.ewram);
-            mem_viewer_entry<1>("32kb iwram", gameboy_advance.mem.iwram);
-            mem_viewer_entry<2>("1kb pram", gameboy_advance.mem.pram);
-            mem_viewer_entry<3>("96kb vram", gameboy_advance.mem.vram);
-            mem_viewer_entry<4>("1kb oam", gameboy_advance.mem.oam);
-            mem_viewer_entry<5>("1kb io", gameboy_advance.mem.io);
-            mem_viewer_entry<6>("32mb rom", gameboy_advance.rom);
+            mem_viewer_entry<0, std::uint8_t>("256kb ewram", gameboy_advance.mem.ewram);
+            mem_viewer_entry<1, std::uint8_t>("32kb iwram", gameboy_advance.mem.iwram);
+            mem_viewer_entry<2, std::uint8_t>("1kb pram", gameboy_advance.mem.pram);
+            mem_viewer_entry<3, std::uint8_t>("96kb vram", gameboy_advance.mem.vram);
+            mem_viewer_entry<4, std::uint8_t>("1kb oam", gameboy_advance.mem.oam);
+            mem_viewer_entry<5, std::uint16_t>("1kb io", gameboy_advance.mem.io);
+            mem_viewer_entry<6, std::uint8_t>("32mb rom", gameboy_advance.rom);
         }
         ImGui::EndTabBar();
     }

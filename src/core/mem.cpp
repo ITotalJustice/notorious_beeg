@@ -86,170 +86,99 @@ constexpr auto empty_write([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr,
 [[nodiscard]]
 constexpr auto read_io16(Gba& gba, const u32 addr) -> u16
 {
-    // don't mirror io
-    if (addr > 0x40003FF) [[unlikely]]
-    {
-        // the only mirrored reg
-        if ((addr & 0xFFF) == (IO_IMC_L & 0xFFF))
-        {
-            return REG_IMC_L;
-        }
-        else if ((addr & 0xFFF) == (IO_IMC_H & 0xFFF))
-        {
-            return REG_IMC_H;
-        }
-        else
-        {
-            return openbus<u16>(gba, addr);
-        }
-    }
+    assert(!(addr & 0x1) && "unaligned addr in read_io16!");
 
     switch (addr)
     {
+        case IO_DISPCNT:
+        case IO_DISPSTAT:
+        case IO_VCOUNT:
+        case IO_BG2CNT:
+        case IO_BG3CNT:
+        case IO_SOUNDBIAS:
+        case IO_WAVE_RAM0_L:
+        case IO_WAVE_RAM0_H:
+        case IO_WAVE_RAM1_L:
+        case IO_WAVE_RAM1_H:
+        case IO_WAVE_RAM2_L:
+        case IO_WAVE_RAM2_H:
+        case IO_WAVE_RAM3_L:
+        case IO_WAVE_RAM3_H:
+        case IO_TM0CNT:
+        case IO_TM1CNT:
+        case IO_TM2CNT:
+        case IO_TM3CNT:
+        case IO_RCNT:
+        case IO_IE:
+        case IO_IF:
+        case IO_WSCNT:
+        case IO_IME:
+        case IO_HALTCNT_L:
+        case IO_HALTCNT_H:
+            return gba.mem.io[(addr & IO_MASK) >> 1];
+
         case IO_TM0D:
             return timer::read_timer(gba, 0);
+
         case IO_TM1D:
             return timer::read_timer(gba, 1);
+
         case IO_TM2D:
             return timer::read_timer(gba, 2);
+
         case IO_TM3D:
             return timer::read_timer(gba, 3);
 
-        //write only regs
-        // todo: use a lut
-        case IO_FIFO_A_L:
-        case IO_FIFO_A_H:
-        case IO_FIFO_B_L:
-        case IO_FIFO_B_H:
-        case IO_DMA0SAD_LO:
-        case IO_DMA0SAD_HI:
-        case IO_DMA1SAD_LO:
-        case IO_DMA1SAD_HI:
-        case IO_DMA2SAD_LO:
-        case IO_DMA2SAD_HI:
-        case IO_DMA3SAD_LO:
-        case IO_DMA3SAD_HI:
-        case IO_DMA0DAD_LO:
-        case IO_DMA0DAD_HI:
-        case IO_DMA1DAD_LO:
-        case IO_DMA1DAD_HI:
-        case IO_DMA2DAD_LO:
-        case IO_DMA2DAD_HI:
-        case IO_DMA3DAD_LO:
-        case IO_DMA3DAD_HI:
-        case IO_BG0HOFS:
-        case IO_BG0VOFS:
-        case IO_BG1HOFS:
-        case IO_BG1VOFS:
-        case IO_BG2HOFS:
-        case IO_BG2VOFS:
-        case IO_BG3HOFS:
-        case IO_BG3VOFS:
-        case IO_BG2PA:
-        case IO_BG2PB:
-        case IO_BG2PC:
-        case IO_BG2PD:
-        case IO_BG2X_LO:
-        case IO_BG2X_HI:
-        case IO_BG2Y_LO:
-        case IO_BG2Y_HI:
-        case IO_BG3PA:
-        case IO_BG3PB:
-        case IO_BG3PC:
-        case IO_BG3PD:
-        case IO_BG3X_LO:
-        case IO_BG3X_HI:
-        case IO_BG3Y_LO:
-        case IO_BG3Y_HI:
-        case IO_WIN0H:
-        case IO_WIN1H:
-        case IO_WIN0V:
-        case IO_WIN1V:
-        case IO_MOSAIC:
-        case IO_COLEY:
-
-        // INVALID
-        case 0x400004E:
-        case 0x4000056:
-        case 0x4000058:
-        case 0x400005A:
-        case 0x400005C:
-        case 0x400005E:
-        case 0x400008C:
-        case 0x400008E:
-        case 0x40000A8:
-        case 0x40000AA:
-        case 0x40000AC:
-        case 0x40000AE:
-        case 0x40000E0:
-        case 0x40000E2:
-        case 0x40000E4:
-        case 0x40000E6:
-        case 0x40000E8:
-        case 0x40000EA:
-        case 0x40000EC:
-        case 0x40000EE:
-        case 0x40000F0:
-        case 0x40000F2:
-        case 0x40000F4:
-        case 0x40000F6:
-        case 0x40000F8:
-        case 0x40000FA:
-        case 0x40000FC:
-        case 0x40000FE:
-        case 0x400100C:
-            return openbus<u16>(gba, addr);
-
         case IO_SOUND1CNT_L: {
             constexpr auto mask = bit::get_mask<0, 6, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUND1CNT_L & mask;
         }
 
         case IO_SOUND1CNT_H: {
             constexpr auto mask = bit::get_mask<6, 15, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUND1CNT_H & mask;
         }
 
         case IO_SOUND1CNT_X: {
             constexpr auto mask = bit::get_mask<14, 14, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUND1CNT_X & mask;
         }
 
         case IO_SOUND2CNT_L: {
             constexpr auto mask = bit::get_mask<6, 15, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUND2CNT_L & mask;
         }
 
         case IO_SOUND2CNT_H: {
             constexpr auto mask = bit::get_mask<14, 14, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUND2CNT_H & mask;
         }
 
         case IO_SOUND3CNT_L: {
             constexpr auto mask = bit::get_mask<5, 7, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUND3CNT_L & mask;
         }
 
         case IO_SOUND3CNT_H: {
             constexpr auto mask = bit::get_mask<13, 15, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUND3CNT_H & mask;
         }
 
         case IO_SOUND3CNT_X: {
             constexpr auto mask = bit::get_mask<14, 14, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUND3CNT_X & mask;
         }
 
         case IO_SOUND4CNT_L: {
             constexpr auto mask = bit::get_mask<8, 15, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUND4CNT_L & mask;
         }
 
         case IO_SOUND4CNT_H: {
             constexpr auto mask =
                 bit::get_mask<0, 7, u16>() |
                 bit::get_mask<14, 14, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUND4CNT_H & mask;
         }
 
         case IO_SOUNDCNT_L: {
@@ -258,7 +187,7 @@ constexpr auto read_io16(Gba& gba, const u32 addr) -> u16
                 bit::get_mask<4, 6, u16>() |
                 bit::get_mask<8, 11, u16>() |
                 bit::get_mask<12, 15, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUNDCNT_L & mask;
         }
 
         case IO_SOUNDCNT_H: {
@@ -272,7 +201,7 @@ constexpr auto read_io16(Gba& gba, const u32 addr) -> u16
                 bit::get_mask<12, 12, u16>() |
                 bit::get_mask<13, 13, u16>() |
                 bit::get_mask<14, 14, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUNDCNT_H & mask;
         }
 
         case IO_SOUNDCNT_X: {
@@ -282,54 +211,78 @@ constexpr auto read_io16(Gba& gba, const u32 addr) -> u16
                 bit::get_mask<2, 2, u16>() |
                 bit::get_mask<3, 3, u16>() |
                 bit::get_mask<7, 7, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_SOUNDCNT_X & mask;
         }
 
-        case IO_DMA0CNT_H:
-        case IO_DMA1CNT_H:
+        case IO_DMA0CNT_H: {
+            constexpr auto mask =
+                bit::get_mask<5, 10, u16>() |
+                bit::get_mask<12, 15, u16>();
+            return REG_DMA0CNT_H & mask;
+        }
+
+        case IO_DMA1CNT_H: {
+            constexpr auto mask =
+                bit::get_mask<5, 10, u16>() |
+                bit::get_mask<12, 15, u16>();
+            return REG_DMA1CNT_H & mask;
+        }
+
         case IO_DMA2CNT_H: {
             constexpr auto mask =
                 bit::get_mask<5, 10, u16>() |
                 bit::get_mask<12, 15, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_DMA2CNT_H & mask;
         }
 
         case IO_DMA3CNT_H: {
             constexpr auto mask = bit::get_mask<5, 15, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_DMA3CNT_H & mask;
         }
 
         case IO_BLDMOD: {
             constexpr auto mask = bit::get_mask<0, 13, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_BLDMOD & mask;
         }
 
         case IO_COLEV: {
             constexpr auto mask =
                 bit::get_mask<0, 4, u16>() |
                 bit::get_mask<8, 12, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_COLEV & mask;
         }
 
-        case IO_WININ:
+        case IO_WININ: {
+            constexpr auto mask =
+                bit::get_mask<0, 5, u16>() |
+                bit::get_mask<8, 13, u16>();
+            return REG_WININ & mask;
+        }
+
         case IO_WINOUT: {
             constexpr auto mask =
                 bit::get_mask<0, 5, u16>() |
                 bit::get_mask<8, 13, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_WINOUT & mask;
         }
 
-        case IO_BG0CNT:
+        case IO_BG0CNT: {
+            constexpr auto mask =
+                bit::get_mask<0, 12, u16>() |
+                bit::get_mask<14, 15, u16>();
+            return REG_BG0CNT & mask;
+        }
+
         case IO_BG1CNT: {
             constexpr auto mask =
                 bit::get_mask<0, 12, u16>() |
                 bit::get_mask<14, 15, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_BG1CNT & mask;
         }
 
         case IO_KEY: {
             constexpr auto mask = bit::get_mask<0, 9, u16>();
-            return read_array<u16>(MEM.io, IO_MASK, addr) & mask;
+            return REG_KEY & mask;
         }
 
         // these are registers with w only bits
@@ -354,14 +307,19 @@ constexpr auto read_io16(Gba& gba, const u32 addr) -> u16
         case 0x4000302: // REG_PAUSE (high 16 bits unreadable)
             return 0x0000;
 
-        case IO_IMC_L:
-            return REG_IMC_L;
-        case IO_IMC_H:
-            return REG_IMC_H;
-
         default:
-            //printf("unhandled io read addr: 0x%08X\n", addr);
-            return read_array<u16>(MEM.io, IO_MASK, addr);
+            // the only mirrored reg
+            if ((addr & 0xFFF) == (IO_IMC_L & 0xFFF))
+            {
+                return REG_IMC_L;
+            }
+            else if ((addr & 0xFFF) == (IO_IMC_H & 0xFFF))
+            {
+                return REG_IMC_H;
+            }
+
+            // oob access, invalid regs and write-only regs return openbus
+            return openbus<u16>(gba, addr);
     }
 }
 
@@ -383,53 +341,48 @@ constexpr auto read_io8(Gba& gba, const u32 addr) -> u8
 [[nodiscard]]
 constexpr auto read_io32(Gba& gba, const u32 addr) -> u32
 {
+    assert(!(addr & 0x3) && "unaligned addr in read_io32!");
+
     // todo: optimise for 32bit regs that games commonly read from
-    const u32 lo = read_io16(gba, addr+0) << 0;
-    const u32 hi = read_io16(gba, addr+2) << 16;
+    const u32 lo = read_io16(gba, addr + 0) << 0;
+    const u32 hi = read_io16(gba, addr + 2) << 16;
     return hi | lo;
 }
 
 constexpr auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
 {
-    // don't mirror io
-    if (addr > 0x40003FF) [[unlikely]]
-    {
-        // the only mirrored reg
-        if ((addr & 0xFFF) == (IO_IMC_L & 0xFFF))
-        {
-            REG_IMC_L = value;
-        }
-        else if ((addr & 0xFFF) == (IO_IMC_H & 0xFFF))
-        {
-            REG_IMC_H = value;
-        }
-
-        return;
-    }
+    assert(!(addr & 0x1) && "unaligned addr in write_io16!");
 
     switch (addr)
     {
-        // read only regs
-        case IO_KEY: return;
-        case IO_VCOUNT: return;
+        case IO_TM0D:
+            gba.timer[0].reload = value;
+            break;
 
-        case IO_TM0D: gba.timer[0].reload = value; return;
-        case IO_TM1D: gba.timer[1].reload = value; return;
-        case IO_TM2D: gba.timer[2].reload = value; return;
-        case IO_TM3D: gba.timer[3].reload = value; return;
+        case IO_TM1D:
+            gba.timer[1].reload = value;
+            break;
+
+        case IO_TM2D:
+            gba.timer[2].reload = value;
+            break;
+
+        case IO_TM3D:
+            gba.timer[3].reload = value;
+            break;
 
         case IO_IF:
             REG_IF &= ~value;
-            return;
+            break;
 
         case IO_DISPSTAT:
             REG_DISPSTAT = (REG_DISPSTAT & 0x7) | (value & ~0x7);
-            return;
+            break;
 
         case IO_SOUNDCNT_X:
             REG_SOUNDCNT_X = (REG_SOUNDCNT_X & 0xF) | (value & ~0xF);
-            apu::write_legacy(gba, addr, value);
-            return;
+            apu::write_legacy8(gba, addr, value); // only 8-bits of CNT_X are used
+            break;
 
         case IO_WSCNT: {
             const auto old_value = REG_WSCNT;
@@ -442,32 +395,73 @@ constexpr auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
             {
                 // assert(!"IO_WSCNT waitstate updated!");
             }
-        } return;
+        } break;
 
-        case IO_IMC_L:
-            REG_IMC_L = value;
-            assert(bit::is_set<5>(REG_IMC_L) && "when bit 5 is unset, locks up gba");
-            return;
+        case IO_DISPCNT:
+        case IO_BG0CNT:
+        case IO_BG1CNT:
+        case IO_BG2CNT:
+        case IO_BG3CNT:
+        case IO_BG0HOFS:
+        case IO_BG0VOFS:
+        case IO_BG1HOFS:
+        case IO_BG1VOFS:
+        case IO_BG2HOFS:
+        case IO_BG2VOFS:
+        case IO_BG3HOFS:
+        case IO_BG3VOFS:
+        case IO_BG2PA:
+        case IO_BG2PB:
+        case IO_BG2PC:
+        case IO_BG2PD:
+        case IO_BG2X:
+        case IO_BG2Y:
+        case IO_BG3PA:
+        case IO_BG3PB:
+        case IO_BG3PC:
+        case IO_BG3PD:
+        case IO_BG3X:
+        case IO_BG3Y:
+        case IO_BG2X_HI:
+        case IO_BG2Y_HI:
+        case IO_BG3X_HI:
+        case IO_BG3Y_HI:
+        case IO_WIN0H:
+        case IO_WIN1H:
+        case IO_WIN0V:
+        case IO_WIN1V:
+        case IO_WININ:
+        case IO_WINOUT:
+        case IO_MOSAIC:
+        case IO_BLDMOD:
+        case IO_COLEV:
+        case IO_COLEY:
+        case IO_SOUNDCNT_L:
+        case IO_SOUNDBIAS:
+        case IO_DMA0SAD:
+        case IO_DMA1SAD:
+        case IO_DMA2SAD:
+        case IO_DMA3SAD:
+        case IO_DMA0DAD:
+        case IO_DMA1DAD:
+        case IO_DMA2DAD:
+        case IO_DMA3DAD:
+        case IO_DMA0SAD_HI:
+        case IO_DMA1SAD_HI:
+        case IO_DMA2SAD_HI:
+        case IO_DMA3SAD_HI:
+        case IO_DMA0DAD_HI:
+        case IO_DMA1DAD_HI:
+        case IO_DMA2DAD_HI:
+        case IO_DMA3DAD_HI:
+        case IO_DMA0CNT_L:
+        case IO_DMA1CNT_L:
+        case IO_DMA2CNT_L:
+        case IO_DMA3CNT_L:
+        case IO_RCNT:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
+            break;
 
-        case IO_IMC_H: {
-            const auto old_value = bit::get_range<0x8, 0xB>(REG_IMC_H);
-            const auto new_value = bit::get_range<0x8, 0xB>(value);
-            assert((new_value == 0b1101 || new_value == 0b1110) && "invalid wram waitstate");
-
-            REG_IMC_H = value;
-
-            if (old_value != new_value)
-            {
-                // todo: update waitstate!
-                assert(!"wram waitstate updated!");
-            }
-        } return;
-    }
-
-    write_array<u16>(MEM.io, IO_MASK, addr, value);
-
-    switch (addr)
-    {
         // todo: read only when apu is off
         case IO_SOUND1CNT_L:
         case IO_SOUND1CNT_H:
@@ -488,45 +482,65 @@ constexpr auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
         case IO_WAVE_RAM2_H:
         case IO_WAVE_RAM3_L:
         case IO_WAVE_RAM3_H:
-            apu::write_legacy(gba, addr, value);
+            if (apu::is_apu_enabled(gba))
+            {
+                gba.mem.io[(addr & IO_MASK) >> 1] = value;
+                apu::write_legacy(gba, addr, value);
+            }
             break;
 
         case IO_TM0CNT:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             timer::on_cnt_write(gba, 0);
             break;
+
         case IO_TM1CNT:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             timer::on_cnt_write(gba, 1);
             break;
+
         case IO_TM2CNT:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             timer::on_cnt_write(gba, 2);
             break;
+
         case IO_TM3CNT:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             timer::on_cnt_write(gba, 3);
             break;
 
         case IO_DMA0CNT_H:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             dma::on_cnt_write(gba, 0);
             break;
+
         case IO_DMA1CNT_H:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             dma::on_cnt_write(gba, 1);
             break;
+
         case IO_DMA2CNT_H:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             dma::on_cnt_write(gba, 2);
             break;
+
         case IO_DMA3CNT_H:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             dma::on_cnt_write(gba, 3);
             break;
 
         case IO_IME:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             arm7tdmi::schedule_interrupt(gba);
             break;
 
         case IO_HALTCNT_L:
-        case IO_HALTCNT_H:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
             break;
 
         case IO_IE:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             arm7tdmi::schedule_interrupt(gba);
             break;
 
@@ -541,62 +555,41 @@ constexpr auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
             break;
 
         case IO_SOUNDCNT_H:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             apu::on_soundcnt_write(gba);
             break;
 
         default:
-            //printf("unhandled io write addr: 0x%08X value: 0x%02X pc: 0x%08X\n", addr, value, arm7tdmi::get_pc(gba));
-            // assert(!"todo");
+            // the only mirrored reg
+            if ((addr & 0xFFF) == (IO_IMC_L & 0xFFF))
+            {
+                assert(bit::is_set<5>(REG_IMC_L) && "when bit 5 is unset, locks up gba");
+                REG_IMC_L = value;
+            }
+            else if ((addr & 0xFFF) == (IO_IMC_H & 0xFFF))
+            {
+                const auto old_value = bit::get_range<0x8, 0xB>(REG_IMC_H);
+                const auto new_value = bit::get_range<0x8, 0xB>(value);
+                assert((new_value == 0b1101 || new_value == 0b1110) && "invalid wram waitstate");
+
+                REG_IMC_H = value;
+
+                if (old_value != new_value)
+                {
+                    // todo: update waitstate!
+                    assert(!"wram waitstate updated!");
+                }
+            }
             break;
     }
 }
 
 constexpr auto write_io32(Gba& gba, const u32 addr, const u32 value) -> void
 {
-    // games typically do 32-bit writes to 32-bit registers
+    assert(!(addr & 0x3) && "unaligned addr in write_io32!");
 
     switch (addr)
     {
-        case IO_DISPCNT:
-            write_array<u32>(MEM.io, IO_MASK, addr, value);
-            return;
-
-        case IO_IME:
-            write_array<u32>(MEM.io, IO_MASK, addr, value);
-            arm7tdmi::schedule_interrupt(gba);
-            return;
-
-        case IO_DMA0SAD:
-        case IO_DMA1SAD:
-        case IO_DMA2SAD:
-        case IO_DMA3SAD:
-        case IO_DMA0DAD:
-        case IO_DMA1DAD:
-        case IO_DMA2DAD:
-        case IO_DMA3DAD:
-            write_array<u32>(MEM.io, IO_MASK, addr, value);
-            return;
-
-        case IO_DMA0CNT:
-            write_array<u32>(MEM.io, IO_MASK, addr, value);
-            dma::on_cnt_write(gba, 0);
-            return;
-
-        case IO_DMA1CNT:
-            write_array<u32>(MEM.io, IO_MASK, addr, value);
-            dma::on_cnt_write(gba, 1);
-            return;
-
-        case IO_DMA2CNT:
-            write_array<u32>(MEM.io, IO_MASK, addr, value);
-            dma::on_cnt_write(gba, 2);
-            return;
-
-        case IO_DMA3CNT:
-            write_array<u32>(MEM.io, IO_MASK, addr, value);
-            dma::on_cnt_write(gba, 3);
-            return;
-
         case IO_FIFO_A_L:
         case IO_FIFO_A_H:
             apu::on_fifo_write32(gba, value, 0);
@@ -608,14 +601,12 @@ constexpr auto write_io32(Gba& gba, const u32 addr, const u32 value) -> void
             return;
     }
 
-    // std::printf("[IO] 32bit write to 0x%08X\n", addr);
     write_io16(gba, addr + 0, value >> 0x00);
     write_io16(gba, addr + 2, value >> 0x10);
 }
 
 constexpr auto write_io8(Gba& gba, const u32 addr, const u8 value) -> void
 {
-    // printf("bit io write to 0x%08X\n", addr);
     switch (addr)
     {
         case IO_SOUND1CNT_L + 0:
@@ -652,58 +643,75 @@ constexpr auto write_io8(Gba& gba, const u32 addr, const u8 value) -> void
         case IO_WAVE_RAM3_L + 1:
         case IO_WAVE_RAM3_H + 0:
         case IO_WAVE_RAM3_H + 1:
-            write_array<u8>(MEM.io, IO_MASK, addr, value);
-            apu::write_legacy8(gba, addr, value);
-            return;
+            if (apu::is_apu_enabled(gba))
+            {
+                if (addr & 1)
+                {
+                    gba.mem.io[(addr & IO_MASK) >> 1] &= 0x00FF;
+                    gba.mem.io[(addr & IO_MASK) >> 1] |= value << 8;
+                }
+                else
+                {
+                    gba.mem.io[(addr & IO_MASK) >> 1] &= 0xFF00;
+                    gba.mem.io[(addr & IO_MASK) >> 1] |= value;
+                }
+                apu::write_legacy8(gba, addr, value);
+            }
+            break;
 
         case IO_IF + 0:
             REG_IF &= ~value;
-            return;
+            break;
 
         case IO_IF + 1:
             REG_IF &= ~(value << 8);
-            return;
+            break;
 
         case IO_FIFO_A_L:
         case IO_FIFO_A_L+1:
         case IO_FIFO_A_H:
         case IO_FIFO_A_H+1:
             apu::on_fifo_write8(gba, value, 0);
-            return;
+            break;
 
         case IO_FIFO_B_L:
         case IO_FIFO_B_L+1:
         case IO_FIFO_B_H:
         case IO_FIFO_B_H+1:
             apu::on_fifo_write8(gba, value, 1);
-            return;
+            break;
 
         case IO_IME:
-            write_array<u8>(MEM.io, IO_MASK, addr, value);
+            REG_IME = value;
             arm7tdmi::schedule_interrupt(gba);
-            return;
+            break;
 
         case IO_HALTCNT_L:
-            write_array<u8>(MEM.io, IO_MASK, addr, value);
-            return;
+            gba.mem.io[(addr & IO_MASK) >> 1] &= 0xFF00;
+            gba.mem.io[(addr & IO_MASK) >> 1] |= value;
+            break;
 
         case IO_HALTCNT_H:
             arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
-            return;
-    }
+            break;
 
-    u16 actual_value = value;
-    if (addr & 1)
-    {
-        actual_value <<= 8;
-        actual_value |= MEM.io[addr & 0x3FE];
-    }
-    else
-    {
-        actual_value |= static_cast<u16>(MEM.io[(addr+1) & 0x3FF]) << 8;
-    }
+        default: {
+            u16 actual_value = value;
+            const u16 old_value = MEM.io[(addr & 0x3FF) >> 1];
 
-    write_io16(gba, addr & ~0x1, actual_value);
+            if (addr & 1)
+            {
+                actual_value <<= 8;
+                actual_value |= old_value & 0x00FF;
+            }
+            else
+            {
+                actual_value |= old_value & 0xFF00;
+            }
+
+            write_io16(gba, addr & ~0x1, actual_value);
+        } break;
+    }
 }
 
 template<typename T> [[nodiscard]]

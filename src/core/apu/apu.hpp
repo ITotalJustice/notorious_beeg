@@ -195,6 +195,8 @@ STATIC auto on_noise_event(Gba& gba) -> void;
 STATIC auto on_frame_sequencer_event(Gba& gba) -> void;
 STATIC auto on_sample_event(Gba& gba) -> void;
 
+STATIC auto is_apu_enabled(Gba& gba) -> bool;
+
 STATIC auto reset(Gba& gba, bool skip_bios) -> void;
 
 } // namespace gba::apu

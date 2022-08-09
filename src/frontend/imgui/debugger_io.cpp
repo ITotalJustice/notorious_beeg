@@ -347,15 +347,15 @@ auto IO_BG2PD(gba::Gba& gba) -> void
     io_bg23pabcd(gba, gba::mem::IO_BG2PD, REG_BG2PD);
 }
 
-auto IO_BG2X(gba::Gba& gba) -> void
-{
-    io_bg23xy(gba, gba::mem::IO_BG2X, REG_BG2X);
-}
+// auto IO_BG2X(gba::Gba& gba) -> void
+// {
+//     io_bg23xy(gba, gba::mem::IO_BG2X, REG_BG2X);
+// }
 
-auto IO_BG2Y(gba::Gba& gba) -> void
-{
-    io_bg23xy(gba, gba::mem::IO_BG2Y, REG_BG2Y);
-}
+// auto IO_BG2Y(gba::Gba& gba) -> void
+// {
+//     io_bg23xy(gba, gba::mem::IO_BG2Y, REG_BG2Y);
+// }
 
 auto IO_BG3PA(gba::Gba& gba) -> void
 {
@@ -377,15 +377,15 @@ auto IO_BG3PD(gba::Gba& gba) -> void
     io_bg23pabcd(gba, gba::mem::IO_BG3PD, REG_BG3PD);
 }
 
-auto IO_BG3X(gba::Gba& gba) -> void
-{
-    io_bg23xy(gba, gba::mem::IO_BG3X, REG_BG3X);
-}
+// auto IO_BG3X(gba::Gba& gba) -> void
+// {
+//     io_bg23xy(gba, gba::mem::IO_BG3X, REG_BG3X);
+// }
 
-auto IO_BG3Y(gba::Gba& gba) -> void
-{
-    io_bg23xy(gba, gba::mem::IO_BG3Y, REG_BG3Y);
-}
+// auto IO_BG3Y(gba::Gba& gba) -> void
+// {
+//     io_bg23xy(gba, gba::mem::IO_BG3Y, REG_BG3Y);
+// }
 
 auto io_winXh(gba::Gba& gba, auto addr, auto& reg) -> void
 {
@@ -512,53 +512,53 @@ auto io_coley(gba::Gba& gba) -> void
     io_int<0x0, 0x4>(gba, REG_COLEY, "lighten/darken value");
 }
 
-auto IO_DMA0SAD(gba::Gba& gba) -> void
-{
-    io_title(gba::mem::IO_DMA0SAD, REG_DMA0SAD);
-    io_int<0x0, 26>(gba, REG_DMA0SAD, "27-bit source address");
-}
+// auto IO_DMA0SAD(gba::Gba& gba) -> void
+// {
+//     io_title(gba::mem::IO_DMA0SAD, REG_DMA0SAD);
+//     io_int<0x0, 26>(gba, REG_DMA0SAD, "27-bit source address");
+// }
 
-auto IO_DMA1SAD(gba::Gba& gba) -> void
-{
-    io_title(gba::mem::IO_DMA1SAD, REG_DMA1SAD);
-    io_int<0x0, 27>(gba, REG_DMA1SAD, "28-bit source address");
-}
+// auto IO_DMA1SAD(gba::Gba& gba) -> void
+// {
+//     io_title(gba::mem::IO_DMA1SAD, REG_DMA1SAD);
+//     io_int<0x0, 27>(gba, REG_DMA1SAD, "28-bit source address");
+// }
 
-auto IO_DMA2SAD(gba::Gba& gba) -> void
-{
-    io_title(gba::mem::IO_DMA2SAD, REG_DMA2SAD);
-    io_int<0x0, 27>(gba, REG_DMA2SAD, "28-bit source address");
-}
+// auto IO_DMA2SAD(gba::Gba& gba) -> void
+// {
+//     io_title(gba::mem::IO_DMA2SAD, REG_DMA2SAD);
+//     io_int<0x0, 27>(gba, REG_DMA2SAD, "28-bit source address");
+// }
 
-auto IO_DMA3SAD(gba::Gba& gba) -> void
-{
-    io_title(gba::mem::IO_DMA3SAD, REG_DMA3SAD);
-    io_int<0x0, 27>(gba, REG_DMA3SAD, "28-bit source address");
-}
+// auto IO_DMA3SAD(gba::Gba& gba) -> void
+// {
+//     io_title(gba::mem::IO_DMA3SAD, REG_DMA3SAD);
+//     io_int<0x0, 27>(gba, REG_DMA3SAD, "28-bit source address");
+// }
 
-auto IO_DMA0DAD(gba::Gba& gba) -> void
-{
-    io_title(gba::mem::IO_DMA0DAD, REG_DMA0DAD);
-    io_int<0x0, 26>(gba, REG_DMA0DAD, "27-bit source address");
-}
+// auto IO_DMA0DAD(gba::Gba& gba) -> void
+// {
+//     io_title(gba::mem::IO_DMA0DAD, REG_DMA0DAD);
+//     io_int<0x0, 26>(gba, REG_DMA0DAD, "27-bit source address");
+// }
 
-auto IO_DMA1DAD(gba::Gba& gba) -> void
-{
-    io_title(gba::mem::IO_DMA1DAD, REG_DMA1DAD);
-    io_int<0x0, 26>(gba, REG_DMA1DAD, "27-bit source address");
-}
+// auto IO_DMA1DAD(gba::Gba& gba) -> void
+// {
+//     io_title(gba::mem::IO_DMA1DAD, REG_DMA1DAD);
+//     io_int<0x0, 26>(gba, REG_DMA1DAD, "27-bit source address");
+// }
 
-auto IO_DMA2DAD(gba::Gba& gba) -> void
-{
-    io_title(gba::mem::IO_DMA2DAD, REG_DMA2DAD);
-    io_int<0x0, 26>(gba, REG_DMA2DAD, "27-bit source address");
-}
+// auto IO_DMA2DAD(gba::Gba& gba) -> void
+// {
+//     io_title(gba::mem::IO_DMA2DAD, REG_DMA2DAD);
+//     io_int<0x0, 26>(gba, REG_DMA2DAD, "27-bit source address");
+// }
 
-auto IO_DMA3DAD(gba::Gba& gba) -> void
-{
-    io_title(gba::mem::IO_DMA3DAD, REG_DMA3DAD);
-    io_int<0x0, 27>(gba, REG_DMA3DAD, "27-bit source address");
-}
+// auto IO_DMA3DAD(gba::Gba& gba) -> void
+// {
+//     io_title(gba::mem::IO_DMA3DAD, REG_DMA3DAD);
+//     io_int<0x0, 27>(gba, REG_DMA3DAD, "27-bit source address");
+// }
 
 auto IO_DMAXCNT(gba::Gba& gba, auto addr, auto& reg) -> void
 {
@@ -755,14 +755,14 @@ const std::array IO_NAMES =
     IoRegEntry{ "BG2PB", IO_BG2PB },
     IoRegEntry{ "BG2PC", IO_BG2PC },
     IoRegEntry{ "BG2PD", IO_BG2PD },
-    IoRegEntry{ "BG2X", IO_BG2X },
-    IoRegEntry{ "BG2Y", IO_BG2Y },
+    IoRegEntry{ "BG2X", unimpl_io_view },//IO_BG2X },
+    IoRegEntry{ "BG2Y", unimpl_io_view },//IO_BG2Y },
     IoRegEntry{ "BG3PA", IO_BG3PA },
     IoRegEntry{ "BG3PB", IO_BG3PB },
     IoRegEntry{ "BG3PC", IO_BG3PC },
     IoRegEntry{ "BG3PD", IO_BG3PD },
-    IoRegEntry{ "BG3X", IO_BG3X },
-    IoRegEntry{ "BG3Y", IO_BG3Y },
+    IoRegEntry{ "BG3X", unimpl_io_view }, //IO_BG3X },
+    IoRegEntry{ "BG3Y", unimpl_io_view }, //IO_BG3Y },
     IoRegEntry{ "WIN0H", io_win0h },
     IoRegEntry{ "WIN1H", io_win1h },
     IoRegEntry{ "WIN0V", io_win0v },
@@ -799,14 +799,14 @@ const std::array IO_NAMES =
     IoRegEntry{ "FIFO_A_H", unimpl_io_view },
     IoRegEntry{ "FIFO_B_L", unimpl_io_view },
     IoRegEntry{ "FIFO_B_H", unimpl_io_view },
-    IoRegEntry{ "DMA0SAD", IO_DMA0SAD },
-    IoRegEntry{ "DMA1SAD", IO_DMA1SAD },
-    IoRegEntry{ "DMA2SAD", IO_DMA2SAD },
-    IoRegEntry{ "DMA3SAD", IO_DMA3SAD },
-    IoRegEntry{ "DMA0DAD", IO_DMA0DAD },
-    IoRegEntry{ "DMA1DAD", IO_DMA1DAD },
-    IoRegEntry{ "DMA2DAD", IO_DMA2DAD },
-    IoRegEntry{ "DMA3DAD", IO_DMA3DAD },
+    IoRegEntry{ "DMA0SAD", unimpl_io_view }, //IO_DMA0SAD },
+    IoRegEntry{ "DMA1SAD", unimpl_io_view }, //IO_DMA1SAD },
+    IoRegEntry{ "DMA2SAD", unimpl_io_view }, //IO_DMA2SAD },
+    IoRegEntry{ "DMA3SAD", unimpl_io_view }, //IO_DMA3SAD },
+    IoRegEntry{ "DMA0DAD", unimpl_io_view }, //IO_DMA0DAD },
+    IoRegEntry{ "DMA1DAD", unimpl_io_view }, //IO_DMA1DAD },
+    IoRegEntry{ "DMA2DAD", unimpl_io_view }, //IO_DMA2DAD },
+    IoRegEntry{ "DMA3DAD", unimpl_io_view }, //IO_DMA3DAD },
     IoRegEntry{ "DMA0CNT_L", unimpl_io_view },
     IoRegEntry{ "DMA1CNT_L", unimpl_io_view },
     IoRegEntry{ "DMA2CNT_L", unimpl_io_view },
