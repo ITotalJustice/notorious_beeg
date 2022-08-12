@@ -6,6 +6,7 @@
 #include "fwd.hpp"
 #include <span>
 #include <type_traits>
+#include <bit>
 
 namespace gba::mem {
 
@@ -411,18 +412,78 @@ constexpr auto align(u32 addr) -> u32
 }
 
 // helpers for read / write arrays.
+// alignment is handled
 template <typename T> [[nodiscard]]
 STATIC_INLINE constexpr auto read_array(std::span<const u8> array, auto mask, u32 addr) -> T
 {
-    constexpr auto shift = sizeof(T) >> 1;
-    return reinterpret_cast<const T*>(array.data())[(addr>>shift) & (mask>>shift)];
+    if (std::is_constant_evaluated() || std::endian::native == std::endian::big)
+    {
+        addr = align<T>(addr);
+
+        if constexpr(sizeof(T) == sizeof(u8))
+        {
+            return array[addr & mask];
+        }
+        if constexpr(sizeof(T) == sizeof(u16))
+        {
+            const u16 hi = array[(addr + 0) & mask];
+            const u16 lo = array[(addr + 1) & mask];
+
+            return (lo << 8) | hi;
+        }
+        if constexpr(sizeof(T) == sizeof(u32))
+        {
+            const u32 hi_word_hi = array[(addr + 0) & mask];
+            const u32 hi_word_lo = array[(addr + 1) & mask];
+            const u32 lo_word_hi = array[(addr + 2) & mask];
+            const u32 lo_word_lo = array[(addr + 3) & mask];
+
+            return (lo_word_lo << 24) | (lo_word_hi << 16) | (hi_word_lo << 8) | hi_word_hi;
+        }
+        if constexpr(sizeof(T) == sizeof(u64))
+        {
+            const u64 lo = read_array<u32>(array, mask, addr);
+            const u64 hi = read_array<u32>(array.subspan(4), mask, addr+4);
+
+            return hi << 32 | lo;
+        }
+    }
+    else
+    {
+        constexpr auto shift = sizeof(T) >> 1;
+        return reinterpret_cast<const T*>(array.data())[(addr>>shift) & (mask>>shift)];
+    }
 }
 
 template <typename T>
 STATIC_INLINE constexpr auto write_array(std::span<u8> array, auto mask, u32 addr, T v) -> void
 {
-    constexpr auto shift = sizeof(T) >> 1;
-    reinterpret_cast<T*>(array.data())[(addr>>shift) & (mask>>shift)] = v;
+    if (std::is_constant_evaluated() || std::endian::native == std::endian::big)
+    {
+        addr = align<T>(addr);
+
+        if constexpr(sizeof(T) == sizeof(u8))
+        {
+            array[addr & mask] = v;
+        }
+        if constexpr(sizeof(T) == sizeof(u16))
+        {
+            array[(addr + 0) & mask] = (v >> 0) & 0xFF;
+            array[(addr + 1) & mask] = (v >> 8) & 0xFF;
+        }
+        if constexpr(sizeof(T) == sizeof(u32))
+        {
+            array[(addr + 0) & mask] = (v >> 0) & 0xFF;
+            array[(addr + 1) & mask] = (v >> 8) & 0xFF;
+            array[(addr + 2) & mask] = (v >> 16) & 0xFF;
+            array[(addr + 3) & mask] = (v >> 24) & 0xFF;
+        }
+    }
+    else
+    {
+        constexpr auto shift = sizeof(T) >> 1;
+        reinterpret_cast<T*>(array.data())[(addr>>shift) & (mask>>shift)] = v;
+    }
 }
 
 } // namespace gba::mem

@@ -18,6 +18,56 @@
 #include <numeric>
 
 namespace gba {
+namespace {
+
+// fills the rom with OOB values
+// NOTE: this does NOT work for OOB dma, as they return open bus!!!
+// > offset is the starting point in rom to fill rom
+// > for optimising, offset=rom_size, otherwise fill the entire rom
+constexpr auto fill_rom_oob_values(std::span<u8> rom, const u32 offset)
+{
+    for (auto i = offset; i < rom.size(); i += 2)
+    {
+        rom[i + 0] = i >> 1; // lower nibble (addr >> 1)
+        rom[i + 1] = i >> 9; // upper nibble (addr >> (8 + 1))
+    }
+}
+
+namespace test {
+
+template<typename T>
+consteval auto oob_rom_read(u32 addr) -> T
+{
+    Gba gba{};
+
+    // this isn't the full extent, constexpr loop limit
+    fill_rom_oob_values(gba.rom, mem::ROM_SIZE-100);
+
+    return mem::read_array<T>(gba.rom, mem::ROM_MASK, addr);
+}
+
+static_assert(
+    oob_rom_read<u8>(mem::ROM_SIZE-100) == 0xCE &&
+    oob_rom_read<u8>(mem::ROM_SIZE-99) == 0xFF &&
+    oob_rom_read<u8>(mem::ROM_SIZE-98) == 0xCF &&
+    oob_rom_read<u8>(mem::ROM_SIZE-97) == 0xFF,
+    "oob_rom_read<u8> failed! "
+);
+
+static_assert(
+    oob_rom_read<u16>(mem::ROM_SIZE-100) == 0xFFCE &&
+    oob_rom_read<u16>(mem::ROM_SIZE-98) == 0xFFCF,
+    "oob_rom_read<u16> failed! "
+);
+
+static_assert(
+    oob_rom_read<u32>(mem::ROM_SIZE-100) == 0xFFCFFFCE &&
+    "oob_rom_read<u32> failed! "
+);
+
+} // namespace test
+
+} // namespace
 
 Header::Header(std::span<const u8> rom)
 {
@@ -129,13 +179,8 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
             break;
     }
 
-    constexpr auto SIZE_32MiB = 1024*1024*32;
-
     // pre-calc the OOB rom read values, which is addr >> 1
-    for (auto i = 0; i < SIZE_32MiB; i++)
-    {
-        this->rom[i] = i >> 1;
-    }
+    fill_rom_oob_values(this->rom, new_rom.size());
 
     std::ranges::copy(new_rom, this->rom);
 
