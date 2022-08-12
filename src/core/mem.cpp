@@ -878,26 +878,23 @@ constexpr auto write_gpio(Gba& gba, const u32 addr, const T value)
     }
 }
 
-// https://github.com/mgba-emu/mgba/issues/743 (thanks endrift)
-[[nodiscard]]
-constexpr auto is_vram_dma_overflow_bug(Gba& gba, const u32 addr)
-{
-    return addr > VRAM_MASK && (addr & (VRAM_SIZE | 0x14000)) == VRAM_SIZE && ppu::is_bitmap_mode(gba);
-}
-
 template<typename T> [[nodiscard]]
 constexpr auto read_vram_region(Gba& gba, u32 addr) -> T
 {
     extra_cycle_if_ppu_access_mem(gba);
 
-    if ((addr & VRAM_MASK) > 0x17FFF)
+    addr &= VRAM_MASK;
+
+    if (addr > 0x17FFF)
     {
-        if (is_vram_dma_overflow_bug(gba, addr)) [[unlikely]]
+        if (ppu::is_bitmap_mode(gba) && addr <= 0x1BFFF) [[unlikely]]
         {
             return openbus<T>(gba, addr);
         }
+
         addr -= 0x8000;
     }
+
     return read_array<T>(MEM.vram, VRAM_MASK, addr);
 }
 
@@ -906,26 +903,27 @@ constexpr auto write_vram_region(Gba& gba, u32 addr, const T value) -> void
 {
     extra_cycle_if_ppu_access_mem(gba);
 
-    if ((addr & VRAM_MASK) > 0x17FFF)
+    addr &= VRAM_MASK;
+
+    if (addr > 0x17FFF)
     {
-        if (is_vram_dma_overflow_bug(gba, addr)) [[unlikely]]
+        if (ppu::is_bitmap_mode(gba) && addr <= 0x1BFFF) [[unlikely]]
         {
             return;
         }
+
         addr -= 0x8000;
     }
 
     if constexpr(std::is_same<T, u8>())
     {
         const bool bitmap = ppu::is_bitmap_mode(gba);
-        const u32 end_region = bitmap ? 0x6013FFF : 0x600FFFF;
+        const u32 end_region = bitmap ? 0x13FFF : 0xFFFF;
 
         // if we are in this region, then we do a 16bit write
         // where the 8bit value is written as the upper / lower half
         if (addr <= end_region)
         {
-            // align to 16bits
-            addr &= ~0x1;
             const u16 new_value = (value << 8) | value;
             write_array<u16>(MEM.vram, VRAM_MASK, addr, new_value);
         }
@@ -951,17 +949,8 @@ constexpr auto write_pram_region(Gba& gba, u32 addr, const T value) -> void
 
     if constexpr(std::is_same<T, u8>())
     {
-        const u32 end_region = 0x50003FF;
-
-        // if we are in this region, then we do a 16bit write
-        // where the 8bit value is written as the upper / lower half
-        if (addr <= end_region)
-        {
-            addr = align<u16>(addr);
-            const u16 new_value = (value << 8) | value;
-
-            write_array<u16>(MEM.pram, PRAM_MASK, addr, new_value);
-        }
+        const u16 new_value = (value << 8) | value;
+        write_array<u16>(MEM.pram, PRAM_MASK, addr, new_value);
     }
     else
     {
@@ -1137,11 +1126,9 @@ auto setup_tables(Gba& gba) -> void
     std::ranges::fill(MEM.wmap_16, WriteArray{});
     std::ranges::fill(MEM.wmap_32, WriteArray{});
 
-    // MEM.rmap_16[0x0] = {gba.bios, BIOS_MASK};
+    // todo: check if its still worth having raw ptr / func tables
     MEM.rmap_16[0x2] = {gba.mem.ewram, EWRAM_MASK};
     MEM.rmap_16[0x3] = {gba.mem.iwram, IWRAM_MASK};
-    // MEM.rmap_16[0x5] = {gba.mem.pram, PRAM_MASK};
-    // MEM.rmap_16[0x7] = {gba.mem.oam, OAM_MASK};
     MEM.rmap_16[0x8] = {gba.rom, ROM_MASK};
     MEM.rmap_16[0x9] = {gba.rom, ROM_MASK};
     MEM.rmap_16[0xA] = {gba.rom, ROM_MASK};
@@ -1151,8 +1138,6 @@ auto setup_tables(Gba& gba) -> void
 
     MEM.wmap_16[0x2] = {gba.mem.ewram, EWRAM_MASK};
     MEM.wmap_16[0x3] = {gba.mem.iwram, IWRAM_MASK};
-    // MEM.wmap_16[0x5] = {gba.mem.pram, PRAM_MASK};
-    // MEM.wmap_16[0x7] = {gba.mem.oam, OAM_MASK};
 
     // unmap rom array from 0x8 and let the func fallback handle it
     if (gba.gpio.rw)
@@ -1171,11 +1156,6 @@ auto setup_tables(Gba& gba) -> void
     std::ranges::copy(MEM.wmap_16, MEM.wmap_8);
     std::ranges::copy(MEM.rmap_16, MEM.rmap_32);
     std::ranges::copy(MEM.wmap_16, MEM.wmap_32);
-
-    // tonc says byte reads are okay
-    MEM.wmap_8[0x5] = {}; // ignore palette ram byte stores
-    MEM.wmap_8[0x6] = {}; // ignore vram byte stores
-    MEM.wmap_8[0x7] = {}; // ignore oam byte stores
 }
 
 auto reset(Gba& gba, bool skip_bios) -> void
