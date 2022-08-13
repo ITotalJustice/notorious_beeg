@@ -11,14 +11,16 @@
 #include "scheduler.hpp"
 #include "timer.hpp"
 
-#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <iterator>
+#include <algorithm>
 #include <span>
 #include <ranges>
 #include <type_traits>
+#include <bit>
 
 #define MEM gba.mem
 
@@ -1172,6 +1174,35 @@ auto reset(Gba& gba, bool skip_bios) -> void
     }
 
     setup_tables(gba);
+}
+
+template <typename T> [[nodiscard]]
+auto read_array(std::span<const u8> array, u32 mask, u32 addr) -> T
+{
+    addr = align<T>(addr) & mask;
+
+    T data;
+    std::memcpy(&data, array.data() + addr, sizeof(T));
+
+    if constexpr(std::endian::native == std::endian::big)
+    {
+        return std::byteswap(data);
+    }
+
+    return data;
+}
+
+template <typename T>
+auto write_array(std::span<u8> array, u32 mask, u32 addr, T v) -> void
+{
+    addr = align<T>(addr) & mask;
+
+    if constexpr(std::endian::native == std::endian::big)
+    {
+        v = std::byteswap(v);
+    }
+
+    std::memcpy(array.data() + addr, &v, sizeof(T));
 }
 
 // all these functions are inlined

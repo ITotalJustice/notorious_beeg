@@ -25,9 +25,46 @@
 #include <ranges>
 #include <span>
 #include <utility>
+#include <bit>
 
 namespace gba::ppu {
 namespace {
+
+// this is the same as mem::read_array but without the mask
+// this saves at least 1 (and) instruction on x86 and ppc
+// this function is called in very tight loops so it's vital that
+// it's optimised as possible!
+template <typename T> [[nodiscard]]
+auto read_array_no_mask(std::span<const u8> array, u32 addr) -> T
+{
+    addr = mem::align<T>(addr);
+
+    T data;
+    std::memcpy(&data, array.data() + addr, sizeof(T));
+
+    if constexpr(std::endian::native == std::endian::big)
+    {
+        return std::byteswap(data);
+    }
+
+    return data;
+}
+
+constexpr u8 OBJ_SIZE_X[4][4] =
+{
+    { 8,  16, 32, 64 },
+    { 16, 32, 32, 64 },
+    { 8,  8,  16, 32 },
+    { /* invalid */ }
+};
+
+constexpr u8 OBJ_SIZE_Y[4][4] =
+{
+    { 8,  16, 32, 64 },
+    { 8,  8,  16, 32 },
+    { 16, 32, 32, 64 },
+    { /* invalid */ }
+};
 
 enum BlockSize
 {
@@ -65,6 +102,14 @@ enum WindowPriority
     WIN0_PRIORITY = 0,
     WIN1_PRIORITY = 1,
     WIN_OBJ_PRIORITY = 2,
+};
+
+enum ObjMode
+{
+    Normal, // normal object
+    Affine, // affine object
+    Hide, // object is hidden (not rendered)
+    Affine2X, // affine using double rendering area
 };
 
 enum class Blend
@@ -126,13 +171,13 @@ struct BgLine
 struct BGxCNT
 {
     constexpr BGxCNT(const u16 cnt) :
-        Pr{static_cast<u16>(bit::get_range<0, 1>(cnt))},
-        CBB{static_cast<u16>(bit::get_range<2, 3>(cnt))},
-        Mos{static_cast<u16>(bit::is_set<6>(cnt))},
-        CM{static_cast<u16>(bit::is_set<7>(cnt))},
-        SBB{static_cast<u16>(bit::get_range<8, 12>(cnt))},
-        Wr{static_cast<u16>(bit::is_set<13>(cnt))},
-        Sz{static_cast<u16>(bit::get_range<14, 15>(cnt))} {}
+        Pr{bit::get_range<0, 1>(cnt)},
+        CBB{bit::get_range<2, 3>(cnt)},
+        Mos{bit::is_set<6>(cnt)},
+        CM{bit::is_set<7>(cnt)},
+        SBB{bit::get_range<8, 12>(cnt)},
+        Wr{bit::is_set<13>(cnt)},
+        Sz{bit::get_range<14, 15>(cnt)} {}
 
     u16 Pr : 2; // Priority. Determines drawing order of backgrounds.
     u16 CBB : 2; // Character Base Block. Sets the charblock that serves as the base for character/tile indexing. Values: 0-3.
@@ -151,6 +196,8 @@ struct BgMeta
     u16 yscroll;
 };
 
+// todo: optimise the WIN IN/OUT arrays into bitfield
+// this will remove the loops in the window build function
 struct WININ
 {
     constexpr WININ(const auto v) :
@@ -252,7 +299,7 @@ struct BLDMOD
         bg3_src{bit::is_set<3>(v)},
         obj_src{bit::is_set<4>(v)},
         backdrop_src{bit::is_set<5>(v)},
-        mode{static_cast<u16>(bit::get_range<6, 7>(v))},
+        mode{bit::get_range<6, 7>(v)},
         bg0_dst{bit::is_set<8>(v)},
         bg1_dst{bit::is_set<9>(v)},
         bg2_dst{bit::is_set<10>(v)},
@@ -314,10 +361,10 @@ public:
 struct ScreenEntry
 {
     constexpr ScreenEntry(const u16 screen_entry) :
-        tile_index{static_cast<u16>(bit::get_range<0, 9>(screen_entry))},
-        hflip{static_cast<u16>(bit::is_set<10>(screen_entry))},
-        vflip{static_cast<u16>(bit::is_set<11>(screen_entry))},
-        palette_bank{static_cast<u16>(bit::get_range<12, 15>(screen_entry))} {}
+        tile_index{bit::get_range<0, 9>(screen_entry)},
+        hflip{bit::is_set<10>(screen_entry)},
+        vflip{bit::is_set<11>(screen_entry)},
+        palette_bank{bit::get_range<12, 15>(screen_entry)} {}
 
     const u16 tile_index : 10; // max 512
     const u16 hflip : 1;
@@ -328,12 +375,12 @@ struct ScreenEntry
 struct Attr0
 {
     constexpr Attr0(const u16 v) :
-        Y{static_cast<u16>(bit::get_range<0, 7>(v))},
-        OM{static_cast<u16>(bit::get_range<8, 9>(v))},
-        GM{static_cast<u16>(bit::get_range<10, 11>(v))},
-        Mos{static_cast<u16>(bit::is_set<12>(v))},
-        CM{static_cast<u16>(bit::is_set<13>(v))},
-        Sh{static_cast<u16>(bit::get_range<14, 15>(v))} {}
+        Y{bit::get_range<0, 7>(v)},
+        OM{bit::get_range<8, 9>(v)},
+        GM{bit::get_range<10, 11>(v)},
+        Mos{bit::is_set<12>(v)},
+        CM{bit::is_set<13>(v)},
+        Sh{bit::get_range<14, 15>(v)} {}
 
     const u16 Y : 8; // Y coordinate. Marks the top of the sprite.
     const u16 OM : 2; // (Affine) object mode. Use to hide the sprite or govern affine mode.
@@ -350,11 +397,11 @@ struct Attr0
 struct Attr1
 {
     constexpr Attr1(const u16 v) :
-        X{static_cast<s16>(bit::get_range<0, 8>(v))},
-        AID{static_cast<u16>(bit::get_range<9, 13>(v))},
-        HF{static_cast<u16>(bit::is_set<12>(v))},
-        VF{static_cast<u16>(bit::is_set<13>(v))},
-        Sz{static_cast<u16>(bit::get_range<14, 15>(v))} {}
+        X{bit::get_range<0, 8, s16>(v)},
+        AID{bit::get_range<9, 13>(v)},
+        HF{bit::is_set<12>(v)},
+        VF{bit::is_set<13>(v)},
+        Sz{bit::get_range<14, 15>(v)} {}
 
     const s16 X : 9; // X coordinate. Marks left of the sprite.
     const u16 AID : 5; // Affine index. Specifies the OAM_AFF_ENTY this sprite uses. Valid only if the affine flag (attr0{8}) is set.
@@ -366,9 +413,9 @@ struct Attr1
 struct Attr2
 {
     constexpr Attr2(const u16 v) :
-        TID{static_cast<u16>(bit::get_range<0, 9>(v))},
-        Pr{static_cast<u16>(bit::get_range<10, 11>(v))},
-        PB{static_cast<u16>(bit::get_range<12, 15>(v))}{}
+        TID{bit::get_range<0, 9, u16>(v)},
+        Pr{bit::get_range<10, 11>(v)},
+        PB{bit::get_range<12, 15>(v)}{}
 
     const u16 TID : 10; // Base tile-index of sprite. Note that in bitmap modes this must be 512 or higher.
     const u16 Pr : 2; // Priority. Higher priorities are drawn first (and therefore can be covered by later sprites and backgrounds). Sprites cover backgrounds of the same priority, and for sprites of the same priority, the higher OBJ_ATTRs are drawn first.
@@ -377,16 +424,9 @@ struct Attr2
 
 struct OBJ_Attr
 {
-    constexpr OBJ_Attr(const u64 v) :
-        attr0{static_cast<u16>(v >> 0)},
-        attr1{static_cast<u16>(v >> 16)},
-        attr2{static_cast<u16>(v >> 32)},
-        fill{static_cast<s16>(v >> 48)} {}
-
     const Attr0 attr0; // The first attribute controls a great deal, but the most important parts are for the y coordinate, and the shape of the sprite. Also important are whether or not the sprite is transformable (an affine sprite), and whether the tiles are considered to have a bitdepth of 4 (16 colors, 16 sub-palettes) or 8 (256 colors / 1 palette).
     const Attr1 attr1; // The primary parts of this attribute are the x coordinate and the size of the sprite. The role of bits 8 to 14 depend on whether or not this is a affine sprite (determined by attr0{8}). If it is, these bits specify which of the 32 OBJ_AFFINEs should be used. If not, they hold flipping flags.
     const Attr2 attr2; // This attribute tells the GBA which tiles to display and its background priority. If it's a 4bpp sprite, this is also the place to say what sub-palette should be used.
-    const s16 fill; // used for affine stuff
 
     [[nodiscard]] constexpr auto is_yflip() const
     {
@@ -407,22 +447,41 @@ struct OBJ_Attr
         }
         return false;
     }
-
-    struct [[nodiscard]] SizePair { u8 x; u8 y; };
-
-    auto get_size() const -> SizePair
-    {
-        static constexpr SizePair sizes[4][4] =
-        {
-            { { 8, 8 }, { 16, 16 }, { 32, 32 }, { 64, 64 } },
-            { { 16, 8 }, { 32, 8 }, { 32, 16 }, { 64, 32 } },
-            { { 8, 16 }, { 8, 32 }, { 16, 32 }, { 32, 64 } },
-            { /* invalid */ }
-        };
-
-        return sizes[attr0.Sh][attr1.Sz];
-    }
 };
+
+struct OBJ_Affine
+{
+    s16 pa; // dx
+    s16 pb; // dmx
+    s16 pc; // dy
+    s16 pd; // dmy
+};
+
+// psudo-ish code for affine
+auto render_obj_affine(Gba& gba, const OBJ_Attr& obj, const WindowBounds& bounds, ObjLine& line) -> void
+{
+    // if affine2X, then scale size by 2
+    const auto scale_size = obj.attr0.OM == Affine2X ? 2 : 1;
+
+    // affine data is interleaved in oam along with attr data.
+    // eg, [a0,a1,a2,pa], [a0,a1,a2,pb], [a0,a1,a2,pc], [a0,a1,a2,pd]
+    // indexing starts from oam[0x6]
+    // every affine block occupies 32 bytes of space
+    // to to index, affine = oam[0x6 + (AID * 32)]
+    const auto affine_index = 0x6 + (obj.attr1.AID * 32);
+
+    const OBJ_Affine affine{
+        .pa = read_array_no_mask<s16>(gba.mem.oam, affine_index + 0),
+        .pb = read_array_no_mask<s16>(gba.mem.oam, affine_index + 8),
+        .pc = read_array_no_mask<s16>(gba.mem.oam, affine_index + 16),
+        .pd = read_array_no_mask<s16>(gba.mem.oam, affine_index + 24),
+    };
+
+    const auto xSize = scale_size * OBJ_SIZE_X[obj.attr0.Sh][obj.attr1.Sz];
+    const auto ySize = scale_size * OBJ_SIZE_Y[obj.attr0.Sh][obj.attr1.Sz];
+
+    // NOTE: not sure what to do from here...
+}
 
 enum class Index : bool
 {
@@ -540,7 +599,7 @@ constexpr auto blend_black(const u16 col, const u8 coeff) -> u16
 
 auto get_backdrop_colour(const Gba& gba) -> u16
 {
-    return mem::read_array<u16>(gba.mem.pram, mem::PRAM_MASK, 0);
+    return read_array_no_mask<u16>(gba.mem.pram, 0);
 }
 
 auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
@@ -548,31 +607,42 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
     // ovram is the last 2 entries of the charblock in vram.
     // in tile modes, this allows for 1024 tiles in total.
     // in bitmap modes, this allows for 512 tiles in total.
-    const auto ovram = reinterpret_cast<const u8*>(gba.mem.vram + 4 * CHARBLOCK_SIZE);
-    const auto pram = reinterpret_cast<const u16*>(gba.mem.pram + 512);
-    const auto oam = reinterpret_cast<const u64*>(gba.mem.oam);
+    const auto ovram = std::span{gba.mem.vram}.subspan(4 * CHARBLOCK_SIZE);
+    const auto pram = std::span{gba.mem.pram}.subspan(512);
+    const auto oam = std::span{gba.mem.oam};
     const auto vcount = REG_VCOUNT;
     const auto is_1D_layout = bit::is_set<6>(REG_DISPCNT);
 
     // 1024 entries in oam, each entry is 64bytes, 1024/64=128
     for (auto i = 0; i < 128; i++)
     {
-        const OBJ_Attr obj = oam[i];
+        const OBJ_Attr obj{
+            .attr0 = read_array_no_mask<u16>(oam, (i * 8) + 0),
+            .attr1 = read_array_no_mask<u16>(oam, (i * 8) + 2),
+            .attr2 = read_array_no_mask<u16>(oam, (i * 8) + 4),
+        };
 
-        if (obj.attr0.is_disabled())
+        // todo: split the rendering process here
+        // in affine case, call render_obj_affine()
+        // in normal case, call render_obj_normal()
+        switch (obj.attr0.OM)
         {
-            continue;
-        }
+            case ObjMode::Normal:
+                break;
 
-        // skip all non-normal sprites for now
-        if (obj.attr0.OM != 0b00)
-        {
-            // std::printf("skipping affine sprite\n");
-            // continue;
+            case ObjMode::Affine:
+            case ObjMode::Affine2X:
+                // render_obj_affine(gba, obj, bounds, line);
+                // continue;
+                break;
+
+            case ObjMode::Hide:
+                continue;
         }
 
         // fetch the x/y size of the sprite
-        const auto [xSize, ySize] = obj.get_size();
+        const auto xSize = OBJ_SIZE_X[obj.attr0.Sh][obj.attr1.Sz];
+        const auto ySize = OBJ_SIZE_Y[obj.attr0.Sh][obj.attr1.Sz];
         // see here for wrapping: https://www.coranac.com/tonc/text/affobj.htm#ssec-wrap
         const auto sprite_y = obj.attr0.Y + ySize > 256 ? obj.attr0.Y - 256 : obj.attr0.Y;
         // calculate the y_index, handling flipping
@@ -668,7 +738,7 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                         line.is_opaque[pixel_x] = true;
                         line.priority[pixel_x] = obj.attr2.Pr;
                         line.is_alpha[pixel_x] = obj.attr0.GM == 0b01;
-                        line.pixels[pixel_x] = pram[pram_addr / 2];
+                        line.pixels[pixel_x] = read_array_no_mask<u16>(pram, pram_addr);
                     }
                 }
             }
@@ -682,11 +752,11 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
     //
     const auto y = (meta.yscroll + vcount) % 256;
     // pal_mem
-    const auto pram = reinterpret_cast<const u16*>(gba.mem.pram);
+    const auto pram = std::span{gba.mem.pram};
     // tile_mem (where the tiles/tilesets are)
-    const auto charblock = reinterpret_cast<const u8*>(gba.mem.vram + meta.cnt.CBB * CHARBLOCK_SIZE);
+    const auto charblock = std::span{gba.mem.vram}.subspan(meta.cnt.CBB * CHARBLOCK_SIZE);
     // se_mem (where the tilemaps are)
-    const auto screenblock = reinterpret_cast<const u16*>(gba.mem.vram + (meta.cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(meta.cnt, meta.yscroll + vcount) + ((y / 8) * 64));
+    const auto screenblock = std::span{gba.mem.vram}.subspan((meta.cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(meta.cnt, meta.yscroll + vcount) + ((y / 8) * 64));
 
     for (auto x = 0; x < 240; x++)
     {
@@ -698,7 +768,7 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
 
         const auto tx = (x + meta.xscroll) % 256;
         const auto se_number = (tx / 8) + (get_bg_offset<Index::X>(meta.cnt, x + meta.xscroll) / 2); // SE-number n = tx+ty·tw,
-        const ScreenEntry se = screenblock[se_number];
+        const ScreenEntry se = read_array_no_mask<u16>(screenblock, se_number * 2);
 
         const auto tile_x = se.hflip ? 7 - (tx & 7) : tx & 7;
         const auto tile_y = se.vflip ? 7 - (y & 7) : y & 7;
@@ -730,14 +800,14 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
         if (pixel != 0) // don't render transparent pixel
         {
             line.is_opaque[x] = true;
-            line.pixels[x] = pram[pram_addr / 2];
+            line.pixels[x] = read_array_no_mask<u16>(pram, pram_addr);
         }
     }
 }
 
 auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
 {
-    const auto vram = reinterpret_cast<const u16*>(gba.mem.vram + (240 * REG_VCOUNT * 2));
+    const auto vram = std::span{gba.mem.vram}.subspan(240 * REG_VCOUNT * 2);
 
     for (auto x = 0; x < 240; x++)
     {
@@ -748,7 +818,7 @@ auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, 
         }
 
         // i don't think mode3 can have transparent tiles?
-        const auto pixel = vram[x];
+        const auto pixel = read_array_no_mask<u16>(vram, x * 2);
         line.is_opaque[x] = true;
         line.pixels[x] = pixel;
     }
@@ -757,8 +827,8 @@ auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, 
 auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
 {
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
-    const auto pram = reinterpret_cast<const u16*>(gba.mem.pram);
-    const auto vram = gba.mem.vram + page + (240 * REG_VCOUNT);
+    const auto pram = std::span{gba.mem.pram};
+    const auto vram = std::span{gba.mem.vram}.subspan(page + (240 * REG_VCOUNT));
 
     for (auto x = 0; x < 240; x++)
     {
@@ -773,7 +843,7 @@ auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, 
         if (pixel != 0) // don't render transparent pixel
         {
             line.is_opaque[x] = true;
-            line.pixels[x] = pram[pixel];
+            line.pixels[x] = read_array_no_mask<u16>(pram, pixel * 2);
         }
     }
 }
@@ -808,16 +878,23 @@ auto WindowBounds::build(Gba& gba) -> void
     const auto win1_y_start = bit::get_range<8, 15>(REG_WIN1V);
     const auto win1_y_end = bit::get_range<0, 7>(REG_WIN1V);
 
-    assert(win0_x_start <= win0_x_end && "wrapping not handled");
-    assert(win1_x_start <= win1_x_end && "wrapping not handled");
-    assert(win0_y_start <= win0_y_end && "wrapping not handled");
-    assert(win1_y_start <= win1_y_end && "wrapping not handled");
+    if (win0_enabled)
+    {
+        assert(win0_x_start <= win0_x_end && "wrapping not handled");
+        assert(win1_x_start <= win1_x_end && "wrapping not handled");
+    }
+    if (win1_enabled)
+    {
+        assert(win0_y_start <= win0_y_end && "wrapping not handled");
+        assert(win1_y_start <= win1_y_end && "wrapping not handled");
+    }
 
     const auto vcount = REG_VCOUNT;
 
     const auto win0_in_range_y = vcount >= win0_y_start && vcount < win0_y_end;
     const auto win1_in_range_y = vcount >= win1_y_start && vcount < win1_y_end;
 
+    // todo: optimise this into 2 loops...
     for (auto x = 0; x < 240; x++)
     {
         if (win0_enabled)

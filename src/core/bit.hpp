@@ -200,7 +200,7 @@ static_assert(
 );
 
 template<u8 start, u8 end, IntV T> [[nodiscard]]
-constexpr auto get_range(const T value)
+constexpr auto get_range(const T value) -> T
 {
     static_assert(start <= end, "range is inverted! remember its lo, hi");
     static_assert(end < (sizeof(T) * 8));

@@ -33,40 +33,6 @@ constexpr auto fill_rom_oob_values(std::span<u8> rom, const u32 offset)
     }
 }
 
-namespace test {
-
-template<typename T>
-consteval auto oob_rom_read(u32 addr) -> T
-{
-    Gba gba{};
-
-    // this isn't the full extent, constexpr loop limit
-    fill_rom_oob_values(gba.rom, mem::ROM_SIZE-100);
-
-    return mem::read_array<T>(gba.rom, mem::ROM_MASK, addr);
-}
-
-static_assert(
-    oob_rom_read<u8>(mem::ROM_SIZE-100) == 0xCE &&
-    oob_rom_read<u8>(mem::ROM_SIZE-99) == 0xFF &&
-    oob_rom_read<u8>(mem::ROM_SIZE-98) == 0xCF &&
-    oob_rom_read<u8>(mem::ROM_SIZE-97) == 0xFF,
-    "oob_rom_read<u8> failed! "
-);
-
-static_assert(
-    oob_rom_read<u16>(mem::ROM_SIZE-100) == 0xFFCE &&
-    oob_rom_read<u16>(mem::ROM_SIZE-98) == 0xFFCF,
-    "oob_rom_read<u16> failed! "
-);
-
-static_assert(
-    oob_rom_read<u32>(mem::ROM_SIZE-100) == 0xFFCFFFCE &&
-    "oob_rom_read<u32> failed! "
-);
-
-} // namespace test
-
 } // namespace
 
 Header::Header(std::span<const u8> rom)
