@@ -24,17 +24,6 @@ public:
     auto loop() -> void override;
 
 private:
-    // auto loadrom(const std::string& path) -> bool override;
-    // auto closerom() -> void override;
-
-    // auto loadsave(const std::string& path) -> bool override;
-    // auto savegame(const std::string& path) -> bool override;
-
-    // auto loadstate(const std::string& path) -> bool override;
-    // auto savestate(const std::string& path) -> bool override;
-
-    // auto set_button(gba::Button button, bool down) -> void override;
-
     auto poll_events() -> void;
     auto run() -> void;
     auto render() -> void;
@@ -50,7 +39,7 @@ private:
     auto is_fullscreen() const -> bool;
     auto toggle_fullscreen() -> void;
     auto get_window_size() const -> std::pair<int, int>;
-    auto set_window_size(std::pair<int, int> new_size) -> void;
+    auto set_window_size(std::pair<int, int> new_size) const -> void;
     auto resize_emu_screen() -> void;
     auto open_url(const char* url) -> void;
 
@@ -67,11 +56,12 @@ public:
     SDL_AudioSpec aspec_got{};
     std::mutex audio_mutex{};
     int sample_rate{65536};
+    bool has_focus{true};
 
     std::unordered_map<Sint32, SDL_GameController*> controllers{};
 };
 
-auto audio_callback(void* user, Uint8* data, int len) -> void
+auto sdl2_audio_callback(void* user, Uint8* data, int len) -> void
 {
     auto app = static_cast<App*>(user);
     std::scoped_lock lock{app->audio_mutex};
@@ -86,7 +76,22 @@ auto audio_callback(void* user, Uint8* data, int len) -> void
     SDL_AudioStreamGet(app->audio_stream, data, len);
 }
 
-auto push_sample_callback(void* user, std::int16_t left, std::int16_t right) -> void
+auto on_vblank_callback(void* user) -> void
+{
+    auto app = static_cast<App*>(user);
+    void* texture_pixels{};
+    int pitch{};
+
+    SDL_LockTexture(app->texture, nullptr, &texture_pixels, &pitch);
+        SDL_ConvertPixels(
+            App::width, App::height,
+            SDL_PIXELFORMAT_BGR555, app->gameboy_advance.ppu.pixels, App::width * sizeof(std::uint16_t), // src
+            SDL_PIXELFORMAT_BGR555, texture_pixels, pitch // dst
+        );
+    SDL_UnlockTexture(app->texture);
+}
+
+auto on_audio_callback(void* user, std::int16_t left, std::int16_t right) -> void
 {
     auto app = static_cast<App*>(user);
     std::scoped_lock lock{app->audio_mutex};
@@ -98,26 +103,43 @@ App::App(int argc, char** argv) : frontend::Base(argc, argv)
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER))
     {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", SDL_GetError(), nullptr);
         return;
+    }
+
+    SDL_DisplayMode display = {};
+    if (!SDL_GetCurrentDisplayMode(0, &display))
+    {
+        // if the current scale would scale the screen bigger than
+        // the display region, then change the scale variable
+        if (width * scale > display.w || height * scale > display.h)
+        {
+            update_scale(display.w, display.h);
+        }
     }
 
     window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!window)
     {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", SDL_GetError(), nullptr);
         return;
     }
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer)
     {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", SDL_GetError(), nullptr);
         return;
     }
 
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
     if (!texture)
     {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", SDL_GetError(), nullptr);
         return;
     }
+
+    SDL_SetWindowMinimumSize(window, width, height);
 
     #if SDL_BYTEORDER == SDL_BIG_ENDIAN
         const auto rmask = 0xff000000;
@@ -151,7 +173,7 @@ App::App(int argc, char** argv) : frontend::Base(argc, argv)
     aspec_wnt.padding = 0;
     aspec_wnt.size = 0;
     aspec_wnt.userdata = this;
-    aspec_wnt.callback = audio_callback;
+    aspec_wnt.callback = sdl2_audio_callback;
 
     // allow all apsec to be changed if needed.
     // will be coverted and resampled by audiostream.
@@ -180,13 +202,22 @@ App::App(int argc, char** argv) : frontend::Base(argc, argv)
     SDL_PauseAudioDevice(audio_device, 0);
 
     gameboy_advance.set_userdata(this);
-    // gameboy_advance.set_hblank_callback(on_hblank_callback);
-    gameboy_advance.set_audio_callback(push_sample_callback);
+    gameboy_advance.set_vblank_callback(on_vblank_callback);
+    gameboy_advance.set_audio_callback(on_audio_callback);
 
     // need a rom to run atm
     if (has_rom)
     {
         running = true;
+
+        char buf[100];
+        gba::Header header{gameboy_advance.rom};
+        std::sprintf(buf, "%s - [%.*s]", "Notorious BEEG", 12, header.game_title);
+        SDL_SetWindowTitle(window, buf);
+    }
+    else
+    {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Failed to loadrom!", nullptr);
     }
 };
 
@@ -310,7 +341,7 @@ auto App::poll_events() -> void
 
 auto App::run() -> void
 {
-    if (emu_run)
+    if (emu_run && has_focus)
     {
         gameboy_advance.run();
     }
@@ -318,17 +349,6 @@ auto App::run() -> void
 
 auto App::render() -> void
 {
-    void* texture_pixels{};
-    int pitch{};
-
-    SDL_LockTexture(texture, nullptr, &texture_pixels, &pitch);
-        SDL_ConvertPixels(
-            width, height, // w,h
-            SDL_PIXELFORMAT_BGR555, gameboy_advance.ppu.pixels, width * sizeof(std::uint16_t), // src
-            SDL_PIXELFORMAT_BGR555, texture_pixels, pitch // dst
-        );
-    SDL_UnlockTexture(texture);
-
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, nullptr, &emu_rect);
     SDL_RenderPresent(renderer);
@@ -354,6 +374,10 @@ auto App::on_key_event(const SDL_KeyboardEvent& e) -> void
         {
             switch (e.keysym.scancode)
             {
+                case SDL_SCANCODE_F:
+                    toggle_fullscreen();
+                    break;
+
                 case SDL_SCANCODE_P:
                     emu_run ^= 1;
                     break;
@@ -373,6 +397,7 @@ auto App::on_key_event(const SDL_KeyboardEvent& e) -> void
                     loadstate(rom_path);
                     break;
 
+                case SDL_SCANCODE_EQUALS:
                 case SDL_SCANCODE_KP_PLUS:
                     scale++;
                     set_window_size({width * scale, height * scale});
@@ -420,7 +445,14 @@ auto App::on_key_event(const SDL_KeyboardEvent& e) -> void
 
 auto App::on_display_event(const SDL_DisplayEvent& e) -> void
 {
-
+    switch (e.event)
+    {
+        case SDL_DISPLAYEVENT_NONE:
+        case SDL_DISPLAYEVENT_ORIENTATION:
+        case SDL_DISPLAYEVENT_CONNECTED:
+        case SDL_DISPLAYEVENT_DISCONNECTED:
+            break;
+    }
 }
 
 auto App::on_window_event(const SDL_WindowEvent& e) -> void
@@ -443,8 +475,16 @@ auto App::on_window_event(const SDL_WindowEvent& e) -> void
         case SDL_WINDOWEVENT_RESTORED:
         case SDL_WINDOWEVENT_ENTER:
         case SDL_WINDOWEVENT_LEAVE:
+            break;
+
         case SDL_WINDOWEVENT_FOCUS_GAINED:
+            has_focus = true;
+            break;
+
         case SDL_WINDOWEVENT_FOCUS_LOST:
+            has_focus = false;
+            break;
+
         case SDL_WINDOWEVENT_CLOSE:
         case SDL_WINDOWEVENT_TAKE_FOCUS:
         case SDL_WINDOWEVENT_HIT_TEST:
@@ -590,11 +630,11 @@ auto App::toggle_fullscreen() -> void
 {
     if (is_fullscreen())
     {
-        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+        SDL_SetWindowFullscreen(window, 0);
     }
     else
     {
-        SDL_SetWindowFullscreen(window, 0);
+        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
     }
 }
 
@@ -607,24 +647,34 @@ auto App::get_window_size() const -> std::pair<int, int>
     return {w, h};
 }
 
-auto App::set_window_size(std::pair<int, int> new_size) -> void
+auto App::set_window_size(std::pair<int, int> new_size) const -> void
 {
     const auto [w, h] = new_size;
 
     SDL_SetWindowSize(window, w, h);
-
-    resize_emu_screen();
 }
 
 auto App::resize_emu_screen() -> void
 {
     const auto [w, h] = get_window_size();
+    update_scale(w, h);
 
-    // update rect
-    emu_rect.x = 0;
-    emu_rect.y = 0;
-    emu_rect.w = w;
-    emu_rect.h = h;
+    if (maintain_aspect_ratio)
+    {
+        const auto [scx, scy, scw, sch] = scale_with_aspect_ratio(w, h);
+
+        emu_rect.x = scx;
+        emu_rect.y = scy;
+        emu_rect.w = scw;
+        emu_rect.h = sch;
+    }
+    else
+    {
+        emu_rect.x = 0;
+        emu_rect.y = 0;
+        emu_rect.w = w;
+        emu_rect.h = h;
+    }
 }
 
 auto App::open_url(const char* url) -> void

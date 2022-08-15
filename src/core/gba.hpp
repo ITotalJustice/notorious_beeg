@@ -40,7 +40,7 @@ struct State;
 struct Header;
 
 using AudioCallback = void(*)(void* user, s16 left, s16 right);
-using VblankCallback = void(*)(void* user, u16 line);
+using VblankCallback = void(*)(void* user);
 using HblankCallback = void(*)(void* user, u16 line);
 
 struct Gba

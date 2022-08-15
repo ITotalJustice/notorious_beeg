@@ -248,4 +248,22 @@ auto Base::set_button(gba::Button button, bool down) -> void
     }
 }
 
+auto Base::update_scale(int screen_width, int screen_height) -> void
+{
+    const auto scale_w = screen_width / width;
+    const auto scale_h = screen_height / height;
+
+    scale = std::min(scale_w, scale_h);
+}
+
+auto Base::scale_with_aspect_ratio(int screen_width, int screen_height) -> std::tuple<int, int, int, int>
+{
+    const auto w = width * scale;
+    const auto h = height * scale;
+    const auto x = (screen_width - w) / 2;
+    const auto y = (screen_height - h) / 2;
+
+    return std::tuple{x, y, w, h};
+}
+
 } // namespace frontend

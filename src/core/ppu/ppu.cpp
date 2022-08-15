@@ -74,7 +74,7 @@ auto on_vblank(Gba& gba)
 
     if (gba.vblank_callback != nullptr)
     {
-        gba.vblank_callback(gba.userdata, REG_VCOUNT);
+        gba.vblank_callback(gba.userdata);
     }
 }
 

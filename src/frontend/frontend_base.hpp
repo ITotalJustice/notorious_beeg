@@ -6,6 +6,7 @@
 #include <gba.hpp>
 #include <cstdint>
 #include <span>
+#include <tuple>
 #include <vector>
 #include <string>
 #include <filesystem>
@@ -39,6 +40,10 @@ protected:
     virtual auto savestate(const std::string& path) -> bool;
 
     virtual auto set_button(gba::Button button, bool down) -> void;
+
+    virtual auto update_scale(int screen_width, int screen_height) -> void;
+    virtual auto scale_with_aspect_ratio(int screen_width, int screen_height) -> std::tuple<int, int, int, int>;
+
 public:
     gba::Gba gameboy_advance{};
 
@@ -59,6 +64,8 @@ public:
     bool enabled_rewind{false};
     // when true, the emulator is rewinding
     bool emu_rewind{false};
+    // keeps ascpect ratio when resizing the sreen
+    bool maintain_aspect_ratio{true};
 };
 
 } // namespace frontend
