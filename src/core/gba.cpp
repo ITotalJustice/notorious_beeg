@@ -218,25 +218,17 @@ auto Gba::render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> u8
     return ppu::render_bg_mode(*this, mode, layer, pixels);
 }
 
-namespace state {
-
-constexpr auto MAGIC = 0xFACADE;
-constexpr auto VERSION = 0x2;
-constexpr auto SIZE = sizeof(State);
-
-} // namespace state
-
 auto Gba::loadstate(const State& state) -> bool
 {
-    if (state.magic != state::MAGIC)
+    if (state.magic != StateMeta::MAGIC)
     {
         return false;
     }
-    if (state.version != state::VERSION)
+    if (state.version != StateMeta::VERSION)
     {
         return false;
     }
-    if (state.size != state::SIZE)
+    if (state.size != StateMeta::SIZE)
     {
         return false;
     }
@@ -269,9 +261,9 @@ auto Gba::loadstate(const State& state) -> bool
 
 auto Gba::savestate(State& state) const -> bool
 {
-    state.magic = state::MAGIC;
-    state.version = state::VERSION;
-    state.size = state::SIZE;
+    state.magic = StateMeta::MAGIC;
+    state.version = StateMeta::VERSION;
+    state.size = StateMeta::SIZE;
     state.crc = 0;
 
     state.scheduler = this->scheduler;

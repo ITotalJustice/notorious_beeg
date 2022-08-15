@@ -47,8 +47,92 @@ inline auto get_memory_timing(const u8 index, const u32 addr) -> u8
     return timings[index & 3][(addr >> 24) & 0xF];
 }
 
-// todo: make this part of struct when ready to break savestates
-u32 bios_openbus_value = 0x0;
+// ----- helpers for rw arrays (alignment and endianness are handled) -----
+template <typename T> [[nodiscard]]
+auto read_array(std::span<const u8> array, u32 mask, u32 addr) -> T
+{
+    addr = align<T>(addr) & mask;
+
+    T data;
+    std::memcpy(&data, array.data() + addr, sizeof(T));
+
+    if constexpr(std::endian::native == std::endian::big)
+    {
+        return std::byteswap(data);
+    }
+
+    return data;
+}
+
+template <typename T>
+auto write_array(std::span<u8> array, u32 mask, u32 addr, T v) -> void
+{
+    addr = align<T>(addr) & mask;
+
+    if constexpr(std::endian::native == std::endian::big)
+    {
+        v = std::byteswap(v);
+    }
+
+    std::memcpy(array.data() + addr, &v, sizeof(T));
+}
+
+// these are to be the new versions of r/w array.
+// the template handling is not yet finished, ie, A can be deduced
+// to u8*, which is invalid for span<>, i need to get the underlying
+// type of the pointer.
+#if 0
+template <typename T, typename A> [[nodiscard]]
+auto read_array2(const std::span<const A> array, u32 mask, u32 addr) -> T
+{
+    if constexpr(sizeof(A) == 1)
+    {
+        addr = align<T>(addr) & mask >> 0;
+    }
+    else if constexpr(sizeof(A) == 2)
+    {
+        addr = (align<T>(addr) & mask) >> 1;
+    }
+    else if constexpr(sizeof(A) == 4)
+    {
+        addr = (align<T>(addr) & mask) >> 2;
+    }
+
+    T data;
+    std::memcpy(&data, array.data() + addr, sizeof(T));
+
+    if constexpr(std::endian::native == std::endian::big)
+    {
+        return std::byteswap(data);
+    }
+
+    return data;
+}
+
+template <typename T, typename A>
+auto write_array2(std::span<A> array, u32 mask, u32 addr, T v) -> void
+{
+    if constexpr(sizeof(A) == 1)
+    {
+        addr = align<T>(addr) & mask >> 0;
+    }
+    else if constexpr(sizeof(A) == 2)
+    {
+        addr = (align<T>(addr) & mask) >> 1;
+    }
+    else if constexpr(sizeof(A) == 4)
+    {
+        addr = (align<T>(addr) & mask) >> 2;
+    }
+
+    if constexpr(std::endian::native == std::endian::big)
+    {
+        v = std::byteswap(v);
+    }
+
+    std::memcpy(array.data() + addr, &v, sizeof(T));
+}
+#endif
 
 template<typename T>
 constexpr auto openbus(Gba& gba, const u32 addr) -> T
@@ -57,7 +141,7 @@ constexpr auto openbus(Gba& gba, const u32 addr) -> T
 
     if (addr <= 0x00003FFF)
     {
-        return bios_openbus_value;
+        return gba.mem.bios_openbus_value;
     }
 
     // the below isn't actually how you do open bus, but it'll do for now
@@ -762,8 +846,8 @@ constexpr auto read_bios_region(Gba& gba, const u32 addr) -> T
     // unofficial bios might do however
     if (arm7tdmi::get_pc(gba) <= BIOS_SIZE) [[likely]]
     {
-        bios_openbus_value = read_array<T>(gba.bios, BIOS_MASK, addr);
-        return bios_openbus_value;
+        gba.mem.bios_openbus_value = read_array<T>(gba.bios, BIOS_MASK, addr);
+        return gba.mem.bios_openbus_value;
     }
     else
     {
@@ -1174,35 +1258,6 @@ auto reset(Gba& gba, bool skip_bios) -> void
     }
 
     setup_tables(gba);
-}
-
-template <typename T> [[nodiscard]]
-auto read_array(std::span<const u8> array, u32 mask, u32 addr) -> T
-{
-    addr = align<T>(addr) & mask;
-
-    T data;
-    std::memcpy(&data, array.data() + addr, sizeof(T));
-
-    if constexpr(std::endian::native == std::endian::big)
-    {
-        return std::byteswap(data);
-    }
-
-    return data;
-}
-
-template <typename T>
-auto write_array(std::span<u8> array, u32 mask, u32 addr, T v) -> void
-{
-    addr = align<T>(addr) & mask;
-
-    if constexpr(std::endian::native == std::endian::big)
-    {
-        v = std::byteswap(v);
-    }
-
-    std::memcpy(array.data() + addr, &v, sizeof(T));
 }
 
 // all these functions are inlined

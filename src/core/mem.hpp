@@ -21,11 +21,6 @@ struct WriteArray
 };
 
 // everything is u8 because it makes r/w easier
-// however, everything is aligned so it can be safely cast
-// to the actual width.
-// this is especially important for io memory.
-// todo: profile having the arrays be their native bus size.
-// this will remove casting in most common cases.
 struct Mem
 {
     ReadArray rmap_8[16];
@@ -36,19 +31,19 @@ struct Mem
     WriteArray wmap_32[16];
 
     // 256kb, 16-bit bus
-    alignas(u32) u8 ewram[1024 * 256];
+    u8 ewram[1024 * 256];
 
     // 32kb, 32-bit bus
-    alignas(u32) u8 iwram[1024 * 32];
+    u8 iwram[1024 * 32];
 
     // 1kb, 16-bit
-    alignas(u32) u8 pram[1024 * 1];
+    u8 pram[1024 * 1];
 
     // 96kb, 16-bit bus
-    alignas(u32) u8 vram[1024 * 96];
+    u8 vram[1024 * 96];
 
     // 1kb, 32-bit
-    alignas(u64) u8 oam[1024 * 1];
+    u8 oam[1024 * 1];
 
     // 1kb, 16/32-bit
     u16 io[1024 * 1 >> 1];
@@ -56,6 +51,9 @@ struct Mem
     // internal memory control
     u16 imc_l;
     u16 imc_h;
+
+    // the value thats returning when reading from bios
+    u32 bios_openbus_value;
 };
 
 enum GeneralInternalMemory
@@ -408,16 +406,5 @@ constexpr auto align(u32 addr) -> u32
         return addr & ~0x3;
     }
 }
-
-// ----- helpers for rw arrays (alignment and endianness are handled) -----
-// these functions are defined in mem.cpp due to using memcpy
-// and i'd rather not add string.h to the global namespace.
-// this is valid for templates as long as all versions of the
-// template are defined in the mem.cpp - which they are.
-template <typename T> [[nodiscard]]
-STATIC_INLINE auto read_array(std::span<const u8> array, u32 mask, u32 addr) -> T;
-
-template <typename T>
-STATIC_INLINE auto write_array(std::span<u8> array, u32 mask, u32 addr, T v) -> void;
 
 } // namespace gba::mem

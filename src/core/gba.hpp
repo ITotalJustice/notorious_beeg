@@ -59,9 +59,9 @@ struct Gba
     // want to savestate this :harold:
 
     // 16kb, 32-bus
-    alignas(u32) u8 bios[1024 * 16];
+    u8 bios[1024 * 16];
     // 32mb(max), 16-bus
-    alignas(u32) u8 rom[0x2000000];
+    u8 rom[0x2000000];
 
     bool has_bios;
 
@@ -100,9 +100,9 @@ struct Gba
 
 struct State
 {
-    u32 magic; // 0xFACADE
-    u32 version; // 0x2
-    u32 size; // size of state struct
+    u32 magic; // see StateMeta::MAGIC
+    u32 version; // see StateMeta::VERSION
+    u32 size; // see StateMeta::SIZE
     u32 crc; // crc of game
 
     scheduler::Scheduler scheduler;
@@ -114,6 +114,13 @@ struct State
     timer::Timer timer[4];
     backup::Backup backup;
     gpio::Gpio gpio;
+};
+
+enum StateMeta : u32
+{
+    MAGIC = 0xFACADE,
+    VERSION = 3,
+    SIZE = sizeof(State),
 };
 
 struct Header

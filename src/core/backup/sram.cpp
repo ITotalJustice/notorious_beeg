@@ -37,12 +37,12 @@ constexpr auto SRAM_MASK = sizeof(Sram::data)-1;
 
 auto Sram::read([[maybe_unused]] Gba& gba, u32 addr) const -> u8
 {
-    return mem::read_array<u8>(this->data, SRAM_MASK, addr);
+    return this->data[addr & SRAM_MASK];
 }
 
 auto Sram::write([[maybe_unused]] Gba& gba, u32 addr, u8 value) -> void
 {
-    mem::write_array<u8>(this->data, SRAM_MASK, addr, value);
+    this->data[ addr & SRAM_MASK] = value;
 }
 
 } // namespace gba::backup::eeprom

@@ -89,7 +89,7 @@ auto Flash::read([[maybe_unused]] Gba& gba, u32 addr) const -> u8
         }
     }
 
-    return mem::read_array<u8>(this->data, this->bank + addr, 0x1FFFF);
+    return this->data[this->bank + addr];
 }
 
 auto Flash::write([[maybe_unused]] Gba& gba, u32 addr, u8 value) -> void
@@ -120,7 +120,7 @@ auto Flash::write([[maybe_unused]] Gba& gba, u32 addr, u8 value) -> void
             }
             else if (this->command == SingleData)
             {
-                mem::write_array<u8>(this->data, this->bank + addr, 0x1FFFF, value);
+                this->data[this->bank + addr] = value;
             }
             // there's 2 exit sequences for chipID used in different chips
             // games don't bother to detect which chip is what.
