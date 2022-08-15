@@ -163,6 +163,8 @@ auto Gba::loadbios(std::span<const u8> new_bios) -> bool
         return false;
     }
 
+    // std::copy()
+    // std::ranges::copy()
     std::ranges::copy(new_bios, this->bios);
     this->has_bios = true;
 
