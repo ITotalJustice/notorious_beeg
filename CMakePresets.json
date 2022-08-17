@@ -44,6 +44,7 @@
             "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
+                "GBA_DEV": true,
                 "IMGUI": true
             }
         },
@@ -54,6 +55,39 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "SINGLE_FILE": true,
+                "SDL2": true
+            }
+        },
+        {
+            "name": "sdl2-dev",
+            "displayName": "sdl2-dev",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "GBA_DEV": true,
+                "SDL2": true
+            }
+        },
+        {
+            "name": "vcpkg-sdl2",
+            "displayName": "vcpkg-sdl2",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SINGLE_FILE": true,
+                "SDL2": true
+            }
+        },
+        {
+            "name": "vcpkg-sdl2-dev",
+            "displayName": "vcpkg-sdl2-dev",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "inherits":["sdl2"],
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "GBA_DEV": true,
                 "SDL2": true
             }
         }
@@ -78,6 +112,18 @@
         {
             "name": "sdl2",
             "configurePreset": "sdl2"
+        },
+        {
+            "name": "sdl2-dev",
+            "configurePreset": "sdl2-dev"
+        },
+        {
+            "name": "vcpkg-sdl2",
+            "configurePreset": "vcpkg-sdl2"
+        },
+        {
+            "name": "vcpkg-sdl2-dev",
+            "configurePreset": "vcpkg-sdl2-dev"
         }
     ]
 }

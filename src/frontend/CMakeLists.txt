@@ -24,16 +24,17 @@ FetchContent_Declare(minizip
 
 set(FOUND_MINIZIP FALSE)
 
-if (VCPKG_TOOLCHAIN)
-    set(DISABLE_INSTALL_TOOLS ON)
-    find_package(minizip CONFIG)
-    if (DEFINED minizip_FOUND)
-        target_link_libraries(frontend_base PRIVATE minizip::minizip)
+# NOTE: these seems to be broken, tested using ubuntu in vm
+# if (VCPKG_TOOLCHAIN)
+#     set(DISABLE_INSTALL_TOOLS ON)
+#     find_package(minizip CONFIG)
+#     if (DEFINED minizip_FOUND)
+#         target_link_libraries(frontend_base PRIVATE minizip::minizip)
 
-        set(FOUND_MINIZIP TRUE)
-        message(STATUS "using vcpkg minizip")
-    endif()
-else()
+#         set(FOUND_MINIZIP TRUE)
+#         message(STATUS "using vcpkg minizip")
+#     endif()
+# else()
     # find package for minizip is broken on fedora
     # not sure other distros have .cmake for minizip either
     # so using the old fashioned find_() has to be used
@@ -44,10 +45,14 @@ else()
         target_link_libraries(frontend_base PRIVATE ${minizip_lib})
         target_include_directories(frontend_base PRIVATE ${minizip_inc})
 
+        # this has to be linked after minizip!
+        find_package(ZLIB REQUIRED)
+        target_link_libraries(frontend_base PRIVATE ZLIB::ZLIB)
+
         set(FOUND_MINIZIP TRUE)
         message(STATUS "using system minizip")
     endif()
-endif()
+# endif()
 
 # failed to find minizip installed, fetch and build manually
 if (NOT FOUND_MINIZIP)
