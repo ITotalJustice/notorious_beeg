@@ -4,19 +4,18 @@
 #pragma once
 
 #include "fwd.hpp"
-#include <span>
 
 namespace gba::mem {
 
 struct ReadArray
 {
-    std::span<const u8> array;
+    const u8* array;
     u32 mask;
 };
 
 struct WriteArray
 {
-    std::span<u8> array;
+    u8* array;
     u32 mask;
 };
 

@@ -49,12 +49,12 @@ inline auto get_memory_timing(const u8 index, const u32 addr) -> u8
 
 // ----- helpers for rw arrays (alignment and endianness are handled) -----
 template <typename T> [[nodiscard]]
-auto read_array(std::span<const u8> array, u32 mask, u32 addr) -> T
+auto read_array(const u8* array, u32 mask, u32 addr) -> T
 {
     addr = align<T>(addr) & mask;
 
     T data;
-    std::memcpy(&data, array.data() + addr, sizeof(T));
+    std::memcpy(&data, array + addr, sizeof(T));
 
     if constexpr(std::endian::native == std::endian::big)
     {
@@ -65,7 +65,7 @@ auto read_array(std::span<const u8> array, u32 mask, u32 addr) -> T
 }
 
 template <typename T>
-auto write_array(std::span<u8> array, u32 mask, u32 addr, T v) -> void
+auto write_array(u8* array, u32 mask, u32 addr, T v) -> void
 {
     addr = align<T>(addr) & mask;
 
@@ -74,7 +74,7 @@ auto write_array(std::span<u8> array, u32 mask, u32 addr, T v) -> void
         v = std::byteswap(v);
     }
 
-    std::memcpy(array.data() + addr, &v, sizeof(T));
+    std::memcpy(array + addr, &v, sizeof(T));
 }
 
 // these are to be the new versions of r/w array.
@@ -1268,7 +1268,7 @@ auto read8(Gba& gba, u32 addr) -> u8
     addr = mirror_address(addr);
     const auto& entry = MEM.rmap_8[addr >> 24];
 
-    if (!entry.array.empty()) [[likely]]
+    if (entry.array != nullptr) [[likely]]
     {
         return read_array<u8>(entry.array, entry.mask, addr);
     }
@@ -1285,7 +1285,7 @@ auto read16(Gba& gba, u32 addr) -> u16
     addr = mirror_address(addr);
     const auto& entry = MEM.rmap_16[addr >> 24];
 
-    if (!entry.array.empty()) [[likely]]
+    if (entry.array != nullptr) [[likely]]
     {
         return read_array<u16>(entry.array, entry.mask, addr);
     }
@@ -1302,7 +1302,7 @@ auto read32(Gba& gba, u32 addr) -> u32
     addr = mirror_address(addr);
     const auto& entry = MEM.rmap_32[addr >> 24];
 
-    if (!entry.array.empty()) [[likely]]
+    if (entry.array != nullptr) [[likely]]
     {
         return read_array<u32>(entry.array, entry.mask, addr);
     }
@@ -1319,7 +1319,7 @@ auto write8(Gba& gba, u32 addr, u8 value) -> void
     addr = mirror_address(addr);
     const auto& entry = MEM.wmap_8[addr >> 24];
 
-    if (!entry.array.empty()) // don't mark likely as vram,pram,io writes are common
+    if (entry.array != nullptr) // don't mark likely as vram,pram,io writes are common
     {
         write_array<u8>(entry.array, entry.mask, addr, value);
     }
@@ -1336,7 +1336,7 @@ auto write16(Gba& gba, u32 addr, u16 value) -> void
     addr = mirror_address(addr); // the functions write handlers will manually align.
     const auto& entry = MEM.wmap_16[addr >> 24];
 
-    if (!entry.array.empty()) // don't mark likely as vram,pram,io writes are common
+    if (entry.array != nullptr) // don't mark likely as vram,pram,io writes are common
     {
         write_array<u16>(entry.array, entry.mask, addr, value);
     }
@@ -1353,7 +1353,7 @@ auto write32(Gba& gba, u32 addr, u32 value) -> void
     addr = mirror_address(addr);
     const auto& entry = MEM.wmap_32[addr >> 24];
 
-    if (!entry.array.empty()) // don't mark likely as vram,pram,io writes are common
+    if (entry.array != nullptr) // don't mark likely as vram,pram,io writes are common
     {
         write_array<u32>(entry.array, entry.mask, addr, value);
     }
