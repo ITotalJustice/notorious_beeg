@@ -8,7 +8,7 @@
 
 namespace gba::backup::eeprom {
 
-enum class State
+enum class State : u8
 {
     Command, // 2 bits
     Address, // 6-14 bits

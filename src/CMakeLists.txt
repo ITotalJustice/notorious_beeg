@@ -32,7 +32,7 @@ list(APPEND gcc_flags
     -Wuninitialized
 
     -Wno-unused-parameter
-    -Wno-unknown-attributes
+    -Wno-attributes
 
     -fimplicit-constexpr
     -Wmissing-requires

@@ -8,7 +8,7 @@
 
 namespace gba::ppu {
 
-enum class Period
+enum class Period : u8
 {
     hdraw,
     hblank,

@@ -1,9 +1,8 @@
 # gba emu
+
 v0.0.3-dev
 
 gba emulator witten in c++23.
-
-[![Netlify Status](https://api.netlify.com/api/v1/badges/bfd72dd6-557d-41a3-87ac-480c686624a2/deploy-status)](https://app.netlify.com/sites/notorious-beeg/deploys)
 
 ---
 
@@ -11,9 +10,9 @@ gba emulator witten in c++23.
 
 web builds are the easiest way to quickly test a game. builds are automatically built from master. please report any bugs you find, giving as much info as possible such as browser, os, game etc.
 
-gh-pages version doesn't support threads / mutexs. may crash.
+[gh-pages](https://itotaljustice.github.io/notorious_beeg) version doesn't support threads / mutexs. may crash.
 
-netlify version supports threads / mutexes, won't crash.
+[netlify](https://notorious-beeg.netlify.app) version supports threads / mutexes, won't crash.
 
 ---
 

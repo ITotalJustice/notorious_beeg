@@ -42,10 +42,10 @@ struct Sweep
 
 struct Envelope
 {
-    enum Mode
+    enum Mode : bool
     {
-        SUB = 0,
-        ADD = 1
+        SUB = false,
+        ADD = true
     };
 
     u8 starting_vol;
@@ -166,7 +166,6 @@ struct Fifo
 
 struct Apu
 {
-    std::size_t cycles; // todo: remove once scheduler version is complete
     Fifo fifo[2];
 
     // legacy gb apu

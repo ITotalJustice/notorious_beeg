@@ -49,6 +49,10 @@ using HblankCallback = void(*)(void* user, u16 line);
 
 struct Gba
 {
+    // at the top so no offset needed into struct on r/w access
+    mem::ReadArray rmap[16];
+    mem::WriteArray wmap[16];
+
     scheduler::Scheduler scheduler;
     arm7tdmi::Arm7tdmi cpu;
     mem::Mem mem;
@@ -58,9 +62,6 @@ struct Gba
     timer::Timer timer[4];
     backup::Backup backup;
     gpio::Gpio gpio;
-
-    // these are not not part of the mem struct because we do not
-    // want to savestate this :harold:
 
     // 16kb, 32-bus
     u8 bios[1024 * 16];
@@ -131,7 +132,7 @@ struct State
 enum StateMeta : u32
 {
     MAGIC = 0xFACADE,
-    VERSION = 3,
+    VERSION = 4,
     SIZE = sizeof(State),
 };
 

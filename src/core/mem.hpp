@@ -7,28 +7,39 @@
 
 namespace gba::mem {
 
+// this is used as a mask for if access is allowed for the bit width
+// i chose this instead of doing `ptr != null` as it meant i'd have to
+// have different tables for 8,16,32.
+// it's common for access to be allowed only 16,32 and have special
+// handling for 8bit.
+enum Access : u8
+{
+    Access_8bit  = sizeof(u8),  // 1
+    Access_16bit = sizeof(u16), // 2
+    Access_32bit = sizeof(u32), // 4
+
+    Access_ALL  = Access_8bit | Access_16bit | Access_32bit,
+    Access_NONE = 0,
+};
+
+// packed to 32bit on x86 (struct == 8 bytes)
+// 4 bytes padding on x64 (struct == 16 bytes)
 struct ReadArray
 {
     const u8* array;
-    u32 mask;
+    u32 mask : 25; // only need max of 25 bits
+    u8 access : 3; // only need 0-7 values
 };
 
 struct WriteArray
 {
     u8* array;
-    u32 mask;
+    u32 mask : 25; // only need max of 25 bits
+    u8 access : 3; // only need 0-7 values
 };
 
-// everything is u8 because it makes r/w easier
 struct Mem
 {
-    ReadArray rmap_8[16];
-    ReadArray rmap_16[16];
-    ReadArray rmap_32[16];
-    WriteArray wmap_8[16];
-    WriteArray wmap_16[16];
-    WriteArray wmap_32[16];
-
     // 256kb, 16-bit bus
     u8 ewram[1024 * 256];
 
@@ -45,7 +56,7 @@ struct Mem
     u8 oam[1024 * 1];
 
     // 1kb, 16/32-bit
-    u16 io[1024 * 1 >> 1];
+    u16 io[0x302 >> 1]; // size is haltcnt_h + 1, as rest of io is unsued
 
     // internal memory control
     u16 imc_l;
@@ -237,7 +248,7 @@ enum IOAddr
     IO_WSCNT = 0x4000204, // (Wait State Control)
     IO_IME = 0x4000208, // (Interrupt Master Enable)
 
-    IO_HALTCNT_L = 0x4000300, // (LFirst Boot/Debug Control)
+    IO_HALTCNT_L = 0x4000300, // (First Boot/Debug Control)
     IO_HALTCNT_H = 0x4000301, // (Low Power Mode Control)
 
     IO_IMC_L = 0x4000800, // (Internal Memory Control)

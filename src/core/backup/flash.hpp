@@ -22,7 +22,7 @@ enum class Type : u32
     Flash128 = BANK_SIZE * 2,
 };
 
-enum class Command
+enum class Command : u8
 {
     ChipID_Start = 0x90,
     ChipID_Exit = 0xF0,
@@ -35,7 +35,7 @@ enum class Command
     SetMemoryBank = 0xB0,
 };
 
-enum class State
+enum class State : u8
 {
     READY,
     CMD1,
