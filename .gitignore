@@ -19,5 +19,3 @@ imgui.ini
 CMakeUserPresets.json
 rtc.md
 n64-emu
-deploy_netlify.yml
-deploy_pages.yml

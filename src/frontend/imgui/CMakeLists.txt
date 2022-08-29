@@ -48,8 +48,6 @@ target_link_libraries(imgui_base PUBLIC imgui)
 target_link_libraries(imgui_base PRIVATE imgui_club)
 
 # target_add_common_cflags(imgui_base PRIVATE)
-target_apply_lto_in_release(imgui)
-target_apply_lto_in_release(imgui_base)
 
 option(DUMP_AUDIO "dump audio to a file" OFF)
 option(SPEED_TEST "run uncapped fps, used for perf test" OFF)

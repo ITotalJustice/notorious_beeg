@@ -72,7 +72,3 @@ target_compile_definitions(GBA PRIVATE
 )
 
 set_target_properties(GBA PROPERTIES CXX_STANDARD 23)
-
-# enable LTO (only in release builds)
-# this greatly reduces template bloat as well
-target_apply_lto_in_release(GBA)

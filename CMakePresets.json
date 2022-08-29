@@ -12,6 +12,7 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
+                "LTO": true,
                 "SINGLE_FILE": true,
                 "IMGUI": true
             }
@@ -48,6 +49,7 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
+                "LTO": true,
                 "SINGLE_FILE": true,
                 "SDL2": true
             }
@@ -69,6 +71,7 @@
             "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
+                "LTO": true,
                 "SINGLE_FILE": true,
                 "SDL2": true
             }
@@ -92,6 +95,7 @@
             "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
+                "LTO": true,
                 "SINGLE_FILE": true
             }
         },

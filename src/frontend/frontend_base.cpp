@@ -123,9 +123,12 @@ auto minizip_testerror_file_func([[maybe_unused]] void* opaque, [[maybe_unused]]
     return 0;
 }
 
-#if 0
-auto zipall_internal(zipFile zf, const std::string& folder) -> void
+// returns the number of files zipped
+[[nodiscard]]
+auto zipall_internal(zipFile zf, const std::string& folder) -> std::size_t
 {
+    std::size_t count{};
+
     // for (auto& folder : folders)
     {
         for (auto& entry : std::filesystem::recursive_directory_iterator{folder})
@@ -162,6 +165,10 @@ auto zipall_internal(zipFile zf, const std::string& folder) -> void
                     {
                         std::printf("failed to write file in zip: %s\n", path.c_str());
                     }
+                    else
+                    {
+                        count++;
+                    }
 
                     // don't forget to close when done!
                     if (Z_OK != zipCloseFileInZip(zf))
@@ -176,8 +183,9 @@ auto zipall_internal(zipFile zf, const std::string& folder) -> void
             }
         }
     }
+
+    return count;
 }
-#endif
 
 // basic rom loading from zip, will flesh this out more soon
 auto loadzip_internal(unzFile zf) -> std::vector<std::uint8_t>
@@ -290,50 +298,18 @@ auto Base::dumpfile(const std::string& path, std::span<const std::uint8_t> data)
     return false;
 }
 
-#if 0
-auto Base::zipall(const std::string& folder, const std::string& output) -> bool
+auto Base::zipall(const std::string& folder, const std::string& output) -> std::size_t
 {
-    if (auto zfile = zipOpen64(nullptr, APPEND_STATUS_CREATE))
+    if (auto zfile = zipOpen64(output.c_str(), APPEND_STATUS_CREATE))
     {
-        zipall_internal(zfile, folder);
+        const auto count = zipall_internal(zfile, folder);
         zipClose(zfile, "TotalGBA");
         // todo: error handling!
-        return true;
+        return count;
     }
 
-    return false;
+    return 0;
 }
-
-auto Base::zipall_mem(const std::string& folder) -> std::vector<std::uint8_t>
-{
-    MzMem mzmem{
-        .buf = nullptr,
-        .size = 0,
-        .offset = 0,
-        .read_only = false,
-    };
-
-    auto def = zlib_filefunc64;
-    def.opaque = &mzmem;
-
-    if (auto zfile = zipOpen2_64(nullptr, APPEND_STATUS_CREATE, nullptr, &def))
-    {
-        zipall_internal(zfile, folder);
-        zipClose(zfile, "TotalGBA");
-
-        if (mzmem.buf)
-        {
-            // wasteful code. it's this way because of how the js calls into c
-            std::vector<std::uint8_t> buf;
-            buf.resize(mzmem.size);
-            std::free(mzmem.buf);
-            return buf;
-        }
-    }
-
-    return {};
-}
-#endif
 
 auto Base::loadzip(const std::string& path) -> std::vector<std::uint8_t>
 {
@@ -509,7 +485,7 @@ auto Base::savegame(const std::string& path) -> bool
     // is save isn't dirty, then return early
     if (!gameboy_advance.is_save_dirty())
     {
-        return true;
+        return false;
     }
 
     const auto save_path = create_save_path(path);

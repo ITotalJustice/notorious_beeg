@@ -10,7 +10,6 @@ set_target_properties(frontend_base PROPERTIES CXX_STANDARD 23)
 
 
 target_add_common_cflags(frontend_base PRIVATE)
-target_apply_lto_in_release(frontend_base)
 
 include(FetchContent)
 Set(FETCHCONTENT_QUIET FALSE)
@@ -29,7 +28,7 @@ set(FOUND_MINIZIP FALSE)
 #     set(DISABLE_INSTALL_TOOLS ON)
 #     find_package(minizip CONFIG)
 #     if (DEFINED minizip_FOUND)
-#         target_link_libraries(frontend_base PUBLIC minizip::minizip)
+#         target_link_libraries(frontend_base PRIVATE minizip::minizip)
 
 #         set(FOUND_MINIZIP TRUE)
 #         message(STATUS "using vcpkg minizip")
@@ -42,8 +41,8 @@ set(FOUND_MINIZIP FALSE)
     find_path(minizip_inc minizip)
 
     if (minizip_lib AND minizip_inc)
-        target_link_libraries(frontend_base PUBLIC ${minizip_lib})
-        target_include_directories(frontend_base PUBLIC ${minizip_inc})
+        target_link_libraries(frontend_base PRIVATE ${minizip_lib})
+        target_include_directories(frontend_base PRIVATE ${minizip_inc})
 
         # this has to be linked after minizip!
         find_package(ZLIB REQUIRED)
@@ -70,13 +69,13 @@ if (NOT FOUND_MINIZIP)
         ${minizip_SOURCE_DIR}/contrib/minizip/unzip.c
     )
 
-    target_include_directories(minizip PUBLIC ${minizip_SOURCE_DIR}/contrib/minizip/)
+    target_include_directories(minizip PRIVATE ${minizip_SOURCE_DIR}/contrib/minizip/)
     # need the paths to be minizip/unzip.h
     target_include_directories(minizip PUBLIC ${minizip_SOURCE_DIR}/contrib/)
 
     find_package(ZLIB REQUIRED)
-    target_link_libraries(minizip PUBLIC ZLIB::ZLIB)
-    target_link_libraries(frontend_base PUBLIC minizip)
+    target_link_libraries(minizip PRIVATE ZLIB::ZLIB)
+    target_link_libraries(frontend_base PRIVATE minizip)
 
     message(STATUS "using github minizip")
 endif()

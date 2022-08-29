@@ -11,15 +11,11 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include <fstream>
-#include <filesystem>
 
-#include <zlib.h>
-#include <minizip/zip.h>
 #include <sdl2_base.hpp>
 #include <SDL.h>
 // intellisense is having a bad day, i cba to fix it
-#if 1
+#if 0
 #include </home/total/emsdk/upstream/emscripten/cache/sysroot/include/emscripten/emscripten.h>
 #include </home/total/emsdk/upstream/emscripten/cache/sysroot/include/emscripten/html5.h>
 #include </home/total/emsdk/upstream/emscripten/cache/sysroot/include/emscripten/console.h>
@@ -85,9 +81,6 @@ constexpr auto get_touch_id_asset(TouchID id)
         case TouchID_BACK: return "assets/menu/back.png";
         case TouchID_IMPORT: return "assets/menu/import.png";
         case TouchID_EXPORT: return "assets/menu/export.png";
-        // case TouchID_FULLSCREEN:  return "assets/buttons/fullscreen.png";
-        // case TouchID_AUDIO:  return "assets/buttons/volume_on.png";
-        // case TouchID_FASTFORWARD:  return "assets/buttons/fastForward.png";
         case TouchID_FULLSCREEN:  return "assets/buttons/larger.png";
         case TouchID_AUDIO:  return "assets/buttons/musicOn.png";
         case TouchID_FASTFORWARD:  return "assets/buttons/fastForward.png";
@@ -136,87 +129,7 @@ struct ButtonEventData
 };
 
 std::uint32_t ROM_LOAD_EVENT = 0;
-
-// returns the number of files zipped
-auto zip_saves() -> std::size_t
-{
-    // auto zfile = zipOpen2_64(nullptr, APPEND_STATUS_CREATE, nullptr, &def);
-    auto zfile = zipOpen64("TotalGBA_saves.zip", APPEND_STATUS_CREATE);
-    if (!zfile)
-    {
-        std::printf("failed to zip open in memory\n");
-        return 0;
-    }
-
-    // const char* folders[] = { "/save", "/state" };
-    const char* folders[] = { "/save" };
-    std::size_t count{};
-
-    for (auto& folder : folders)
-    {
-        for (auto& entry : std::filesystem::recursive_directory_iterator{folder})
-        {
-            if (entry.is_regular_file())
-            {
-                // get the fullpath
-                const auto path = entry.path().string();
-                std::ifstream fs{path, std::ios::binary};
-
-                if (fs.good())
-                {
-                    // read file into buffer
-                    const auto file_size = entry.file_size();
-                    std::vector<char> buffer(file_size);
-                    fs.read(buffer.data(), buffer.size());
-
-                    // open the file inside the zip
-                    if (ZIP_OK != zipOpenNewFileInZip(zfile,
-                        path.c_str(),           // filepath
-                        nullptr,                   // info, optional
-                        nullptr, 0,                // extrafield and size, optional
-                        nullptr, 0,                // extrafield-global and size, optional
-                        "TotalGBA",                   // comment, optional
-                        Z_DEFLATED,             // mode
-                        Z_DEFAULT_COMPRESSION   // level
-                    )) {
-                        std::printf("failed to open file in zip: %s\n", path.c_str());
-                        continue;
-                    }
-
-                    // write out the entire file
-                    if (Z_OK != zipWriteInFileInZip(zfile, buffer.data(), buffer.size()))
-                    {
-                        std::printf("failed to write file in zip: %s\n", path.c_str());
-                    }
-                    else
-                    {
-                        count++;
-                    }
-
-                    // don't forget to close when done!
-                    if (Z_OK != zipCloseFileInZip(zfile))
-                    {
-                        std::printf("failed to close file in zip: %s\n", path.c_str());
-                    }
-                }
-                else
-                {
-                    std::printf("failed to open file %s\n", path.c_str());
-                }
-            }
-        }
-    }
-
-    zipClose(zfile, "TotalGBA");
-
-    // if (mzmem.buf)
-    // {
-    //     hacky_ptr = mzmem.buf;
-    //     return mzmem.size;
-    // }
-
-    return count;
-}
+std::uint32_t FLUSH_SAVE_EVENT = 0;
 
 struct App final : frontend::sdl2::Sdl2Base
 {
@@ -332,6 +245,7 @@ auto em_loop(void* user) -> void
     app->step();
 }
 
+#ifdef EM_THREADS
 auto sdl2_sram_timer_callback(Uint32 interval, void* user) -> Uint32
 {
     auto app = static_cast<App*>(user);
@@ -340,13 +254,16 @@ auto sdl2_sram_timer_callback(Uint32 interval, void* user) -> Uint32
         std::scoped_lock lock{app->core_mutex};
         app->savegame("");
     }
-    // std::printf("callback!\n");
+    // std::printf("callback! %u\n", interval);
     return interval;
 }
+#endif
 
 auto sdl2_audio_callback(void* user, Uint8* data, int len) -> void
 {
     auto app = static_cast<App*>(user);
+    // this may cause a race condition if not built with threads
+    // as the audio may still be ran on its own thread...
     app->fill_audio_data_from_stream(data, len);
 }
 
@@ -430,7 +347,13 @@ App::App(int argc, char** argv) : frontend::sdl2::Sdl2Base(argc, argv)
         }
     }
 
-    sram_sync_timer = SDL_AddTimer(1000 * 3, sdl2_sram_timer_callback, this);
+    // SDL_timers fire instantly without pthread support!
+    #ifdef EM_THREADS
+        sram_sync_timer = SDL_AddTimer(1000 * 3, sdl2_sram_timer_callback, this);
+    #else
+        FLUSH_SAVE_EVENT = SDL_RegisterEvents(1);
+        EM_ASM( setInterval(_em_flush_save, 1000 * 3); );
+    #endif
     // set fullscreen
     // set_window_size_from_renderer();
 
@@ -801,6 +724,14 @@ auto App::on_user_event(SDL_UserEvent& e) -> void
         }
 
         delete data;
+    }
+    else if (e.type == FLUSH_SAVE_EVENT)
+    {
+        if (has_rom)
+        {
+            std::scoped_lock lock{core_mutex};
+            savegame("");
+        }
     }
 }
 
@@ -1193,9 +1124,16 @@ EMSCRIPTEN_KEEPALIVE auto em_load_rom_data(const char* name, uint8_t* data, int 
     SDL_PushEvent(&event);
 }
 
+EMSCRIPTEN_KEEPALIVE auto em_flush_save() -> void
+{
+    SDL_Event event{};
+    event.user.type = FLUSH_SAVE_EVENT;
+    SDL_PushEvent(&event);
+}
+
 EMSCRIPTEN_KEEPALIVE auto em_zip_all_saves() -> std::size_t
 {
-    const auto result = zip_saves();
+    const auto result = frontend::Base::zipall("/save", "TotalGBA_saves.zip");
     if (!result)
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "No save files found!", "Try saving in game first\n\nIf you know there was a save file created, please contact me about the bug!", nullptr);

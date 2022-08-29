@@ -46,54 +46,51 @@ endif()
 
 list(APPEND clang_flags
     -Wall
-    # -Wextra
+    -Wextra
     -Wfatal-errors
 
-    # -Wpedantic
-    -fno-rtti -fno-exceptions
-    # -Wshadow
-    # -Wdouble-promotion
-    # -Wformat=2
-    # -Wundef
-    # -Wmissing-include-dirs
-    # -Wstrict-aliasing
-    # -Wstrict-overflow=5
-    # -Walloca
-    # -Wwrite-strings
-    # -Wdate-time
-    # -Wpacked
-    # -Wnested-externs
-    # -Wcast-qual
-    # -Wcast-align
-    # -Wunused-macros
-    # -Wreserved-id-macro
-    # -Wbad-function-cast
-    # -Wbitfield-enum-conversion
+    -Wpedantic
+    -Wshadow
+    -Wdouble-promotion
+    -Wformat=2
+    -Wundef
+    -Wmissing-include-dirs
+    -Wstrict-aliasing
+    -Wstrict-overflow=5
+    -Walloca
+    -Wwrite-strings
+    -Wdate-time
+    -Wpacked
+    -Wnested-externs
+    -Wcast-qual
+    -Wcast-align
+    -Wunused-macros
+    -Wreserved-id-macro
+    -Wbad-function-cast
+    -Wbitfield-enum-conversion
 
-    # -Wextra-semi-stmt
-    # -Wold-style-cast
-    # -Wcovered-switch-default
+    -Wextra-semi-stmt
+    -Wold-style-cast
+    -Wcovered-switch-default
 
-    # -Wno-unused-parameter
-    # -Wno-unused-variable
-    # -Wextra-semi-stmt
-    # -Wold-style-cast
+    -fno-rtti
+    -fno-exceptions
 
     # # can try enabling this just to see what breaks (still compiles as of clang 11)
     # # be sure to enable (well, disable) the below flags else a *lot* of "errors"
-    # # -Weverything
-    # -Wno-c++98-compat
-    # -Wno-c++98-compat-pedantic
-    # -Wno-c++20-compat
-    # -Wno-missing-braces # false positive
-    # -Wno-unused-parameter
-    # -Wno-unused-variable
-    # -Wno-conversion
-    # -Wno-sign-conversion
-    # -Wno-missing-prototypes
-    # -Wno-padded
-    # -Wno-switch-enum
+    -Weverything
+    -Wno-c++98-compat
+    -Wno-c++98-compat-pedantic
+    -Wno-c++20-compat
+    -Wno-missing-braces # false positive
+    -Wno-conversion
+    -Wno-sign-conversion
+    -Wno-missing-prototypes
+    -Wno-padded
+    -Wno-switch-enum
     -Wno-unknown-attributes
+    -Wno-unused-parameter
+    -Wno-unused-variable
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -120,26 +117,7 @@ endif()
 
 include(CheckCXXCompilerFlag)
 include(CheckLinkerFlag)
-include(CheckIPOSupported)
 include(FetchContent)
-
-function(target_apply_lto target)
-    check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
-    if (ipo_supported)
-        message(STATUS "IPO / LTO enabled for target: ${target}")
-        set_property(TARGET ${target} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-    else()
-        message(STATUS "IPO / LTO not supported: <${ipo_error}>")
-    endif()
-endfunction()
-
-function(target_apply_lto_in_release target)
-    if (CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
-        target_apply_lto(${target})
-    else()
-        message(STATUS "IPO / LTO not enabled in debug build")
-    endif()
-endfunction()
 
 function(target_add_compiler_flag target flag scope)
     # check_cxx_compiler_flag() adds a macro to the test.c file such that

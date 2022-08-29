@@ -17,5 +17,3 @@ set_target_properties(notorious_beeg_IMGUI_SDL2 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     CXX_STANDARD 23
 )
-
-target_apply_lto_in_release(notorious_beeg_IMGUI_SDL2)

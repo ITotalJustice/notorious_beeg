@@ -14,4 +14,3 @@ set_target_properties(sdl2_base PROPERTIES CXX_STANDARD 23)
 
 
 target_add_common_cflags(sdl2_base PRIVATE)
-target_apply_lto_in_release(sdl2_base)

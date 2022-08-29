@@ -48,6 +48,23 @@ else()
     message(STATUS "cant find clangd: not generating compile_commands.json")
 endif()
 
+if (LTO)
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
+    if (ipo_supported)
+        message(STATUS "IPO / LTO enabled for ALL targets")
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    else()
+        message(STATUS "IPO / LTO not supported")
+    endif()
+endif()
+
+# these needs to be globally set otherwise a link error happens when
+# using std::filesystem::recursive_directory_iterator
+if (EMSCRIPTEN AND EM_USE_THREADS)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+endif()
+
 message(STATUS "SYSTEM: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "COMPILER: ${CMAKE_CXX_COMPILER_ID}")
 
