@@ -39,10 +39,7 @@
             "displayName": "vcpkg-dev",
             "inherits": ["imgui-dev"],
             "cacheVariables": {
-                "VCPKG": true,
-                "CMAKE_BUILD_TYPE": "Debug",
-                "GBA_DEV": true,
-                "IMGUI": true
+                "VCPKG": true
             }
         },
         {
@@ -106,6 +103,7 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "EMRUN": true
+            }
         }
     ],
     "buildPresets": [
