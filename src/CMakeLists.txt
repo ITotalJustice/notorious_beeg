@@ -32,6 +32,7 @@ list(APPEND gcc_flags
     -Wuninitialized
 
     -Wno-unused-parameter
+    -Wno-unknown-attributes
 
     -fimplicit-constexpr
     -Wmissing-requires
@@ -45,58 +46,60 @@ endif()
 
 list(APPEND clang_flags
     -Wall
-    -Wextra
+    # -Wextra
     -Wfatal-errors
 
-    -Wpedantic
-    -Wshadow
-    -Wdouble-promotion
-    -Wformat=2
-    -Wundef
-    -Wmissing-include-dirs
-    -Wstrict-aliasing
-    -Wstrict-overflow=5
-    -Walloca
-    -Wwrite-strings
-    -Wdate-time
-    -Wpacked
-    -Wnested-externs
-    -Wcast-qual
-    -Wcast-align
-    -Wunused-macros
-    -Wreserved-id-macro
-    -Wbad-function-cast
-    -Wbitfield-enum-conversion
+    # -Wpedantic
+    -fno-rtti -fno-exceptions
+    # -Wshadow
+    # -Wdouble-promotion
+    # -Wformat=2
+    # -Wundef
+    # -Wmissing-include-dirs
+    # -Wstrict-aliasing
+    # -Wstrict-overflow=5
+    # -Walloca
+    # -Wwrite-strings
+    # -Wdate-time
+    # -Wpacked
+    # -Wnested-externs
+    # -Wcast-qual
+    # -Wcast-align
+    # -Wunused-macros
+    # -Wreserved-id-macro
+    # -Wbad-function-cast
+    # -Wbitfield-enum-conversion
 
-    -Wextra-semi-stmt
-    -Wold-style-cast
-    -Wcovered-switch-default
+    # -Wextra-semi-stmt
+    # -Wold-style-cast
+    # -Wcovered-switch-default
 
-    -Wno-unused-parameter
-    -Wno-unused-variable
-    -Wextra-semi-stmt
-    -Wold-style-cast
+    # -Wno-unused-parameter
+    # -Wno-unused-variable
+    # -Wextra-semi-stmt
+    # -Wold-style-cast
 
-    # can try enabling this just to see what breaks (still compiles as of clang 11)
-    # be sure to enable (well, disable) the below flags else a *lot* of "errors"
-    # -Weverything
-    -Wno-c++98-compat
-    -Wno-c++98-compat-pedantic
-    -Wno-c++20-compat
-    -Wno-missing-braces # false positive
-    -Wno-unused-parameter
-    -Wno-unused-variable
-    -Wno-conversion
-    -Wno-sign-conversion
-    -Wno-missing-prototypes
-    -Wno-padded
-    -Wno-switch-enum
+    # # can try enabling this just to see what breaks (still compiles as of clang 11)
+    # # be sure to enable (well, disable) the below flags else a *lot* of "errors"
+    # # -Weverything
+    # -Wno-c++98-compat
+    # -Wno-c++98-compat-pedantic
+    # -Wno-c++20-compat
+    # -Wno-missing-braces # false positive
+    # -Wno-unused-parameter
+    # -Wno-unused-variable
+    # -Wno-conversion
+    # -Wno-sign-conversion
+    # -Wno-missing-prototypes
+    # -Wno-padded
+    # -Wno-switch-enum
+    -Wno-unknown-attributes
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND clang_flags -Og) # always enable otherwise debug builds would be too slow
 else()
-    list(APPEND clang_flags -Ofast)
+    list(APPEND clang_flags -O3)
 endif()
 
 list(APPEND msvc_flags

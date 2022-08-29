@@ -34,12 +34,16 @@ enum Button : u16
     DIRECTIONAL = UP | DOWN | LEFT | RIGHT,
     // causes a reset if these buttons are pressed all at once
     RESET = A | B | START | SELECT,
+
+    // all button pressed at once, useful for clearing all buttons
+    // at the same time.
+    ALL = A | B | SELECT | START | RIGHT | LEFT | UP | DOWN | R | L,
 };
 
 struct State;
 struct Header;
 
-using AudioCallback = void(*)(void* user, s16 left, s16 right);
+using AudioCallback = void(*)(void* user);
 using VblankCallback = void(*)(void* user);
 using HblankCallback = void(*)(void* user, u16 line);
 
@@ -75,14 +79,18 @@ struct Gba
 
     // load a save from data, must be used after a game has loaded
     [[nodiscard]] auto loadsave(std::span<const u8> new_save) -> bool;
-    // returns empty spam if the game doesn't have a save
+    // checks if the save has been written to.
+    // the flag is cleared upon calling this function.
+    [[nodiscard]] auto is_save_dirty()-> bool;
+    // returns empty span if the game doesn't have a save
+    // call is_save_dirty() first to see if the game needs saving!
     [[nodiscard]] auto getsave() const -> std::span<const u8>;
 
     // OR keys together
     auto setkeys(u16 buttons, bool down) -> void;
 
     auto set_userdata(void* user) { this->userdata = user; }
-    auto set_audio_callback(AudioCallback cb) { this->audio_callback = cb; }
+    auto set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate = 65536) -> void;
     auto set_vblank_callback(VblankCallback cb) { this->vblank_callback = cb; }
     auto set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
 
@@ -93,6 +101,10 @@ struct Gba
     bool bit_crushing{false};
 
     void* userdata{};
+    std::span<s16> sample_data;
+    std::size_t sample_count;
+    std::uint32_t sample_rate_calculated;
+
     AudioCallback audio_callback{};
     VblankCallback vblank_callback{};
     HblankCallback hblank_callback{};

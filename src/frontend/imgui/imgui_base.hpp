@@ -62,7 +62,13 @@ protected:
     auto render_layers() -> void;
     auto toggle_master_layer_enable() -> void;
 
-protected:
+public:
+    #if DEBUGGER == 0
+        static constexpr inline bool debug_mode{false};
+    #else
+        static constexpr inline bool debug_mode{true};
+    #endif
+public:
     Rect emu_rect{};
     int emu_scale{scale};
 
@@ -87,12 +93,6 @@ protected:
     };
 
     Layer layers[4]{ {TextureID::layer0}, {TextureID::layer1}, {TextureID::layer2}, {TextureID::layer3} };
-
-#if DEBUGGER == 0
-    static constexpr inline bool debug_mode{false};
-#else
-    static constexpr inline bool debug_mode{true};
-#endif
 
     bool viewer_io{false};
 

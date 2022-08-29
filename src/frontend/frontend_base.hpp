@@ -22,15 +22,18 @@ public:
     virtual auto loop() -> void = 0;
 
     static auto dumpfile(const std::string& path, std::span<const std::uint8_t> data) -> bool;
+    static auto zipall(const std::string& folder, const std::string& output) -> bool;
+    static auto zipall_mem(const std::string& folder) -> std::vector<std::uint8_t>;
     static auto loadzip(const std::string& path) -> std::vector<std::uint8_t>;
     static auto loadfile(const std::string& path) -> std::vector<std::uint8_t>;
+    static auto loadfile_mem(const std::string& path, std::span<const std::uint8_t> data) -> std::vector<std::uint8_t>;
     static auto replace_extension(std::filesystem::path path, const std::string& new_ext = "") -> std::string;
     static auto create_save_path(const std::string& path) -> std::string;
     static auto create_state_path(const std::string& path, int slot = 0) -> std::string;
 
-
 protected:
     virtual auto loadrom(const std::string& path) -> bool;
+    virtual auto loadrom_mem(const std::string& path, std::span<const std::uint8_t> data) -> bool;
     virtual auto closerom() -> void;
 
     virtual auto loadsave(const std::string& path) -> bool;
@@ -64,8 +67,12 @@ public:
     bool enabled_rewind{false};
     // when true, the emulator is rewinding
     bool emu_rewind{false};
-    // keeps ascpect ratio when resizing the sreen
+    // keeps ascpect ratio when resizing the screen
     bool maintain_aspect_ratio{true};
+    //
+    bool emu_fast_forward{false};
+    //
+    bool emu_audio_disabled{false};
 };
 
 } // namespace frontend

@@ -8,6 +8,7 @@ target_link_libraries(frontend_base PUBLIC GBA)
 target_include_directories(frontend_base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set_target_properties(frontend_base PROPERTIES CXX_STANDARD 23)
 
+
 target_add_common_cflags(frontend_base PRIVATE)
 target_apply_lto_in_release(frontend_base)
 
@@ -18,18 +19,17 @@ FetchContent_Declare(minizip
     GIT_REPOSITORY https://github.com/madler/zlib.git
     GIT_TAG        v1.2.12
     GIT_PROGRESS   TRUE
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
 )
 
 set(FOUND_MINIZIP FALSE)
+
 
 # NOTE: these seems to be broken, tested using ubuntu in vm
 # if (VCPKG_TOOLCHAIN)
 #     set(DISABLE_INSTALL_TOOLS ON)
 #     find_package(minizip CONFIG)
 #     if (DEFINED minizip_FOUND)
-#         target_link_libraries(frontend_base PRIVATE minizip::minizip)
+#         target_link_libraries(frontend_base PUBLIC minizip::minizip)
 
 #         set(FOUND_MINIZIP TRUE)
 #         message(STATUS "using vcpkg minizip")
@@ -42,8 +42,8 @@ set(FOUND_MINIZIP FALSE)
     find_path(minizip_inc minizip)
 
     if (minizip_lib AND minizip_inc)
-        target_link_libraries(frontend_base PRIVATE ${minizip_lib})
-        target_include_directories(frontend_base PRIVATE ${minizip_inc})
+        target_link_libraries(frontend_base PUBLIC ${minizip_lib})
+        target_include_directories(frontend_base PUBLIC ${minizip_inc})
 
         # this has to be linked after minizip!
         find_package(ZLIB REQUIRED)
@@ -70,21 +70,28 @@ if (NOT FOUND_MINIZIP)
         ${minizip_SOURCE_DIR}/contrib/minizip/unzip.c
     )
 
-    target_include_directories(minizip PRIVATE ${minizip_SOURCE_DIR}/contrib/minizip/)
+    target_include_directories(minizip PUBLIC ${minizip_SOURCE_DIR}/contrib/minizip/)
     # need the paths to be minizip/unzip.h
     target_include_directories(minizip PUBLIC ${minizip_SOURCE_DIR}/contrib/)
 
     find_package(ZLIB REQUIRED)
-    target_link_libraries(minizip PRIVATE ZLIB::ZLIB)
-    target_link_libraries(frontend_base PRIVATE minizip)
+    target_link_libraries(minizip PUBLIC ZLIB::ZLIB)
+    target_link_libraries(frontend_base PUBLIC minizip)
 
     message(STATUS "using github minizip")
 endif()
 
 if (IMGUI)
+    add_subdirectory(sdl2_base)
     add_subdirectory(imgui)
 endif()
 
 if (SDL2)
+    add_subdirectory(sdl2_base)
     add_subdirectory(sdl2)
+endif()
+
+if (EMSCRIPTEN)
+    add_subdirectory(sdl2_base)
+    add_subdirectory(emscripten)
 endif()

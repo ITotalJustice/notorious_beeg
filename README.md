@@ -3,6 +3,18 @@ v0.0.3-dev
 
 gba emulator witten in c++23.
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/bfd72dd6-557d-41a3-87ac-480c686624a2/deploy-status)](https://app.netlify.com/sites/notorious-beeg/deploys)
+
+---
+
+## web builds
+
+web builds are the easiest way to quickly test a game. builds are automatically built from master. please report any bugs you find, giving as much info as possible such as browser, os, game etc.
+
+gh-pages version doesn't support threads / mutexs. may crash.
+
+netlify version supports threads / mutexes, won't crash.
+
 ---
 
 ## changelog
@@ -198,3 +210,4 @@ gba emulator witten in c++23.
 - xproger for openlara (fixed several bugs in my emu) <https://github.com/XProger/OpenLara>
 - zayd for info on rtc <https://beanmachine.alt.icu/post/rtc/>
 - pokeemerald for a being a good reference <https://github.com/pret/pokeemerald>
+- kenney for the onscreen control buttons <https://www.kenney.nl/assets/onscreen-controls>

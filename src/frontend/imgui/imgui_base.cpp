@@ -28,23 +28,26 @@ auto draw_grid(int size, int count, float thicc, int x, int y)
 
 auto on_hblank_callback(void* user, std::uint16_t line) -> void
 {
-    // if constexpr (!debug_mode)
-    // {
-    //     return;
-    // }
+    // this is UB because the actual ptr is whatever inherts the base
+    auto app = static_cast<ImguiBase*>(user);
 
-    // if (line >= 160)
-    // {
-    //     return;
-    // }
+    if constexpr (!ImguiBase::debug_mode)
+    {
+        return;
+    }
 
-    // for (auto i = 0; i < 4; i++)
-    // {
-    //     if (layers[i].enabled)
-    //     {
-    //         layers[i].priority = gameboy_advance.render_mode(layers[i].pixels[line], 0, i);
-    //     }
-    // }
+    if (line >= 160)
+    {
+        return;
+    }
+
+    for (auto i = 0; i < 4; i++)
+    {
+        if (app->layers[i].enabled)
+        {
+            app->layers[i].priority = app->gameboy_advance.render_mode(app->layers[i].pixels[line], 0, i);
+        }
+    }
 }
 
 template<int num, typename T>
@@ -75,6 +78,8 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
     //ImGui::StyleColorsClassic();
 
     io.Fonts->AddFontFromMemoryCompressedTTF(trim_font_compressed_data, trim_font_compressed_size, 20);
+
+    gameboy_advance.set_hblank_callback(on_hblank_callback);
 }
 
 ImguiBase::~ImguiBase()
