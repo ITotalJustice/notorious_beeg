@@ -28,6 +28,8 @@ jobs:
           publish-dir: build/emsdk/bin
           production-branch: master
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-deployment-environment: "netlify-web"
+          github-deployment-description: "web build with threads enabled"
           deploy-message: "Deploy from GitHub Actions"
           enable-pull-request-comment: false
           enable-commit-comment: false
