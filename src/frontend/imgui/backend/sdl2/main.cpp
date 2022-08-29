@@ -1,6 +1,7 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
+#include <cstdint>
 #include <icon.hpp>
 #include <imgui_base.hpp>
 
@@ -62,6 +63,7 @@ public:
     SDL_AudioSpec aspec_wnt{};
     SDL_AudioSpec aspec_got{};
     std::mutex audio_mutex{};
+    std::vector<std::int16_t> sample_data;
     int sample_rate{65536};
 
     std::unordered_map<Sint32, SDL_GameController*> controllers;
@@ -82,12 +84,11 @@ auto audio_callback(void* user, Uint8* data, int len) -> void
     SDL_AudioStreamGet(app->audio_stream, data, len);
 }
 
-auto push_sample_callback(void* user, std::int16_t left, std::int16_t right) -> void
+auto push_sample_callback(void* user) -> void
 {
     auto app = static_cast<App*>(user);
     std::scoped_lock lock{app->audio_mutex};
-    const std::int16_t samples[2] = {left, right};
-    SDL_AudioStreamPut(app->audio_stream, samples, sizeof(samples));
+    SDL_AudioStreamPut(app->audio_stream, app->sample_data.data(), app->sample_data.size() * 2);
 }
 
 App::App(int argc, char** argv) : ImguiBase{argc, argv}
@@ -167,6 +168,8 @@ App::App(int argc, char** argv) : ImguiBase{argc, argv}
         return;
     }
 
+    sample_data.resize((aspec_got.samples * aspec_got.channels) & ~0x1);
+
     std::printf("[SDL-AUDIO] format\twant: 0x%X \tgot: 0x%X\n", aspec_wnt.format, aspec_got.format);
     std::printf("[SDL-AUDIO] freq\twant: %d \tgot: %d\n", aspec_wnt.freq, aspec_got.freq);
     std::printf("[SDL-AUDIO] channels\twant: %d \tgot: %d\n", aspec_wnt.channels, aspec_got.channels);
@@ -183,7 +186,7 @@ App::App(int argc, char** argv) : ImguiBase{argc, argv}
 
     gameboy_advance.set_userdata(this);
     // gameboy_advance.set_hblank_callback(on_hblank_callback);
-    gameboy_advance.set_audio_callback(push_sample_callback);
+    gameboy_advance.set_audio_callback(push_sample_callback, sample_data);
 
     // Setup Platform/Renderer backends
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);

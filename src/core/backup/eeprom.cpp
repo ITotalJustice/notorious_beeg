@@ -120,7 +120,7 @@ auto Eeprom::read([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr) -> u8
     return value;
 }
 
-auto Eeprom::write([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr, u8 value) -> void
+auto Eeprom::write(Gba& gba, [[maybe_unused]] u32 addr, u8 value) -> void
 {
     this->bits <<= 1;
     this->bits |= value & 1; // shift in only 1 bit at a time
@@ -178,6 +178,7 @@ auto Eeprom::write([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr, u8 valu
                         this->bits = 0;
                     }
                 }
+                gba.backup.dirty_ram = true;
             }
             break;
     }

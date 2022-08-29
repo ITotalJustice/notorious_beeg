@@ -29,22 +29,17 @@
         {
             "name": "vcpkg",
             "displayName": "vcpkg",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "inherits": ["imgui"],
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "SINGLE_FILE": true,
-                "IMGUI": true
+                "VCPKG": true
             }
         },
         {
             "name": "vcpkg-dev",
             "displayName": "vcpkg-dev",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "inherits": ["imgui-dev"],
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "IMGUI": true
+                "VCPKG": true
             }
         },
         {
@@ -55,6 +50,26 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "SINGLE_FILE": true,
                 "SDL2": true
+            }
+        },
+        {
+            "name": "emsdk",
+            "displayName": "emsdk",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SINGLE_FILE": true
+            }
+        },
+        {
+            "name": "emsdk-dev",
+            "displayName": "emsdk-dev",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "EMRUN": true
             }
         }
     ],
@@ -78,6 +93,14 @@
         {
             "name": "sdl2",
             "configurePreset": "sdl2"
+        },
+        {
+            "name": "emsdk",
+            "configurePreset": "emsdk"
+        },
+        {
+            "name": "emsdk-dev",
+            "configurePreset": "emsdk-dev"
         }
     ]
 }

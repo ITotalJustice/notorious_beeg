@@ -993,7 +993,15 @@ auto reset(Gba& gba, bool skip_bios) -> void
     // todo: reset all apu regs properly if skipping bios
     APU.fifo[0].reset();
     APU.fifo[1].reset();
-    scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, SAMPLE_TICKS);
+    if (gba.audio_callback && !gba.sample_data.empty() && gba.sample_rate_calculated)
+    {
+        scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, gba.sample_rate_calculated);
+    }
+    else
+    {
+        scheduler::remove(gba, scheduler::Event::APU_SAMPLE);
+    }
+    // scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, SAMPLE_TICKS);
 
     if (skip_bios)
     {
@@ -1075,16 +1083,28 @@ auto Fifo::sample() const -> s8
     return this->current_sample >> VOL_SHIFT[this->volume_code];
 }
 
+static auto push_sample(Gba& gba, s16 left, s16 right)
+{
+    gba.sample_data[gba.sample_count++] = left;
+    gba.sample_data[gba.sample_count++] = right;
+
+    if (gba.sample_count >= gba.sample_data.size())
+    {
+        gba.audio_callback(gba.userdata);
+        gba.sample_count = 0;
+    }
+}
+
 auto sample(Gba& gba)
 {
-    if (gba.audio_callback == nullptr) [[unlikely]]
+    if (gba.audio_callback == nullptr || gba.sample_data.empty()) [[unlikely]]
     {
         return;
     }
 
     if (!is_apu_enabled(gba)) [[unlikely]]
     {
-        gba.audio_callback(gba.userdata, 0, 0);
+        push_sample(gba, 0, 0);
         return;
     }
 
@@ -1161,7 +1181,7 @@ auto sample(Gba& gba)
         sample_right <<= scales[resample_mode];
     }
 
-    gba.audio_callback(gba.userdata, sample_left, sample_right);
+    push_sample(gba, sample_left, sample_right);
 }
 
 auto on_sample_event(Gba& gba) -> void

@@ -42,7 +42,8 @@ auto Sram::read([[maybe_unused]] Gba& gba, u32 addr) const -> u8
 
 auto Sram::write([[maybe_unused]] Gba& gba, u32 addr, u8 value) -> void
 {
-    this->data[ addr & SRAM_MASK] = value;
+    this->data[addr & SRAM_MASK] = value;
+    gba.backup.dirty_ram = true;
 }
 
 } // namespace gba::backup::eeprom

@@ -208,6 +208,23 @@ auto Gba::setkeys(u16 buttons, bool down) -> void
     }
 }
 
+auto Gba::set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate )-> void
+{
+    this->audio_callback = cb;
+    this->sample_data = data;
+    this->sample_count = 0;
+    this->sample_rate_calculated = 280896 * 60 / sample_rate;
+
+    if (this->audio_callback && !this->sample_data.empty() && this->sample_rate_calculated)
+    {
+        scheduler::add(*this, scheduler::Event::APU_SAMPLE, apu::on_sample_event, this->sample_rate_calculated);
+    }
+    else
+    {
+        scheduler::remove(*this, scheduler::Event::APU_SAMPLE);
+    }
+}
+
 auto Gba::get_render_mode() -> u8
 {
     return ppu::get_mode(*this);
@@ -285,7 +302,6 @@ auto Gba::savestate(State& state) const -> bool
     return true;
 }
 
-// load a save from data, must be used after a game has loaded
 auto Gba::loadsave(std::span<const u8> new_save) -> bool
 {
     using enum backup::Type;
@@ -303,7 +319,13 @@ auto Gba::loadsave(std::span<const u8> new_save) -> bool
     std::unreachable();
 }
 
-// returns empty spam if the game doesn't have a save
+auto Gba::is_save_dirty()-> bool
+{
+    const auto result = this->backup.dirty_ram;
+    this->backup.dirty_ram = false;
+    return result;
+}
+
 auto Gba::getsave() const -> std::span<const u8>
 {
     using enum backup::Type;

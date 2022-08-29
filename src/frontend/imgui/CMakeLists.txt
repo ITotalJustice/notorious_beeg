@@ -9,16 +9,12 @@ FetchContent_Declare(imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
     GIT_TAG        v1.88
     GIT_PROGRESS   TRUE
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
 )
 
 FetchContent_Declare(imgui_club
     GIT_REPOSITORY https://github.com/ocornut/imgui_club.git
     GIT_TAG        d4cd9896e15a03e92702a578586c3f91bbde01e8
     GIT_PROGRESS   TRUE
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
 )
 
 FetchContent_MakeAvailable(imgui)

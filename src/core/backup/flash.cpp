@@ -92,7 +92,7 @@ auto Flash::read([[maybe_unused]] Gba& gba, u32 addr) const -> u8
     return this->data[this->bank + addr];
 }
 
-auto Flash::write([[maybe_unused]] Gba& gba, u32 addr, u8 value) -> void
+auto Flash::write(Gba& gba, u32 addr, u8 value) -> void
 {
     addr &= 0xFFFF;
 
@@ -121,6 +121,7 @@ auto Flash::write([[maybe_unused]] Gba& gba, u32 addr, u8 value) -> void
             else if (this->command == SingleData)
             {
                 this->data[this->bank + addr] = value;
+                gba.backup.dirty_ram = true;
             }
             // there's 2 exit sequences for chipID used in different chips
             // games don't bother to detect which chip is what.
@@ -163,6 +164,7 @@ auto Flash::write([[maybe_unused]] Gba& gba, u32 addr, u8 value) -> void
 
                     case EraseAll:
                         std::ranges::fill(this->data, 0xFF);
+                        gba.backup.dirty_ram = true;
                         break;
 
                     default:
@@ -177,6 +179,7 @@ auto Flash::write([[maybe_unused]] Gba& gba, u32 addr, u8 value) -> void
                 for (auto i = 0; i < 0x1000; i++)
                 {
                     this->data[this->bank + page + i] = 0xFF;
+                    gba.backup.dirty_ram = true;
                 }
             }
             else

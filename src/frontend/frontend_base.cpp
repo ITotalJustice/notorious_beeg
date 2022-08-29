@@ -2,12 +2,242 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "frontend_base.hpp"
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <filesystem>
+#include <zlib.h>
 #include <minizip/unzip.h>
+#include <minizip/zip.h>
 
 namespace frontend {
+namespace {
+
+struct MzMem
+{
+    union
+    {
+        const std::uint8_t* const_buf;
+        std::uint8_t* buf;
+    };
+    std::size_t size;
+    std::size_t offset;
+    bool read_only;
+};
+
+auto minizip_tell64_file_func(void* opaque, [[maybe_unused]] void* stream) -> ZPOS64_T
+{
+    auto mem = static_cast<MzMem*>(opaque);
+    return mem->offset;
+}
+
+auto minizip_seek64_file_func(void* opaque, [[maybe_unused]] void* stream, ZPOS64_T offset, int origin) -> long
+{
+    auto mem = static_cast<MzMem*>(opaque);
+    std::size_t new_offset = 0;
+
+    switch (origin)
+    {
+        case ZLIB_FILEFUNC_SEEK_SET:
+            new_offset = offset;
+            break;
+
+        case ZLIB_FILEFUNC_SEEK_CUR:
+            new_offset = mem->offset + offset;
+            break;
+
+        case ZLIB_FILEFUNC_SEEK_END:
+            new_offset = (mem->size - 1) + offset;
+            break;
+
+        default:
+            return -1;
+    }
+
+    if (new_offset > mem->size)
+    {
+        return -1;
+    }
+
+    mem->offset = new_offset;
+
+    return 0;
+}
+
+auto minizip_open64_file_func(void* opaque, [[maybe_unused]] const void* filename, [[maybe_unused]] int mode) -> void*
+{
+    return opaque;
+}
+
+auto minizip_read_file_func(void* opaque, [[maybe_unused]] void* stream, void* buf, unsigned long size) -> unsigned long
+{
+    auto mem = static_cast<MzMem*>(opaque);
+
+    if (mem->size <= mem->offset + size)
+    {
+        size = mem->size - mem->offset;
+    }
+
+    std::memcpy(buf, mem->const_buf + mem->offset, size);
+    mem->offset += size;
+
+    return size;
+}
+
+auto minizip_write_file_func([[maybe_unused]] void* opaque, [[maybe_unused]] void* stream, [[maybe_unused]] const void* buf, [[maybe_unused]] unsigned long size) -> unsigned long
+{
+    auto mem = static_cast<MzMem*>(opaque);
+
+    if (mem->read_only)
+    {
+        return 0;
+    }
+
+    if (mem->size <= mem->offset + size)
+    {
+        mem->buf = static_cast<std::uint8_t*>(std::realloc(mem->buf, mem->offset + size));
+        if (mem->buf == nullptr)
+        {
+            return 0;
+        }
+
+        mem->size = mem->offset + size;
+    }
+
+    std::memcpy(mem->buf + mem->offset, buf, size);
+    mem->offset += size;
+
+    return size;
+}
+
+auto minizip_close_file_func([[maybe_unused]] void* opaque, [[maybe_unused]] void* stream) -> int
+{
+    return 0;
+}
+
+auto minizip_testerror_file_func([[maybe_unused]] void* opaque, [[maybe_unused]] void* stream) -> int
+{
+    return 0;
+}
+
+#if 0
+auto zipall_internal(zipFile zf, const std::string& folder) -> void
+{
+    // for (auto& folder : folders)
+    {
+        for (auto& entry : std::filesystem::recursive_directory_iterator{folder})
+        {
+            if (entry.is_regular_file())
+            {
+                // get the fullpath
+                const auto path = entry.path().string();
+                std::ifstream fs{path, std::ios::binary};
+
+                if (fs.good())
+                {
+                    // read file into buffer
+                    const auto file_size = entry.file_size();
+                    std::vector<char> buffer(file_size);
+                    fs.read(buffer.data(), buffer.size());
+
+                    // open the file inside the zip
+                    if (ZIP_OK != zipOpenNewFileInZip(zf,
+                        path.c_str(),           // filepath
+                        nullptr,                   // info, optional
+                        nullptr, 0,                // extrafield and size, optional
+                        nullptr, 0,                // extrafield-global and size, optional
+                        "TotalGBA",                   // comment, optional
+                        Z_DEFLATED,             // mode
+                        Z_DEFAULT_COMPRESSION   // level
+                    )) {
+                        std::printf("failed to open file in zip: %s\n", path.c_str());
+                        continue;
+                    }
+
+                    // write out the entire file
+                    if (Z_OK != zipWriteInFileInZip(zf, buffer.data(), buffer.size()))
+                    {
+                        std::printf("failed to write file in zip: %s\n", path.c_str());
+                    }
+
+                    // don't forget to close when done!
+                    if (Z_OK != zipCloseFileInZip(zf))
+                    {
+                        std::printf("failed to close file in zip: %s\n", path.c_str());
+                    }
+                }
+                else
+                {
+                    std::printf("failed to open file %s\n", path.c_str());
+                }
+            }
+        }
+    }
+}
+#endif
+
+// basic rom loading from zip, will flesh this out more soon
+auto loadzip_internal(unzFile zf) -> std::vector<std::uint8_t>
+{
+    if (zf != nullptr)
+    {
+        unz_global_info64 global_info;
+        if (UNZ_OK == unzGetGlobalInfo64(zf, &global_info))
+        {
+            bool found = false;
+
+            for (std::uint64_t i = 0; !found && i < global_info.number_entry; i++)
+            {
+                if (UNZ_OK == unzOpenCurrentFile(zf))
+                {
+                    unz_file_info64 file_info{};
+                    char name[256]{};
+
+                    if (UNZ_OK == unzGetCurrentFileInfo64(zf, &file_info, name, sizeof(name), nullptr, 0, nullptr, 0))
+                    {
+                        if (std::string_view{ name }.ends_with(".gba") || std::string_view{ name }.ends_with(".GBA"))
+                        {
+                            std::vector<std::uint8_t> data;
+                            data.resize(file_info.uncompressed_size);
+                            const auto result = unzReadCurrentFile(zf, data.data(), data.size());
+
+                            if (result > 0 && file_info.uncompressed_size == static_cast<std::size_t>(result))
+                            {
+                                return data;
+                            }
+                        }
+                    }
+
+                    unzCloseCurrentFile(zf);
+                }
+
+                // advance to the next file (if there is one)
+                if (i + 1 < global_info.number_entry)
+                {
+                    unzGoToNextFile(zf); // todo: error handling
+                }
+            }
+        }
+    }
+
+    return {};
+}
+
+const zlib_filefunc64_def zlib_filefunc64{
+    .zopen64_file = minizip_open64_file_func,
+    .zread_file = minizip_read_file_func,
+    .zwrite_file = minizip_write_file_func,
+    .ztell64_file = minizip_tell64_file_func,
+    .zseek64_file = minizip_seek64_file_func,
+    .zclose_file = minizip_close_file_func,
+    .zerror_file = minizip_testerror_file_func,
+    .opaque = nullptr,
+};
+
+} // namespace
 
 Base::Base(int argc, char** argv)
 {
@@ -18,12 +248,13 @@ Base::Base(int argc, char** argv)
 
     if (!loadrom(argv[1]))
     {
+        std::printf("loading rom from argv[1]: %s\n", argv[1]);
         return;
     }
 
     if (argc == 3)
     {
-        std::printf("loading bios\n");
+        std::printf("loading bios from argv[2]: %s\n", argv[2]);
         const auto bios = loadfile(argv[2]);
         if (bios.empty())
         {
@@ -59,66 +290,82 @@ auto Base::dumpfile(const std::string& path, std::span<const std::uint8_t> data)
     return false;
 }
 
-// basic rom loading from zip, will flesh this out more soon
-auto Base::loadzip(const std::string& path) -> std::vector<std::uint8_t>
+#if 0
+auto Base::zipall(const std::string& folder, const std::string& output) -> bool
 {
-    std::vector<std::uint8_t> data;
-    auto zf = unzOpen64(path.c_str());
-
-    if (zf != nullptr)
+    if (auto zfile = zipOpen64(nullptr, APPEND_STATUS_CREATE))
     {
-        unz_global_info64 global_info;
-        if (UNZ_OK == unzGetGlobalInfo64(zf, &global_info))
-        {
-            bool found = false;
-
-            for (std::uint32_t i = 0; !found && i < global_info.number_entry; i++)
-            {
-                if (UNZ_OK == unzOpenCurrentFile(zf))
-                {
-                    unz_file_info64 file_info{};
-                    char name[256]{};
-
-                    if (UNZ_OK == unzGetCurrentFileInfo64(zf, &file_info, name, sizeof(name), nullptr, 0, nullptr, 0))
-                    {
-                        if (std::string_view{ name }.ends_with(".gba"))
-                        {
-                            data.resize(file_info.uncompressed_size);
-                            unzReadCurrentFile(zf, data.data(), data.size());
-                            found = true;
-                        }
-                    }
-
-                    unzCloseCurrentFile(zf);
-                }
-
-                // advance to the next file (if there is one)
-                if (i + 1 < global_info.number_entry)
-                {
-                    unzGoToNextFile(zf); // todo: error handling
-                }
-            }
-        }
-
-        unzClose(zf);
+        zipall_internal(zfile, folder);
+        zipClose(zfile, "TotalGBA");
+        // todo: error handling!
+        return true;
     }
 
-    return data;
+    return false;
+}
+
+auto Base::zipall_mem(const std::string& folder) -> std::vector<std::uint8_t>
+{
+    MzMem mzmem{
+        .buf = nullptr,
+        .size = 0,
+        .offset = 0,
+        .read_only = false,
+    };
+
+    auto def = zlib_filefunc64;
+    def.opaque = &mzmem;
+
+    if (auto zfile = zipOpen2_64(nullptr, APPEND_STATUS_CREATE, nullptr, &def))
+    {
+        zipall_internal(zfile, folder);
+        zipClose(zfile, "TotalGBA");
+
+        if (mzmem.buf)
+        {
+            // wasteful code. it's this way because of how the js calls into c
+            std::vector<std::uint8_t> buf;
+            buf.resize(mzmem.size);
+            std::free(mzmem.buf);
+            return buf;
+        }
+    }
+
+    return {};
+}
+#endif
+
+auto Base::loadzip(const std::string& path) -> std::vector<std::uint8_t>
+{
+    if (auto zf = unzOpen64(path.c_str()); zf != nullptr)
+    {
+        auto data = loadzip_internal(zf);
+        unzClose(zf);
+        return data;
+    }
+
+    return {};
 }
 
 auto Base::loadfile(const std::string& path) -> std::vector<std::uint8_t>
 {
     if (path.ends_with(".zip"))
     {
-        printf("attempting to load via zip\n");
-        // load zip
-        return loadzip(path);
+        std::printf("attempting to load via zip\n");
+        if (auto zf = unzOpen64(path.c_str()); zf != nullptr)
+        {
+            // don't const as it prevents move
+            auto data = loadzip_internal(zf);
+            unzClose(zf);
+            return data;
+        }
     }
     else
     {
         std::ifstream fs{ path.c_str(), std::ios_base::binary };
 
-        if (fs.good()) {
+        if (fs.good())
+        {
             fs.seekg(0, std::ios_base::end);
             const auto size = fs.tellg();
             fs.seekg(0, std::ios_base::beg);
@@ -133,6 +380,39 @@ auto Base::loadfile(const std::string& path) -> std::vector<std::uint8_t>
                 return data;
             }
         }
+    }
+
+    return {};
+}
+
+auto Base::loadfile_mem(const std::string& path, std::span<const std::uint8_t> data) -> std::vector<std::uint8_t>
+{
+    if (path.ends_with(".zip"))
+    {
+        MzMem mzmem{
+            .const_buf = data.data(),
+            .size = data.size(),
+            .offset = 0,
+            .read_only = true
+        };
+
+        auto def = zlib_filefunc64;
+        def.opaque = &mzmem;
+
+        std::printf("attempting to load via zip\n");
+        if (auto zf = unzOpen2_64(path.c_str(), &def); zf != nullptr)
+        {
+            // don't const as it prevents move
+            auto unziped_data = loadzip_internal(zf);
+            unzClose(zf);
+            return unziped_data;
+        }
+    }
+    else
+    {
+        std::vector<std::uint8_t> output;
+        output.assign(data.begin(), data.end());
+        return output;
     }
 
     return {};
@@ -188,6 +468,29 @@ auto Base::loadrom(const std::string& path) -> bool
     return true;
 }
 
+auto Base::loadrom_mem(const std::string& path, std::span<const std::uint8_t> data) -> bool
+{
+    closerom();
+
+    rom_path = path;
+    const auto rom_data = loadfile_mem(path, data);
+    if (rom_data.empty())
+    {
+        return false;
+    }
+
+    if (!gameboy_advance.loadrom(rom_data))
+    {
+        return false;
+    }
+
+    emu_run = true;
+    has_rom = true;
+    loadsave(rom_path);
+
+    return true;
+}
+
 auto Base::loadsave(const std::string& path) -> bool
 {
     const auto save_path = create_save_path(path);
@@ -203,6 +506,12 @@ auto Base::loadsave(const std::string& path) -> bool
 
 auto Base::savegame(const std::string& path) -> bool
 {
+    // is save isn't dirty, then return early
+    if (!gameboy_advance.is_save_dirty())
+    {
+        return true;
+    }
+
     const auto save_path = create_save_path(path);
     const auto save_data = gameboy_advance.getsave();
     if (!save_data.empty())

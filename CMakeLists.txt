@@ -1,5 +1,37 @@
 cmake_minimum_required(VERSION 3.20.0)
 
+if (VCPKG)
+    # checks the documented env variable for vcpkg
+    if (DEFINED ENV{VCPKG_ROOT} AND EXISTS $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+        message(STATUS "found VCPKG_ROOT, using system installed vcpkg at: $ENV{VCPKG_ROOT}")
+        set(vcpkg_toolchain_file $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+
+    # this checks for github actions installed vcpkg
+    elseif (DEFINED ENV{VCPKG_INSTALLATION_ROOT} AND EXISTS $ENV{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake)
+        message(STATUS "found VCPKG_INSTALLATION_ROOT, using system installed vcpkg at: $ENV{VCPKG_INSTALLATION_ROOT}")
+        set(vcpkg_toolchain_file $ENV{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake)
+
+    # fallback to fetching latest vcpkg from git
+    else()
+        message(STATUS "installing latest vcpkg from git root: $ENV{VCPKG_ROOT} insta: $ENV{VCPKG_INSTALLATION_ROOT}")
+
+        include(FetchContent)
+        FetchContent_Declare(vcpkg GIT_REPOSITORY https://github.com/microsoft/vcpkg.git)
+        FetchContent_MakeAvailable(vcpkg)
+
+        set(vcpkg_toolchain_file ${vcpkg_SOURCE_DIR}/scripts/buildsystems/vcpkg.cmake)
+    endif()
+
+    # if this was already set, then we need to chainload the toolchain file
+    # vcpkg offers support for this, which basically does include(toolchain)
+    # need to make sure that we don't chainload our own toolchain file!
+    if (CMAKE_TOOLCHAIN_FILE AND NOT ${CMAKE_TOOLCHAIN_FILE} STREQUAL ${vcpkg_toolchain_file})
+        set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE ${CMAKE_TOOLCHAIN_FILE})
+    endif()
+
+    set(CMAKE_TOOLCHAIN_FILE ${vcpkg_toolchain_file})
+endif()
+
 project(notorious_beeg
     VERSION 0.0.3
     DESCRIPTION "GBA emulator written in c++23"
