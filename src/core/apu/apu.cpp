@@ -908,7 +908,7 @@ auto Noise::get_freq() const -> u32
     // indexed using the noise divisor code
     static constexpr u32 NOISE_DIVISOR[8] = { 8, 16, 32, 48, 64, 80, 96, 112 };
 
-    return (NOISE_DIVISOR[divisor_code] << clock_shift) * 8;
+    return (NOISE_DIVISOR[divisor_code] << clock_shift) * 4;
 }
 
 auto Noise::is_dac_enabled() const -> bool
@@ -1187,7 +1187,7 @@ auto sample(Gba& gba)
 auto on_sample_event(Gba& gba) -> void
 {
     sample(gba);
-    scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, SAMPLE_TICKS);
+    scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, gba.sample_rate_calculated);
 }
 
 auto on_frame_sequencer_event(Gba& gba) -> void
