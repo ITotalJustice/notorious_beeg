@@ -721,10 +721,17 @@ auto Sdl2Base::fill_audio_data_from_stream(Uint8* data, int len, bool tick_rom) 
     bool not_enough_samples = false;
 
     // if theres too little samples and ticking gba isn't an option
+    #if 0
     if (available < len / 2 || (available < len && !tick_rom))
     {
         not_enough_samples = true;
     }
+    #else
+    if (available < len && !tick_rom)
+    {
+        not_enough_samples = true;
+    }
+    #endif
 
     // too many samples behind so no point catching up, or emu isn't running.
     if (not_enough_samples || !emu_run || !has_focus || !has_rom || !running || emu_audio_disabled)
