@@ -77,7 +77,8 @@ App::App(int argc, char** argv) : frontend::sdl2::Sdl2Base(argc, argv)
 
     gameboy_advance.set_userdata(this);
     gameboy_advance.set_vblank_callback(on_vblank_callback);
-    gameboy_advance.set_audio_callback(on_audio_callback, sample_data);
+    // this is set in init_audio()
+    // gameboy_advance.set_audio_callback(on_audio_callback, sample_data);
 
     // need a rom to run atm
     if (has_rom)

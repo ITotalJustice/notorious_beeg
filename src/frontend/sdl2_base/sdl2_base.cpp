@@ -92,7 +92,7 @@ auto Sdl2Base::init_audio(void* user, SDL_AudioCallback sdl2_cb, gba::AudioCallb
 
     SDL_PauseAudioDevice(audio_device, 0);
 
-    gameboy_advance.set_audio_callback(gba_cb, sample_data);
+    gameboy_advance.set_audio_callback(gba_cb, sample_data, aspec_wnt.freq);
 
     return true;
 }
@@ -721,10 +721,17 @@ auto Sdl2Base::fill_audio_data_from_stream(Uint8* data, int len, bool tick_rom) 
     bool not_enough_samples = false;
 
     // if theres too little samples and ticking gba isn't an option
+    #if 0
     if (available < len / 2 || (available < len && !tick_rom))
     {
         not_enough_samples = true;
     }
+    #else
+    if (available < len && !tick_rom)
+    {
+        not_enough_samples = true;
+    }
+    #endif
 
     // too many samples behind so no point catching up, or emu isn't running.
     if (not_enough_samples || !emu_run || !has_focus || !has_rom || !running || emu_audio_disabled)
@@ -737,10 +744,10 @@ auto Sdl2Base::fill_audio_data_from_stream(Uint8* data, int len, bool tick_rom) 
     // this shouldn't be needed, however it causes less pops on startup
     if (available < len)
     {
-        // with this locked, nothing else writes to audiostream
-        std::scoped_lock lock{core_mutex};
         // need to unlock this because gba callback locks this mutex
         audio_mutex.unlock();
+        // with this locked, nothing else writes to audiostream
+        std::scoped_lock lock{core_mutex};
 
         while (SDL_AudioStreamAvailable(audio_stream) < len)
         {
