@@ -6,6 +6,14 @@ option(SINGLE_FILE "compile everything as a single file" OFF)
 # enable sanitizers
 option(GBA_DEV "enable sanitizers" OFF)
 
+set(INTERPRETER_TABLE 0)
+set(INTERPRETER_SWITCH 1)
+set(INTERPRETER_GOTO 2)
+
+if (NOT DEFINED INTERPRETER)
+    set(INTERPRETER ${INTERPRETER_TABLE})
+endif()
+
 if (SINGLE_FILE)
     add_library(GBA single.cpp)
 else ()
@@ -29,9 +37,18 @@ else ()
         backup/sram.cpp
 
         arm7tdmi/arm7tdmi.cpp
-        arm7tdmi/arm/arm.cpp
-        arm7tdmi/thumb/thumb.cpp
     )
+
+    if (${INTERPRETER} EQUAL ${INTERPRETER_TABLE})
+        target_sources(GBA PRIVATE arm7tdmi/arm/arm_table.cpp)
+        target_sources(GBA PRIVATE arm7tdmi/thumb/thumb_table.cpp)
+    elseif(${INTERPRETER} EQUAL ${INTERPRETER_SWITCH})
+        target_sources(GBA PRIVATE arm7tdmi/arm/arm_switch.cpp)
+        target_sources(GBA PRIVATE arm7tdmi/thumb/thumb_switch.cpp)
+    elseif(${INTERPRETER} EQUAL ${INTERPRETER_GOTO})
+        target_sources(GBA PRIVATE arm7tdmi/arm/arm_goto.cpp)
+        target_sources(GBA PRIVATE arm7tdmi/thumb/thumb_goto.cpp)
+    endif()
 endif()
 
 target_include_directories(GBA PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -69,6 +86,11 @@ endif()
 target_compile_definitions(GBA PRIVATE
     GBA_DEBUG=$<BOOL:${GBA_DEBUG}>
     SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
+    ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
+    INTERPRETER=${INTERPRETER}
+    INTERPRETER_TABLE=${INTERPRETER_TABLE}
+    INTERPRETER_SWITCH=${INTERPRETER_SWITCH}
+    INTERPRETER_GOTO=${INTERPRETER_GOTO}
 )
 
 set_target_properties(GBA PROPERTIES CXX_STANDARD 23)

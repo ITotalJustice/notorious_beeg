@@ -108,6 +108,30 @@
                 "CMAKE_BUILD_TYPE": "Debug",
                 "EMRUN": true
             }
+        },
+        {
+            "name": "sdl2-table",
+            "displayName": "sdl2-table",
+            "inherits": ["sdl2"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_TABLE"
+            }
+        },
+        {
+            "name": "sdl2-switch",
+            "displayName": "sdl2-switch",
+            "inherits": ["sdl2"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_SWITCH"
+            }
+        },
+        {
+            "name": "sdl2-goto",
+            "displayName": "sdl2-goto",
+            "inherits": ["sdl2"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_GOTO"
+            }
         }
     ],
     "buildPresets": [
@@ -150,6 +174,18 @@
         {
             "name": "emsdk-dev",
             "configurePreset": "emsdk-dev"
+        },
+        {
+            "name": "sdl2-table",
+            "configurePreset": "sdl2-table"
+        },
+        {
+            "name": "sdl2-switch",
+            "configurePreset": "sdl2-switch"
+        },
+        {
+            "name": "sdl2-goto",
+            "configurePreset": "sdl2-goto"
         }
     ]
 }

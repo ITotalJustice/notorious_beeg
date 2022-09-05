@@ -343,10 +343,10 @@ consteval auto generate_function_table()
     fill_table<0x0F00, 0x0FFF>(table);
 
     return table;
-};
+}
 
 [[nodiscard]]
-auto fetch(Gba& gba)
+inline auto fetch(Gba& gba)
 {
     const auto opcode = CPU.pipeline[0];
     CPU.pipeline[0] = CPU.pipeline[1];

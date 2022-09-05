@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04]
-        preset: [imgui, imgui-dev, sdl2, sdl2-dev]
+        preset: [imgui, imgui-dev, sdl2, sdl2-dev, sdl2-table, sdl2-switch, sdl2-goto]
     runs-on: ${{ matrix.os }}
 
     steps:

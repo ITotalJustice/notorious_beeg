@@ -6,6 +6,25 @@ gba emulator witten in c++23.
 
 ---
 
+## table, switch, goto
+
+the arm7tdmi interptreter supports different "backends" for executing instructions.
+
+to select one of the backends, simple build with `-DINTERPRETER=INTERPRETER_X` where `X` is one of the following
+
+- INTERPRETER_TABLE
+- INTERPRETER_SWITCH
+- INTERPRETER_GOTO
+
+for conveince, you can build with a cmake preset like so:
+
+```sh
+cmake --preset sdl2-table
+cmake --build --preset sdl2-table
+```
+
+---
+
 ## web builds
 
 web builds are the easiest way to quickly test a game. builds are automatically built from master. please report any bugs you find, giving as much info as possible such as browser, os, game etc.
