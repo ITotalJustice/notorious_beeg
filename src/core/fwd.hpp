@@ -5,6 +5,20 @@
 
 #include <cstdint>
 
+#ifndef INTERPRETER_TABLE
+    #define INTERPRETER_TABLE 0
+#endif // INTERPRETER_TABLE
+#ifndef INTERPRETER_SWITCH
+    #define INTERPRETER_SWITCH 1
+#endif // INTERPRETER_SWITCH
+#ifndef INTERPRETER_GOTO
+    #define INTERPRETER_GOTO 2
+#endif // INTERPRETER_GOTO
+
+#ifndef INTERPRETER
+    #define INTERPRETER INTERPRETER_TABLE
+#endif
+
 #ifdef EMSCRIPTEN
 #include <ranges>
 

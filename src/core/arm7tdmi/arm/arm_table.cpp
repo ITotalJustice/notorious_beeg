@@ -367,12 +367,10 @@ auto execute(Gba& gba) -> void
 
     // it's highly likely that cond == 0xE, so we optimise for that
     // before hitting the switch (slower).
-    if (cond != COND_AL && !check_cond(gba, cond)) [[unlikely]]
+    if (cond == COND_AL || check_cond(gba, cond)) [[likely]]
     {
-        return;
+        func_table[decode_template(opcode)](gba, opcode);
     }
-
-    func_table[decode_template(opcode)](gba, opcode);
 }
 
 } // namespace gba::arm7tdmi::arm

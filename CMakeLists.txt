@@ -68,8 +68,21 @@ endif()
 message(STATUS "SYSTEM: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "COMPILER: ${CMAKE_CXX_COMPILER_ID}")
 
-option(FRONTEND "enable frontend build" ON)
+option(FRONTEND "enable frontend build" OFF)
 option(SDL2 "basic sdl2 frontend" OFF)
 option(IMGUI "imgui frontend" OFF)
+option(BENCHMARK "benchmark frontend" OFF)
+
+if (SDL2)
+    set(FRONTEND ON)
+endif()
+
+if (IMGUI)
+    set(FRONTEND ON)
+endif()
+
+if (BENCHMARK)
+    set(FRONTEND ON)
+endif()
 
 add_subdirectory(src)

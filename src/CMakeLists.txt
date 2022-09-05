@@ -36,12 +36,16 @@ list(APPEND gcc_flags
 
     -fimplicit-constexpr
     -Wmissing-requires
+
+    -fno-rtti
+    -fno-exceptions
+    # -fanalyzer
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND gcc_flags -Og) # always enable otherwise debug builds would be too slow
 else()
-    list(APPEND gcc_flags -Ofast)
+    list(APPEND gcc_flags -O3)
 endif()
 
 list(APPEND clang_flags
@@ -90,6 +94,7 @@ list(APPEND clang_flags
     -Wno-unknown-attributes
     -Wno-unused-parameter
     -Wno-unused-variable
+    -Wno-gnu-label-as-value # don't warn about computed goto
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")

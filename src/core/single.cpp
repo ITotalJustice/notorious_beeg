@@ -27,20 +27,6 @@
 
     #include "arm7tdmi/arm7tdmi.cpp"
 
-    #ifndef INTERPRETER_TABLE
-        #define INTERPRETER_TABLE 0
-    #endif // INTERPRETER_TABLE
-    #ifndef INTERPRETER_SWITCH
-        #define INTERPRETER_SWITCH 1
-    #endif // INTERPRETER_SWITCH
-    #ifndef INTERPRETER_GOTO
-        #define INTERPRETER_GOTO 2
-    #endif // INTERPRETER_GOTO
-
-    #ifndef INTERPRETER
-        #define INTERPRETER INTERPRETER_TABLE
-    #endif
-
     #if INTERPRETER == INTERPRETER_TABLE
         #include "arm7tdmi/arm/arm_table.cpp"
         #include "arm7tdmi/thumb/thumb_table.cpp"

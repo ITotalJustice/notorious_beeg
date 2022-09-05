@@ -94,3 +94,7 @@ if (EMSCRIPTEN)
     add_subdirectory(sdl2_base)
     add_subdirectory(emscripten)
 endif()
+
+if (BENCHMARK)
+    add_subdirectory(benchmark)
+endif()

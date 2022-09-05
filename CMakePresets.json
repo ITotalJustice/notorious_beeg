@@ -7,23 +7,69 @@
     },
     "configurePresets": [
         {
-            "name": "imgui",
-            "displayName": "imgui",
+            "name": "clang",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "core",
+            "displayName": "core",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "LTO": true,
-                "SINGLE_FILE": true,
+                "SINGLE_FILE": true
+            }
+        },
+        {
+            "name": "core-dev",
+            "displayName": "core-dev",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "GBA_DEV": true
+            }
+        },
+        {
+            "name": "core-table",
+            "displayName": "core-table",
+            "inherits": ["core"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_TABLE"
+            }
+        },
+        {
+            "name": "core-switch",
+            "displayName": "core-switch",
+            "inherits": ["core"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_SWITCH"
+            }
+        },
+        {
+            "name": "core-goto",
+            "displayName": "core-goto",
+            "inherits": ["core"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_GOTO"
+            }
+        },
+        {
+            "name": "imgui",
+            "displayName": "imgui",
+            "inherits": ["core"],
+            "cacheVariables": {
                 "IMGUI": true
             }
         },
         {
             "name": "imgui-dev",
             "displayName": "imgui-dev",
-            "binaryDir": "${sourceDir}/build/${presetName}",
+            "inherits": ["core-dev"],
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "GBA_DEV": true,
                 "IMGUI": true
             }
         },
@@ -46,67 +92,60 @@
         {
             "name": "sdl2",
             "displayName": "sdl2",
-            "binaryDir": "${sourceDir}/build/${presetName}",
+            "inherits": ["core"],
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "LTO": true,
-                "SINGLE_FILE": true,
                 "SDL2": true
             }
         },
         {
             "name": "sdl2-dev",
             "displayName": "sdl2-dev",
-            "binaryDir": "${sourceDir}/build/${presetName}",
+            "inherits": ["core-dev"],
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "GBA_DEV": true,
                 "SDL2": true
             }
         },
         {
             "name": "vcpkg-sdl2",
             "displayName": "vcpkg-sdl2",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "LTO": true,
-                "SINGLE_FILE": true,
-                "SDL2": true
-            }
+            "inherits": ["sdl2"],
+            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
         },
         {
             "name": "vcpkg-sdl2-dev",
             "displayName": "vcpkg-sdl2-dev",
-            "binaryDir": "${sourceDir}/build/${presetName}",
+            "inherits": ["sdl2-dev"],
             "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
-            "inherits":["sdl2"],
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "GBA_DEV": true,
-                "SDL2": true
-            }
         },
         {
             "name": "emsdk",
             "displayName": "emsdk",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "LTO": true,
-                "SINGLE_FILE": true
-            }
+            "inherits": ["core"],
+            "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
         },
         {
             "name": "emsdk-dev",
             "displayName": "emsdk-dev",
-            "binaryDir": "${sourceDir}/build/${presetName}",
+            "inherits": ["core-dev"],
             "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
                 "EMRUN": true
+            }
+        },
+        {
+            "name": "benchmark",
+            "displayName": "benchmark",
+            "inherits": ["core"],
+            "cacheVariables": {
+                "BENCHMARK": true
+            }
+        },
+        {
+            "name": "benchmark-dev",
+            "displayName": "benchmark-dev",
+            "inherits": ["core-dev"],
+            "cacheVariables": {
+                "BENCHMARK": true
             }
         },
         {
@@ -132,60 +171,87 @@
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_GOTO"
             }
-        }
-    ],
-    "buildPresets": [
-        {
-            "name": "imgui",
-            "configurePreset": "imgui"
         },
         {
-            "name": "imgui-dev",
-            "configurePreset": "imgui-dev"
+            "name": "benchmark-table",
+            "displayName": "benchmark-table",
+            "inherits": ["benchmark"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_TABLE",
+                "LTO": false
+            }
         },
         {
-            "name": "vcpkg",
-            "configurePreset": "vcpkg"
+            "name": "benchmark-switch",
+            "displayName": "benchmark-switch",
+            "inherits": ["benchmark"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_SWITCH",
+                "LTO": false
+            }
         },
         {
-            "name": "vcpkg-dev",
-            "configurePreset": "vcpkg-dev"
+            "name": "benchmark-goto",
+            "displayName": "benchmark-goto",
+            "inherits": ["benchmark"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_GOTO",
+                "LTO": false
+            }
         },
         {
-            "name": "sdl2",
-            "configurePreset": "sdl2"
+            "name": "benchmark-table-lto",
+            "displayName": "benchmark-table-lto",
+            "inherits": ["benchmark"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_TABLE"
+            }
         },
         {
-            "name": "sdl2-dev",
-            "configurePreset": "sdl2-dev"
+            "name": "benchmark-switch-lto",
+            "displayName": "benchmark-switch-lto",
+            "inherits": ["benchmark"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_SWITCH"
+            }
         },
         {
-            "name": "vcpkg-sdl2",
-            "configurePreset": "vcpkg-sdl2"
+            "name": "benchmark-goto-lto",
+            "displayName": "benchmark-goto-lto",
+            "inherits": ["benchmark"],
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_GOTO"
+            }
         },
         {
-            "name": "vcpkg-sdl2-dev",
-            "configurePreset": "vcpkg-sdl2-dev"
+            "name": "benchmark-clang-table",
+            "displayName": "benchmark-clang-table",
+            "inherits": ["benchmark-table", "clang"]
         },
         {
-            "name": "emsdk",
-            "configurePreset": "emsdk"
+            "name": "benchmark-clang-switch",
+            "displayName": "benchmark-clang-switch",
+            "inherits": ["benchmark-switch", "clang"]
         },
         {
-            "name": "emsdk-dev",
-            "configurePreset": "emsdk-dev"
+            "name": "benchmark-clang-goto",
+            "displayName": "benchmark-clang-goto",
+            "inherits": ["benchmark-goto", "clang"]
         },
         {
-            "name": "sdl2-table",
-            "configurePreset": "sdl2-table"
+            "name": "benchmark-clang-table-lto",
+            "displayName": "benchmark-clang-table-lto",
+            "inherits": ["benchmark-table-lto", "clang"]
         },
         {
-            "name": "sdl2-switch",
-            "configurePreset": "sdl2-switch"
+            "name": "benchmark-clang-switch-lto",
+            "displayName": "benchmark-clang-switch-lto",
+            "inherits": ["benchmark-switch-lto", "clang"]
         },
         {
-            "name": "sdl2-goto",
-            "configurePreset": "sdl2-goto"
+            "name": "benchmark-clang-goto-lto",
+            "displayName": "benchmark-clang-goto-lto",
+            "inherits": ["benchmark-goto-lto", "clang"]
         }
     ]
 }

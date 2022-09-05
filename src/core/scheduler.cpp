@@ -198,6 +198,7 @@ auto fire(Gba& gba) -> void
     // we should also fire all events that have expired
     // this can include events that expire at the exact same time.
     find_next_event(gba, true);
+    gba.scheduler.elapsed = 0;
 }
 
 auto add(Gba& gba, Event e, callback cb, u32 cycles) -> void

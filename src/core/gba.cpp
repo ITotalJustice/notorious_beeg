@@ -359,18 +359,30 @@ auto Gba::run(u32 _cycles) -> void
         arm7tdmi::on_halt_event(*this);
     }
 
+#if INTERPRETER == INTERPRETER_GOTO
     while (!this->scheduler.frame_end) [[likely]]
     {
-        this->scheduler.elapsed = 0;
+        arm7tdmi::run(*this);
+    }
+#else
+    for (;;)
+    {
         arm7tdmi::run(*this);
 
-        // tick scheduler
         this->scheduler.cycles += this->scheduler.elapsed;
+        this->scheduler.elapsed = 0;
+
         if (this->scheduler.next_event_cycles <= this->scheduler.cycles)
         {
             scheduler::fire(*this);
+
+            if (this->scheduler.frame_end) [[unlikely]]
+            {
+                break;
+            }
         }
     }
+#endif // INTERPRETER_GOTO
 }
 
 } // namespace gba
