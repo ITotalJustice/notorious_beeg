@@ -37,8 +37,6 @@ else ()
         backup/sram.cpp
 
         arm7tdmi/arm7tdmi.cpp
-        arm7tdmi/arm/arm.cpp
-        arm7tdmi/thumb/thumb.cpp
     )
 
     if (${INTERPRETER} EQUAL ${INTERPRETER_TABLE})
