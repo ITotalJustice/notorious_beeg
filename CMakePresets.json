@@ -115,7 +115,7 @@
             "name": "vcpkg-sdl2-dev",
             "displayName": "vcpkg-sdl2-dev",
             "inherits": ["sdl2-dev"],
-            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
         },
         {
             "name": "emsdk",
@@ -252,6 +252,136 @@
             "name": "benchmark-clang-goto-lto",
             "displayName": "benchmark-clang-goto-lto",
             "inherits": ["benchmark-goto-lto", "clang"]
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "core",
+            "configurePreset": "core"
+        },
+        {
+            "name": "core-dev",
+            "configurePreset": "core-dev"
+        },
+        {
+            "name": "core-table",
+            "configurePreset": "core-table"
+        },
+        {
+            "name": "core-switch",
+            "configurePreset": "core-switch"
+        },
+        {
+            "name": "core-goto",
+            "configurePreset": "core-goto"
+        },
+        {
+            "name": "imgui",
+            "configurePreset": "imgui"
+        },
+        {
+            "name": "imgui-dev",
+            "configurePreset": "imgui-dev"
+        },
+        {
+            "name": "vcpkg",
+            "configurePreset": "vcpkg"
+        },
+        {
+            "name": "vcpkg-dev",
+            "configurePreset": "vcpkg-dev"
+        },
+        {
+            "name": "sdl2",
+            "configurePreset": "sdl2"
+        },
+        {
+            "name": "sdl2-dev",
+            "configurePreset": "sdl2-dev"
+        },
+        {
+            "name": "vcpkg-sdl2",
+            "configurePreset": "vcpkg-sdl2"
+        },
+        {
+            "name": "vcpkg-sdl2-dev",
+            "configurePreset": "vcpkg-sdl2-dev"
+        },
+        {
+            "name": "emsdk",
+            "configurePreset": "emsdk"
+        },
+        {
+            "name": "emsdk-dev",
+            "configurePreset": "emsdk-dev"
+        },
+        {
+            "name": "benchmark",
+            "configurePreset": "benchmark"
+        },
+        {
+            "name": "benchmark-dev",
+            "configurePreset": "benchmark-dev"
+        },
+        {
+            "name": "sdl2-table",
+            "configurePreset": "sdl2-table"
+        },
+        {
+            "name": "sdl2-switch",
+            "configurePreset": "sdl2-switch"
+        },
+        {
+            "name": "sdl2-goto",
+            "configurePreset": "sdl2-goto"
+        },
+        {
+            "name": "benchmark-table",
+            "configurePreset": "benchmark-table"
+        },
+        {
+            "name": "benchmark-switch",
+            "configurePreset": "benchmark-switch"
+        },
+        {
+            "name": "benchmark-goto",
+            "configurePreset": "benchmark-goto"
+        },
+        {
+            "name": "benchmark-table-lto",
+            "configurePreset": "benchmark-table-lto"
+        },
+        {
+            "name": "benchmark-switch-lto",
+            "configurePreset": "benchmark-switch-lto"
+        },
+        {
+            "name": "benchmark-goto-lto",
+            "configurePreset": "benchmark-goto-lto"
+        },
+        {
+            "name": "benchmark-clang-table",
+            "configurePreset": "benchmark-clang-table"
+        },
+        {
+            "name": "benchmark-clang-switch",
+            "configurePreset": "benchmark-clang-switch"
+        },
+        {
+            "name": "benchmark-clang-goto",
+            "configurePreset": "benchmark-clang-goto"
+        },
+        {
+            "name": "benchmark-clang-table-lto",
+            "configurePreset": "benchmark-clang-table-lto"
+        },
+        {
+            "name": "benchmark-clang-switch-lto",
+            "configurePreset": "benchmark-clang-switch-lto"
+        },
+        {
+            "name": "benchmark-clang-goto-lto",
+            "configurePreset": "benchmark-clang-goto-lto"
         }
     ]
 }
