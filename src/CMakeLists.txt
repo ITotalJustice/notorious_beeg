@@ -37,7 +37,7 @@ list(APPEND gcc_flags
     -fimplicit-constexpr
     -Wmissing-requires
 
-    -fno-rtti
+    # -fno-rtti
     -fno-exceptions
     # -fanalyzer
 )
@@ -76,7 +76,7 @@ list(APPEND clang_flags
     -Wold-style-cast
     -Wcovered-switch-default
 
-    -fno-rtti
+    # -fno-rtti
     -fno-exceptions
 
     # # can try enabling this just to see what breaks (still compiles as of clang 11)
@@ -113,7 +113,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND msvc_flags /Zo /O2) # always enable otherwise debug builds would be too slow
 else()
     list(APPEND msvc_flags
-        /GR- # disable RTTI
+        # /GR- # disable RTTI
         /Ob /Oi /Ot /Oy /OX /O2
         /Oi # enable intrinsics
     )
