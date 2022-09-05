@@ -4,18 +4,17 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include "mem.hpp"
-#include <bit>
-#include <cstdint>
+#include <cassert>
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // page 65 (4.7)
 template<
     bool A, // 0=mul, 1=mul and accumulate
     bool S  // 0=no flags, 1=mod flags
 >
-auto multiply(Gba& gba, uint32_t opcode) -> void
+auto multiply(Gba& gba, const u32 opcode) -> void
 {
     const auto Rd = bit::get_range<16, 19>(opcode); // dst
     const auto Rn = bit::get_range<12, 15>(opcode); // oprand
@@ -29,9 +28,9 @@ auto multiply(Gba& gba, uint32_t opcode) -> void
     const auto b = get_reg(gba, Rs);
     const auto c = A ? get_reg(gba, Rn) : 0;
 
-    const std::uint32_t result = a * b + c;
+    const u32 result = a * b + c;
 
-    if constexpr (S)
+    if constexpr(S)
     {
         // todo: carry is set to random value???
         CPU.cpsr.Z = result == 0;
@@ -41,4 +40,5 @@ auto multiply(Gba& gba, uint32_t opcode) -> void
     set_reg(gba, Rd, result);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

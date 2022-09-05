@@ -11,6 +11,7 @@
 #include <cmath>
 
 namespace gba::bios {
+namespace {
 
 // https://problemkaputt.de/gbatek.htm#biosfunctionsummary
 constexpr const char* SWI_STR[0xFF] =
@@ -100,8 +101,8 @@ auto Halt(Gba& gba) -> bool
 // 0x6
 auto Div(Gba& gba) -> bool
 {
-    const std::int32_t number = arm7tdmi::get_reg(gba, 0);
-    const std::int32_t denom = arm7tdmi::get_reg(gba, 1);
+    const s32 number = arm7tdmi::get_reg(gba, 0);
+    const s32 denom = arm7tdmi::get_reg(gba, 1);
 
     if (number == 0 || denom == 0)
     {
@@ -122,8 +123,8 @@ auto Div(Gba& gba) -> bool
 // 0x8
 auto Sqrt(Gba& gba) -> bool
 {
-    const std::uint32_t number = arm7tdmi::get_reg(gba, 0);
-    const std::uint16_t result = std::sqrt(number);
+    const u32 number = arm7tdmi::get_reg(gba, 0);
+    const u16 result = std::sqrt(number);
     arm7tdmi::set_reg(gba, 0, result);
     return true;
 }
@@ -131,9 +132,6 @@ auto Sqrt(Gba& gba) -> bool
 // 0xB
 auto CpuSet(Gba& gba) -> bool
 {
-    // this currently breaks emerald intro, likely timing
-    return false;
-
     auto r0 = arm7tdmi::get_reg(gba, 0);
     auto r1 = arm7tdmi::get_reg(gba, 1);
     auto r2 = arm7tdmi::get_reg(gba, 2);
@@ -189,7 +187,9 @@ auto CpuSet(Gba& gba) -> bool
     return true;
 }
 
-auto hle(Gba& gba, std::uint8_t comment_field) -> bool
+} // namespace
+
+auto hle(Gba& gba, u8 comment_field) -> bool
 {
     // return false;
     //gba_log("[SWI] comment_field: %u %s\n", comment_field, SWI_STR[comment_field]);

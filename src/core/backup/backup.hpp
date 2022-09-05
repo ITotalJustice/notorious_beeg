@@ -9,9 +9,9 @@
 #include "sram.hpp"
 #include "flash.hpp"
 
-namespace gba::backup
-{
-enum class Type
+namespace gba::backup {
+
+enum class Type : u8
 {
     NONE, // no backup chip
     EEPROM, // 512bytes
@@ -31,8 +31,9 @@ struct Backup
     };
 
     Type type;
+    bool dirty_ram;
 };
 
-auto find_type(std::span<const std::uint8_t> rom) -> Type;
+STATIC auto find_type(std::span<const u8> rom) -> Type;
 
 } // namespace gba::backup

@@ -4,11 +4,11 @@
 #include "gba.hpp"
 #include <ranges>
 #include <algorithm>
-#include <cstdint>
 
 namespace gba::bios {
+namespace {
 
-static constexpr std::uint8_t normmatt_bios[] =
+constexpr u8 normmatt_bios[] =
 {
   0x0c, 0x00, 0x00, 0xea, 0x15, 0x00, 0x00, 0xea, 0x15, 0x00, 0x00, 0xea,
   0x13, 0x00, 0x00, 0xea, 0x12, 0x00, 0x00, 0xea, 0x11, 0x00, 0x00, 0xea,
@@ -1378,9 +1378,11 @@ static constexpr std::uint8_t normmatt_bios[] =
   0x00, 0x00, 0x00, 0x00
 };
 
+} // namespace
+
 auto load_normmatt_bios(Gba& gba) -> void
 {
-    std::ranges::copy(normmatt_bios, gba.mem.bios);
+    std::ranges::copy(normmatt_bios, gba.bios);
 }
 
 } // namespace gba::bios

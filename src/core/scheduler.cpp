@@ -10,8 +10,8 @@
 #include <cstdint>
 #include <utility>
 
-namespace gba::scheduler
-{
+namespace gba::scheduler {
+namespace {
 
 // we start at the highest possible value for delta so that
 // should delta ever be maxed (it wont), then we can ensure that
@@ -23,8 +23,10 @@ namespace gba::scheduler
 constexpr auto START_CYCLES = INT16_MAX;
 constexpr auto RESET_CYCLES = INT32_MAX;
 
-auto fire_all_expired_events(Gba& gba)
+auto fire_all_expired_events(Gba& gba) -> bool
 {
+    bool fire_halt = false;
+
     for (std::size_t i = 0; i < gba.scheduler.entries.size(); i++)
     {
         auto& entry = gba.scheduler.entries[i];
@@ -32,16 +34,26 @@ auto fire_all_expired_events(Gba& gba)
 
         if (entry.enabled && entry.cycles <= gba.scheduler.cycles)
         {
-            assert(static_cast<Event>(i) != Event::HALT);
-            entry.enabled = false;
-            if (static_cast<Event>(i) != Event::HALT && static_cast<Event>(i) != Event::DMA)
+            if (static_cast<Event>(i) == Event::HALT) [[unlikely]]
             {
-                entry.delta = entry.cycles - gba.scheduler.cycles;
-                assert(entry.delta <= 0);
+                fire_halt = true;
             }
-            entry.cb(gba);
+            else
+            {
+                assert(static_cast<Event>(i) != Event::HALT);
+                entry.enabled = false;
+
+                if (static_cast<Event>(i) != Event::HALT && static_cast<Event>(i) != Event::DMA)
+                {
+                    entry.delta = entry.cycles - gba.scheduler.cycles;
+                    assert(entry.delta <= 0);
+                }
+                entry.cb(gba);
+            }
         }
     }
+
+    return fire_halt;
 }
 
 auto on_reset_event(Gba& gba) -> void
@@ -80,13 +92,44 @@ auto on_reset_event(Gba& gba) -> void
     add(gba, Event::RESET, on_reset_event, RESET_CYCLES);
 }
 
+auto find_next_event(Gba& gba, bool fire)
+{
+    u32 next_cycles = UINT32_MAX;
+    u8 index = 0;
+    bool want_halt = false;
+
+    if (fire)
+    {
+        want_halt = fire_all_expired_events(gba);
+    }
+
+    for (std::size_t i = 0; i < gba.scheduler.entries.size(); i++)
+    {
+        const auto& entry = gba.scheduler.entries[i];
+        if (entry.enabled)
+        {
+            if (entry.cycles <= next_cycles)
+            {
+                next_cycles = entry.cycles;
+                index = i;
+            }
+        }
+    }
+
+    gba.scheduler.next_event_cycles = next_cycles;
+    gba.scheduler.next_event = static_cast<Event>(index);
+
+    if (want_halt) [[unlikely]]
+    {
+        scheduler::fire(gba);
+    }
+}
+
+} // namespace
+
 auto reset(Gba& gba) -> void
 {
-    for (auto& entry : gba.scheduler.entries)
-    {
-        entry.enabled = false;
-        entry.delta = 0;
-    }
+    gba.scheduler = {};
 
     gba.scheduler.cycles = START_CYCLES;
     gba.scheduler.next_event_cycles = RESET_CYCLES;
@@ -118,38 +161,12 @@ auto on_loadstate(Gba& gba) -> void
                 case Event::DMA: entry.cb = dma::on_event; break;
                 case Event::INTERRUPT: entry.cb = arm7tdmi::on_interrupt_event; break;
                 case Event::HALT: entry.cb = arm7tdmi::on_halt_event; break;
+                case Event::FRAME: /*this will get set on run() anyway*/ break;
                 case Event::RESET: entry.cb = scheduler::on_reset_event; break;
                 case Event::END: assert(!"Event::END somehow in array"); break;
             }
         }
     }
-}
-
-auto find_next_event(Gba& gba, bool fire)
-{
-    u32 next_cycles = UINT32_MAX;
-    std::uint8_t index = 0;
-
-    if (fire)
-    {
-        fire_all_expired_events(gba);
-    }
-
-    for (std::size_t i = 0; i < gba.scheduler.entries.size(); i++)
-    {
-        const auto& entry = gba.scheduler.entries[i];
-        if (entry.enabled)
-        {
-            if (entry.cycles <= next_cycles)
-            {
-                next_cycles = entry.cycles;
-                index = i;
-            }
-        }
-    }
-
-    gba.scheduler.next_event_cycles = next_cycles;
-    gba.scheduler.next_event = static_cast<Event>(index);
 }
 
 auto fire(Gba& gba) -> void
@@ -162,9 +179,10 @@ auto fire(Gba& gba) -> void
     // calculate delta so that we don't drift
     if (next_event != Event::HALT && next_event != Event::DMA)
     {
+        assert(entry.cycles <= gba.scheduler.cycles);
         entry.delta = entry.cycles - gba.scheduler.cycles;
         assert(entry.cycles <= gba.scheduler.cycles);
-        assert(entry.delta <= 0);
+        assert(entry.delta <= 0); // todo: debug this with emerald
     }
 
     if (next_event == Event::HALT)

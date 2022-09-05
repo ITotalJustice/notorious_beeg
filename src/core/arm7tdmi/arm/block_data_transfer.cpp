@@ -5,14 +5,14 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
-#include <cstdint>
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // I don't template this function because it's mostly very unnecessary
 // because rlist=0 is not very common case, thus, its a waste of
 // icache space.
-auto block_data_transfer_empty_rlist(Gba& gba, uint32_t opcode) -> void
+auto block_data_transfer_empty_rlist(Gba& gba, const u32 opcode) -> void
 {
     auto P = bit::is_set<24>(opcode);
     const auto U = bit::is_set<23>(opcode);
@@ -37,7 +37,7 @@ auto block_data_transfer_empty_rlist(Gba& gba, uint32_t opcode) -> void
             set_reg(gba, Rn, final_addr);
         }
         P ^= 1;
-        W = 0;
+        W = false;
     }
 
     const auto pre = P ? 4 : 0;
@@ -69,7 +69,7 @@ template<
     bool W2,
     bool L  // 0=STM, 1=LDM
 >
-auto block_data_transfer(Gba& gba, uint32_t opcode) -> void
+auto block_data_transfer(Gba& gba, const u32 opcode) -> void
 {
     auto P = P2;
     auto W = W2;
@@ -124,7 +124,7 @@ auto block_data_transfer(Gba& gba, uint32_t opcode) -> void
             set_reg(gba, Rn, final_addr);
         }
         P ^= 1;
-        W = 0;
+        W = false;
     }
 
     // these are used to avoid having a huge if else tree
@@ -136,7 +136,7 @@ auto block_data_transfer(Gba& gba, uint32_t opcode) -> void
     {
         while (Rlist)
         {
-            const std::uint8_t reg_index = std::countr_zero(Rlist);
+            const u8 reg_index = std::countr_zero(Rlist);
             if (reg_index == Rn)
             {
                 W = false;
@@ -157,7 +157,7 @@ auto block_data_transfer(Gba& gba, uint32_t opcode) -> void
         bool first = true;
         while (Rlist)
         {
-            const uint8_t reg_index = std::countr_zero(Rlist);
+            const u8 reg_index = std::countr_zero(Rlist);
             auto value = get_reg(gba, reg_index);
 
             if (reg_index == Rn)
@@ -198,4 +198,5 @@ auto block_data_transfer(Gba& gba, uint32_t opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

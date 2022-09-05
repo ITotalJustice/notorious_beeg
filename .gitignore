@@ -11,5 +11,11 @@ src/core/old/
 *.raw
 *.zip
 misc/
-.clangd
 rewind*
+.vs/
+out/
+imgui.ini
+.vscode
+CMakeUserPresets.json
+rtc.md
+n64-emu

@@ -6,10 +6,9 @@
 #include <iostream>
 #include <cassert>
 
-namespace gba::backup
-{
+namespace gba::backup {
 
-auto find_type(std::span<const std::uint8_t> rom) -> Type
+auto find_type(std::span<const u8> rom) -> Type
 {
     constexpr struct
     {
@@ -17,18 +16,18 @@ auto find_type(std::span<const std::uint8_t> rom) -> Type
         Type type;
     } entries[] =
     {
-        { .string = "EEPROM_V", .type = Type::EEPROM },
-        { .string = "SRAM_V", .type = Type::SRAM },
-        { .string = "FLASH_V", .type = Type::FLASH },
-        { .string = "FLASH512_V", .type = Type::FLASH512 },
-        { .string = "FLASH1M_V", .type = Type::FLASH1M },
+        { .string = "EEPROM", .type = Type::EEPROM },
+        { .string = "SRAM", .type = Type::SRAM },
+        { .string = "FLASH_", .type = Type::FLASH },
+        { .string = "FLASH512", .type = Type::FLASH512 },
+        { .string = "FLASH1M", .type = Type::FLASH1M },
     };
 
-    std::string_view rom_string{reinterpret_cast<const char*>(rom.data()), rom.size()};
+    const auto rom_string = std::string_view{reinterpret_cast<const char*>(rom.data()), rom.size()};
 
     for (auto& entry : entries)
     {
-        if (rom_string.find(entry.string) != rom_string.npos)
+        if (rom_string.find(entry.string) != std::string_view::npos)
         {
             std::cout << "[backup] found: " << entry.string << '\n';
             return entry.type;

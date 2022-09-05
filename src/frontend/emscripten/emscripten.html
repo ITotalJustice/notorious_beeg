@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>TotalGBA</title>
+
+  <!-- for icons for all browsers -->
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./android-chrome-192x192.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
+  <link rel="manifest" href="./site.webmanifest">
+  <link rel="mask-icon" href="./safari-pinned-tab.svg" color="#0075c0">
+  <meta name="apple-mobile-web-app-title" content="TotalGBA">
+  <meta name="application-name" content="TotalGBA">
+  <meta name="msapplication-TileColor" content="#0075c0">
+  <meta name="msapplication-TileImage" content="./mstile-144x144.png">
+  <meta name="theme-color" content="#000000">
+
+  <!-- fullscreen for chrome android when added to homescreen -->
+  <meta name="mobile-web-app-capable" content="yes"/>
+
+  <!-- fullscreen for ios when added to homescreen -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="viewport-fit=cover, user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+
+  <!-- EM.css -->
+  <style type="text/css">
+    .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
+    textarea.emscripten { font-family: monospace; width: 80%; }
+    div.emscripten { text-align: center; }
+    div.emscripten_border { border: 1px solid black; }
+    /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+    canvas.emscripten {
+      border: 0px none;
+      background-color: black;
+      position: absolute;
+      top: 0px;
+      left: 0px;
+      margin: 0px;
+      border: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      display: block;
+    }
+    #drop_zone {
+      position: absolute;
+      background-color: transparent;
+      left:0%;
+      top:0%;
+      width:  100%;
+      height: 100%;
+      border: 0;
+      margin: 0px auto;
+      z-index:1000;
+    }
+    .button {
+      position: absolute;
+      background-color: transparent;
+      visibility: hidden;
+      cursor: pointer;
+      border: 0;
+      opacity: 0;
+      -moz-opacity: 0;
+      filter:progid:DXImageTransform.Microsoft.Alpha(opacity=0)
+    }
+    .spinner {
+      height: 50px;
+      width: 50px;
+      margin: 0px auto;
+      -webkit-animation: rotation .8s linear infinite;
+      -moz-animation: rotation .8s linear infinite;
+      -o-animation: rotation .8s linear infinite;
+      animation: rotation 0.8s linear infinite;
+      border-left: 10px solid rgb(0,150,240);
+      border-right: 10px solid rgb(0,150,240);
+      border-bottom: 10px solid rgb(0,150,240);
+      border-top: 10px solid rgb(100,0,200);
+      border-radius: 100%;
+      background-color: rgb(200,100,250);
+    }
+    @-webkit-keyframes rotation {
+      from {-webkit-transform: rotate(0deg);}
+      to {-webkit-transform: rotate(360deg);}
+    }
+    @-moz-keyframes rotation {
+      from {-moz-transform: rotate(0deg);}
+      to {-moz-transform: rotate(360deg);}
+    }
+    @-o-keyframes rotation {
+      from {-o-transform: rotate(0deg);}
+      to {-o-transform: rotate(360deg);}
+    }
+    @keyframes rotation {
+      from {transform: rotate(0deg);}
+      to {transform: rotate(360deg);}
+    }
+  </style>
+</head>
+
+  <!-- uncomment to enable file drop event. it works but blocks input events to sdl2 -->
+  <!-- <div id="drop_zone"></div> -->
+
+  <!-- emscripten stuff -->
+  <figure style="overflow:visible;" id="spinner"><div class="spinner"></div><center style="margin-top:0.5em"><strong>emscripten</strong></center></figure>
+  <div class="emscripten" id="status">Downloading...</div>
+  <div class="emscripten">
+    <progress value="0" max="100" id="progress" hidden=1></progress>
+  </div>
+  <div class="emscripten_border">
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+  </div>
+
+  <input class="button" type="file" id="RomFilePicker" title=" " name="LoadRom" accept=".gba, .zip">
+
+  <input class="button" type="file" id="UploadSaves" title=" " name="UploadSaves" accept=".sav, .state, .zip" multiple style="display: none;">
+
+  <a class="button" id="DlSaves" title=" " download="TotalGBA_saves.zip" type="application/zip"></a>
+
+  <!-- uncomment this to have textbox! -->
+  <!-- <hr/><textarea class="emscripten" id="output" rows="8"></textarea><hr> -->
+
+  <script type="text/javascript">
+    // this is a very quick an hacky way to download ALL saves
+    // in a zip file.
+    let dl_input = document.getElementById("DlSaves");
+    dl_input.addEventListener("click", OnClick);
+
+    function OnClick() {
+      // _em_zip_all_saves will zip all the saves to "TotalGBA_saves.zip"
+      // and return the number of files that were zipped.
+      // a result of 0 indicates that the zip failed or no saves were found.
+      // i unlink (delete) the file after because files in emsdk are written
+      // to MEMFS, which as you guessed, is within memory.
+      let zipped_count = _em_zip_all_saves();
+
+      if (zipped_count <= 0) {
+        console.log("[JS] zip size was zero from get all saves");
+        return;
+      }
+
+      let data = FS.readFile("TotalGBA_saves.zip");
+      FS.unlink("TotalGBA_saves.zip");
+
+      let blob = new Blob([data]);
+
+      // update the download URL
+      let DlSaves = document.getElementById("DlSaves");
+      DlSaves.href = URL.createObjectURL(blob);
+
+      console.log("[JS] DlSaves Done!");
+    }
+  </script>
+
+  <!-- ROMLOADER.js -->
+  <script type="text/javascript">
+    let rom_input = document.getElementById("RomFilePicker");
+    rom_input.addEventListener("input", OnInput);
+
+    function loadRomFromFile(file) {
+      let reader = new FileReader();
+
+      reader.addEventListener("load", () => {
+        let data = new Uint8Array(reader.result);
+        // FS.writeFile(file.name, reader.result);
+
+        // the js string needs to be converted to an int_array
+        // however, setting the heapu8 data with that int array
+        // seems to do very strange things.
+        // printf() prints the string fine, but the string itself
+        // is all wrong, the chars are messed up and repeat.
+        // idk why this is, but creating a u8 array and copying the data
+        // to that instead seems to work...again, no idea why.
+        let name_array = new Uint8Array(intArrayFromString(file.name));
+
+        let data_ptr = _malloc(data.length * data.BYTES_PER_ELEMENT);
+        let name_ptr = _malloc(name_array.length * name_array.BYTES_PER_ELEMENT);
+        HEAPU8.set(data, data_ptr);
+        HEAPU8.set(name_array, name_ptr);
+
+        // call out rom load function
+        _em_load_rom_data(name_ptr, data_ptr, data.length);
+
+        // Free memory
+        // NOTE: not freeing data as that will be handled by frontend!
+        // _free(data_ptr);
+        _free(name_ptr);
+      });
+
+      reader.readAsArrayBuffer(file);
+    }
+
+    function OnInput() {
+      const MAX_SIZE = 1024 * 1024 * 32; // 32MiB
+
+      if (rom_input.files.length == 1 && rom_input.files[0].size <= MAX_SIZE) {
+        console.log(
+          "name:", rom_input.files[0].name,
+          "num files:", rom_input.files.length,
+          "file_size:", rom_input.files[0].size
+        );
+
+        loadRomFromFile(rom_input.files[0]);
+      }
+
+      else {
+        console.log("[HTML] something wrong with the file!");
+      }
+    }
+  </script>
+
+  <script type="text/javascript">
+    function dropHandler(ev) {
+      console.log("got dropHandler");
+
+      ev.preventDefault();
+
+      if (ev.dataTransfer.items) {
+        // Use DataTransferItemList interface to access the file(s)
+        [...ev.dataTransfer.items].forEach((item, i) => {
+          // If dropped items aren't files, reject them
+          if (item.kind === 'file') {
+            const file = item.getAsFile();
+
+            console.log(`… file[${i}].name = ${file.name}`);
+            loadRomFromFile(file);
+          }
+        });
+      } else {
+        // Use DataTransfer interface to access the file(s)
+        [...ev.dataTransfer.files].forEach((file, i) => {
+          console.log(`… file[${i}].name = ${file.name}`);
+          loadRomFromFile(file);
+        });
+      }
+    }
+
+    function dragOverHandler(ev) {
+      console.log("got dragOverHandler");
+
+      ev.preventDefault();
+    }
+  </script>
+
+  <!-- EM.js -->
+  <script type="text/javascript">
+    var statusElement = document.getElementById('status');
+    var progressElement = document.getElementById('progress');
+    var spinnerElement = document.getElementById('spinner');
+
+    var Module = {
+      preRun: [],
+      postRun: [],
+      print: (function() {
+        var element = document.getElementById('output');
+        if (element) element.value = ''; // clear browser cache
+        return function(text) {
+          if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+          console.log(text);
+          if (element) {
+            element.value += text + "\n";
+            element.scrollTop = element.scrollHeight; // focus on bottom
+          }
+        };
+      })(),
+      printErr: function(text) {
+        if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+        console.error(text);
+      },
+      canvas: (function() {
+        var canvas = document.getElementById('canvas');
+
+        // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+        // application robust, you may want to override this behavior before shipping!
+        // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+        canvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+
+        return canvas;
+      })(),
+      setStatus: function(text) {
+        if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+        if (text === Module.setStatus.last.text) return;
+        var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+        var now = Date.now();
+        if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+        Module.setStatus.last.time = now;
+        Module.setStatus.last.text = text;
+        if (m) {
+          text = m[1];
+          progressElement.value = parseInt(m[2])*100;
+          progressElement.max = parseInt(m[4])*100;
+          progressElement.hidden = false;
+          spinnerElement.hidden = false;
+        } else {
+          progressElement.value = null;
+          progressElement.max = null;
+          progressElement.hidden = true;
+          if (!text) spinnerElement.hidden = true;
+        }
+        statusElement.innerHTML = text;
+      },
+      totalDependencies: 0,
+      monitorRunDependencies: function(left) {
+        this.totalDependencies = Math.max(this.totalDependencies, left);
+        Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+      }
+    };
+    Module.setStatus('Downloading...');
+    window.onerror = function() {
+      Module.setStatus('Exception thrown, see JavaScript console');
+      spinnerElement.style.display = 'none';
+      Module.setStatus = function(text) {
+        if (text) Module.printErr('[post-exception status] ' + text);
+      };
+    };
+  </script>
+
+  <!-- this include emscripten js stuff (i think) -->
+  {{{ SCRIPT }}}
+</body>
+</html>

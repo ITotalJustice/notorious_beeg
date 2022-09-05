@@ -6,21 +6,19 @@
 #include "gba.hpp"
 #include "mem.hpp"
 #include <bit>
-#include <cassert>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 template<
     bool L // 0=store, 1=load
 >
-auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
+auto multiple_load_store_empty_rlist(Gba& gba, const u16 opcode) -> void
 {
     const auto Rb = bit::get_range<8, 10>(opcode); // base
     auto addr = get_reg(gba, Rb);
 
-    if constexpr (L)
+    if constexpr(L)
     {
         const auto value = mem::read32(gba, addr);
         set_pc(gba, value);
@@ -39,10 +37,10 @@ auto multiple_load_store_empty_rlist(Gba& gba, uint16_t opcode) -> void
 template<
     bool L // 0=store, 1=load
 >
-auto multiple_load_store(Gba& gba, uint16_t opcode) -> void
+auto multiple_load_store(Gba& gba, const u16 opcode) -> void
 {
     const auto Rb = bit::get_range<8, 10>(opcode); // base
-    std::uint16_t Rlist = bit::get_range<0, 7>(opcode);
+    u16 Rlist = bit::get_range<0, 7>(opcode);
     auto addr = get_reg(gba, Rb);
 
     if (!Rlist)
@@ -51,7 +49,7 @@ auto multiple_load_store(Gba& gba, uint16_t opcode) -> void
         return;
     }
 
-    if constexpr (L) // load
+    if constexpr(L) // load
     {
         bool write_back = true;
 
@@ -110,4 +108,5 @@ auto multiple_load_store(Gba& gba, uint16_t opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

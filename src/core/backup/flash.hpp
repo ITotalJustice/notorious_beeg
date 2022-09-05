@@ -9,16 +9,20 @@
 #include <span>
 
 // https://dillonbeliveau.com/2020/06/05/GBA-FLASH.html
-namespace gba::backup::flash
-{
+namespace gba::backup::flash {
 
-enum class Type : std::uint32_t
+enum
 {
-    Flash64 = 1024 * 64,
-    Flash128 = 1024 * 128,
+    BANK_SIZE = 1024 * 64,
 };
 
-enum class Command
+enum class Type : u32
+{
+    Flash64 = BANK_SIZE,
+    Flash128 = BANK_SIZE * 2,
+};
+
+enum class Command : u8
 {
     ChipID_Start = 0x90,
     ChipID_Exit = 0xF0,
@@ -31,7 +35,7 @@ enum class Command
     SetMemoryBank = 0xB0,
 };
 
-enum class State
+enum class State : u8
 {
     READY,
     CMD1,
@@ -42,24 +46,24 @@ struct Flash
 {
 public:
     // 2 banks of 64K
-    std::uint8_t data[1024 * 64 * 2];
-    std::uint32_t mask;
-    std::uint32_t bank; // 0 or 1024*64
+    u8 data[BANK_SIZE * 2];
+    u32 mask;
+    u32 bank; // 0 or 1024*64
 
     Command command;
     State state;
     Type type;
 
     auto init(Gba& gba, Type new_type) -> void;
-    auto load_data(std::span<const std::uint8_t> new_data) -> bool;
-    auto get_data() const -> std::span<const std::uint8_t>;
+    auto load_data(std::span<const u8> new_data) -> bool;
+    [[nodiscard]] auto get_data() const -> std::span<const u8>;
 
-    auto read(Gba& gba, std::uint32_t addr) -> std::uint8_t;
-    auto write(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void;
+    auto read(Gba& gba, u32 addr) const -> u8;
+    auto write(Gba& gba, u32 addr, u8 value) -> void;
 
 private:
-    auto get_manufacturer_id() const -> uint8_t;
-    auto get_device_id() const -> uint8_t;
+    [[nodiscard]] auto get_manufacturer_id() const -> u8;
+    [[nodiscard]] auto get_device_id() const -> u8;
 };
 
 } // namespace gba::backup::flash

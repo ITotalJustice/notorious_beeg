@@ -4,20 +4,21 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
+#include <bit>
 #include <cassert>
-#include <cstdint>
 
 // https://problemkaputt.de/gbatek.htm#armopcodespsrtransfermrsmsr
 // gbatek documents a few extra options, such as only setting
 // control flags (cpsr_c).
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // page 61
 template<
     bool I, // 0=reg, 1=imm
     bool P  // 0=cpsr, 1=spsr
 >
-auto msr(Gba& gba, uint32_t opcode) -> void
+auto msr(Gba& gba, const u32 opcode) -> void
 {
     const auto F = bit::is_set<19>(opcode); // write to flags
     const auto C = bit::is_set<16>(opcode); // write to control
@@ -47,4 +48,6 @@ auto msr(Gba& gba, uint32_t opcode) -> void
         set_cpsr_from_u32(gba, oprand, F, C);
     }
 }
+
+} // namespace
 } // namespace gba::arm7tdmi::arm

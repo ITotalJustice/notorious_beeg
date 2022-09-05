@@ -6,16 +6,15 @@
 #include "gba.hpp"
 #include "mem.hpp"
 #include <bit>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 132 (5.11)
 template<
     bool L // 0=STR, 1=LDR
 >
-auto sp_relative_load_store(Gba& gba, uint16_t opcode) -> void
+auto sp_relative_load_store(Gba& gba, const u16 opcode) -> void
 {
     const auto Rd = bit::get_range<8, 10>(opcode);
     // shifted to 10-bit value (unsigned)
@@ -23,17 +22,18 @@ auto sp_relative_load_store(Gba& gba, uint16_t opcode) -> void
 
     const auto addr = get_sp(gba) + Word8;
 
-    if constexpr (L == 0) // STR Rd,[SP, #Imm]
+    if constexpr(L == 0) // STR Rd,[SP, #Imm]
     {
         const auto value = get_reg(gba, Rd);
-        mem::write32(gba, addr & ~0x3, value);
+        mem::write32(gba, mem::align<u32>(addr), value);
     }
     else // LDR Rd,[SP, #Imm]
     {
-        auto result = mem::read32(gba, addr & ~0x3);
+        auto result = mem::read32(gba, mem::align<u32>(addr));
         result = std::rotr(result, (addr & 0x3) * 8);
         set_reg(gba, Rd, result);
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

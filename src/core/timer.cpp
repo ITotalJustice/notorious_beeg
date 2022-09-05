@@ -7,11 +7,10 @@
 #include "timer.hpp"
 #include "bit.hpp"
 #include "arm7tdmi/arm7tdmi.hpp"
-#include <cstdint>
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#Timer%20registers
-namespace gba::timer
-{
+namespace gba::timer {
+namespace {
 
 constexpr arm7tdmi::Interrupt INTERRUPT[4] =
 {
@@ -37,14 +36,19 @@ constexpr scheduler::callback CALLBACKS[4] =
     on_timer3_event,
 };
 
-template<u8 Number>
-auto add_timer_event(Gba& gba, auto& timer, auto offset) -> void
+auto add_timer_event(Gba& gba, Timer& timer, u8 num, auto offset) -> void
 {
+    // don't add timer if cascade is enabled (and not timer0)
+    if (num != 0 && timer.cascade)
+    {
+        return;
+    }
+
     const auto value = (0x10000 - timer.counter) * timer.freq;
     assert(value >= 1);
     assert(timer.counter <= 0xFFFF);
     timer.event_time = gba.scheduler.cycles;
-    scheduler::add(gba, EVENTS[Number], CALLBACKS[Number], value + offset);
+    scheduler::add(gba, EVENTS[num], CALLBACKS[num], value + offset);
 }
 
 template<u8 Number>
@@ -59,39 +63,65 @@ auto on_overflow(Gba& gba) -> void
         apu::on_timer_overflow(gba, Number);
     }
 
+    // tick cascade timer when the timer above overflows
+    // eg, if timer2 overflows, cascade timer1 would be ticked
+    // because of this, timer0 cascade is ignored due to
+    // there not being a timer above it!
+    if constexpr(Number != 3)
+    {
+        auto& cascade_timer = gba.timer[Number+1];
+
+        if (cascade_timer.cascade)
+        {
+            cascade_timer.counter++;
+            if (cascade_timer.counter == 0)
+            {
+                on_overflow<Number+1>(gba);
+            }
+        }
+    }
+
     // check if we should fire an irq
     if (timer.irq)
     {
         arm7tdmi::fire_interrupt(gba, INTERRUPT[Number]);
     }
 
-    add_timer_event<Number>(gba, timer, 0);
+    add_timer_event(gba, timer, Number, 0);
 }
 
-template<u8 Number>
-auto on_cnt_write(Gba& gba, u16 cnt) -> void
+auto get_tmxcnt(Gba& gba, const u8 num)
 {
-    constexpr u16 freq_table[4] = {1, 64, 256, 1024};
+    switch (num)
+    {
+        case 0: return REG_TM0CNT;
+        case 1: return REG_TM1CNT;
+        case 2: return REG_TM2CNT;
+        case 3: return REG_TM3CNT;
+    }
 
+    std::unreachable();
+}
+
+} // namespace
+
+auto on_cnt_write(Gba& gba, const u8 num) -> void
+{
+    assert(num <= 3 && "invalid timer");
+
+    static constexpr u16 freq_table[4] = {1, 64, 256, 1024};
+
+    const auto cnt = get_tmxcnt(gba, num);
     const auto F = bit::get_range<0, 1>(cnt); // freq
     const auto C = bit::is_set<2>(cnt); // cascade
     const auto I = bit::is_set<6>(cnt); // irq
     const auto E = bit::is_set<7>(cnt); // enable
 
-    auto& timer = gba.timer[Number];
+    auto& timer = gba.timer[num];
 
     // if timer is enabled, reload
     if (!timer.enable && E)
     {
-        #if ENABLE_SCHEDULER == 0
-        switch (Number)
-        {
-            case 0: REG_TM0D = timer.reload; break;
-            case 1: REG_TM1D = timer.reload; break;
-            case 2: REG_TM2D = timer.reload; break;
-            case 3: REG_TM3D = timer.reload; break;
-        }
-        #endif
         timer.counter = timer.reload;
     }
 
@@ -102,35 +132,14 @@ auto on_cnt_write(Gba& gba, u16 cnt) -> void
 
     if (timer.enable)
     {
-        assert(!C && "cascade not impl");
         // searching on emudev discord about timers mention that they
         // have a 2 cycle delay on startup (but not on overflow)
-        add_timer_event<Number>(gba, timer, 2);
+        add_timer_event(gba, timer, num, 2);
     }
     else
     {
-        scheduler::remove(gba, EVENTS[Number]);
+        scheduler::remove(gba, EVENTS[num]);
     }
-}
-
-auto on_cnt0_write(Gba& gba, u16 cnt) -> void
-{
-    on_cnt_write<0>(gba, cnt);
-}
-
-auto on_cnt1_write(Gba& gba, u16 cnt) -> void
-{
-    on_cnt_write<1>(gba, cnt);
-}
-
-auto on_cnt2_write(Gba& gba, u16 cnt) -> void
-{
-    on_cnt_write<2>(gba, cnt);
-}
-
-auto on_cnt3_write(Gba& gba, u16 cnt) -> void
-{
-    on_cnt_write<3>(gba, cnt);
 }
 
 auto on_timer0_event(Gba& gba) -> void
@@ -155,101 +164,35 @@ auto on_timer3_event(Gba& gba) -> void
 
 auto update_timer(Gba& gba, Timer& timer) -> void
 {
-    if (timer.enable == false)
+    if (!timer.enable)
     {
         return;
     }
 
-    const auto delta = (gba.scheduler.cycles - timer.event_time) / timer.freq;
+    const auto delta = (gba.scheduler.cycles + gba.scheduler.elapsed - timer.event_time) / timer.freq;
     // update counter
     timer.counter += delta;
     // update timestamp (needed for Event::Reset)
     timer.event_time += delta * timer.freq;//gba.scheduler.cycles;
 }
 
-auto read_timer(Gba& gba, std::uint8_t num) -> std::uint16_t
+auto read_timer(Gba& gba, u8 num) -> u16
 {
-    #if 0
     auto& timer = gba.timer[num];
-    if (timer.enable == false)
+
+    if (!timer.enable)
+    {
+        return timer.reload;
+    }
+    else if (timer.cascade)
     {
         return timer.counter;
     }
-
-    const auto delta = (gba.scheduler.cycles - timer.event_time) / timer.freq;
-    return timer.counter + delta;
-    #else
-    auto& timer = gba.timer[num];
-    update_timer(gba, timer);
-    return timer.counter;
-    #endif
-}
-
-#if ENABLE_SCHEDULER == 0
-// returns true if overflowed
-template<u8 Number>
-auto tick(Gba& gba, u16& data, std::uint8_t cycles, bool cascade_overflow) -> bool
-{
-    auto& timer = gba.timer[Number];
-
-    bool overflowed = false;
-
-    const auto func = [&]()
+    else
     {
-        data++;
-        if (data == 0)
-        {
-            if constexpr(Number == 0)
-            {
-                // std::printf("[timer0] overflow at %u\n", gba.scheduler.cycles);
-            }
-            data = timer.reload;
-            overflowed = true;
-            on_overflow<Number>(gba);
-        }
-        else
-        {
-            // data++;
-        }
-    };
-
-    // check if enabled, return early if disabled
-    if (!timer.enable)
-    {
-        return overflowed;
+        update_timer(gba, timer);
+        return timer.counter;
     }
-
-    if (timer.cascade)
-    {
-        assert(0);
-        func();
-        return overflowed;
-    }
-
-    timer.cycles += cycles;
-
-    if (timer.cycles >= timer.freq)
-    {
-        while (timer.cycles >= timer.freq)
-        {
-            timer.cycles -= timer.freq;
-            func();
-        }
-        timer.cycles = 0;
-    }
-
-    return true;
 }
-
-auto run(Gba& gba, std::uint8_t cycles) -> void
-{
-    // return;
-    bool overflowed = false;
-    overflowed = tick<0>(gba, REG_TM0D, cycles, overflowed);
-    overflowed = tick<1>(gba, REG_TM1D, cycles, overflowed);
-    overflowed = tick<2>(gba, REG_TM2D, cycles, overflowed);
-    overflowed = tick<3>(gba, REG_TM3D, cycles, overflowed);
-}
-#endif
 
 } // namespace gba::timer

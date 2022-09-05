@@ -1,36 +1,26 @@
 cmake_minimum_required(VERSION 3.20.0)
 
-# # huge speedup, disable if encounter bug
-# option(ENABLE_SCHEDULER "huge speedup, but can cause timing bugs" ON)
-# # compiler basically inlines everything
-# option(SINGLE_FILE "compile everything as a single file" OFF)
-# # actually slower for doom (~30fps slower), MUCH faster for everything else
-# option(RELEASE_BUILD_THUMB "template thumb" OFF)
-# # very big speedup
-# option(RELEASE_BUILD_ARM "template arm" ON)
-# # enable sanitizers
-# option(GBA_DEV "enable sanitizers" OFF)
 
-# huge speedup, disable if encounter bug
-set(ENABLE_SCHEDULER ON)
 # compiler basically inlines everything
-set(SINGLE_FILE ON)
+option(SINGLE_FILE "compile everything as a single file" OFF)
 # enable sanitizers
-set(GBA_DEV OFF)
+option(GBA_DEV "enable sanitizers" OFF)
 
-set(EXECUTER_TABLE 0)
-set(EXECUTER_SWITCH 1)
-set(EXECUTER_GOTO 2)
+set(INTERPRETER_TABLE 0)
+set(INTERPRETER_SWITCH 1)
+set(INTERPRETER_GOTO 2)
 
-set(EXECUTER ${EXECUTER_TABLE})
-
+if (NOT DEFINED INTERPRETER)
+    set(INTERPRETER ${INTERPRETER_TABLE})
+endif()
 
 if (SINGLE_FILE)
     add_library(GBA single.cpp)
 else ()
     add_library(GBA
         gba.cpp
-        ppu.cpp
+        ppu/ppu.cpp
+        ppu/render.cpp
         mem.cpp
         dma.cpp
         timer.cpp
@@ -38,6 +28,8 @@ else ()
         bios.cpp
         bios_hle.cpp
         scheduler.cpp
+        gpio.cpp
+        rtc.cpp
 
         backup/backup.cpp
         backup/eeprom.cpp
@@ -45,15 +37,17 @@ else ()
         backup/sram.cpp
 
         arm7tdmi/arm7tdmi.cpp
+        arm7tdmi/arm/arm.cpp
+        arm7tdmi/thumb/thumb.cpp
     )
 
-    if (${EXECUTER} EQUAL ${EXECUTER_TABLE})
+    if (${INTERPRETER} EQUAL ${INTERPRETER_TABLE})
         target_sources(GBA PRIVATE arm7tdmi/arm/arm_table.cpp)
         target_sources(GBA PRIVATE arm7tdmi/thumb/thumb_table.cpp)
-    elseif(${EXECUTER} EQUAL ${EXECUTER_SWITCH})
+    elseif(${INTERPRETER} EQUAL ${INTERPRETER_SWITCH})
         target_sources(GBA PRIVATE arm7tdmi/arm/arm_switch.cpp)
         target_sources(GBA PRIVATE arm7tdmi/thumb/thumb_switch.cpp)
-    elseif(${EXECUTER} EQUAL ${EXECUTER_GOTO})
+    elseif(${INTERPRETER} EQUAL ${INTERPRETER_GOTO})
         target_sources(GBA PRIVATE arm7tdmi/arm/arm_goto.cpp)
         target_sources(GBA PRIVATE arm7tdmi/thumb/thumb_goto.cpp)
     endif()
@@ -95,24 +89,10 @@ target_compile_definitions(GBA PRIVATE
     GBA_DEBUG=$<BOOL:${GBA_DEBUG}>
     SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
     ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
-    EXECUTER=${EXECUTER}
-    EXECUTER_TABLE=${EXECUTER_TABLE}
-    EXECUTER_SWITCH=${EXECUTER_SWITCH}
-    EXECUTER_GOTO=${EXECUTER_GOTO}
+    INTERPRETER=${INTERPRETER}
+    INTERPRETER_TABLE=${INTERPRETER_TABLE}
+    INTERPRETER_SWITCH=${INTERPRETER_SWITCH}
+    INTERPRETER_GOTO=${INTERPRETER_GOTO}
 )
 
-# enable LTO (only in release builds)
-# this greatly reduces template bloat as well
-if (CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
-    include(CheckIPOSupported)
-    check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
-
-    if (ipo_supported)
-        message(STATUS "IPO / LTO enabled")
-        set_property(TARGET GBA PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-    else()
-        message(STATUS "IPO / LTO not supported: <${ipo_error}>")
-    endif()
-else()
-    message(STATUS "IPO / LTO not enabled in debug build")
-endif()
+set_target_properties(GBA PROPERTIES CXX_STANDARD 23)

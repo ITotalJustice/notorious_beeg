@@ -4,20 +4,18 @@
 #pragma once
 
 #include "fwd.hpp"
-#include <cstdint>
 #include <span>
 
-namespace gba::backup::eeprom
-{
+namespace gba::backup::eeprom {
 
-enum class State
+enum class State : u8
 {
     Command, // 2 bits
     Address, // 6-14 bits
     Data, // data bit (how many bits are written here?)
 };
 
-enum class Request : std::uint8_t
+enum class Request : u8
 {
     invalid0 = 0b00,
     invalid1 = 0b01,
@@ -25,7 +23,7 @@ enum class Request : std::uint8_t
     read = 0b11,
 };
 
-enum class Width : std::uint8_t
+enum class Width : u8
 {
     unknown = 1, // assume small
     small = 6,
@@ -35,13 +33,13 @@ enum class Width : std::uint8_t
 struct Eeprom
 {
 public:
-    std::uint8_t data[8 * 1024];
-    std::uint16_t read_address; // address of read | write mode
-    std::uint16_t write_address; // address of read | write mode
+    u8 data[8 * 1024];
+    u16 read_address; // address of read | write mode
+    u16 write_address; // address of read | write mode
 
-    std::uint16_t bits; // bits shifted in / out
-    std::uint8_t bit_write_counter; // bit position
-    std::uint8_t bit_read_counter; // bit position
+    u16 bits; // bits shifted in / out
+    u8 bit_write_counter; // bit position
+    u8 bit_read_counter; // bit position
 
     State state; // what state are we in
     Request request; // request type
@@ -50,11 +48,11 @@ public:
     auto init(Gba& gba) -> void;
     auto set_width(Width new_width) -> void;
 
-    auto load_data(std::span<const std::uint8_t> new_data) -> bool;
-    auto get_data() const -> std::span<const std::uint8_t>;
+    auto load_data(std::span<const u8> new_data) -> bool;
+    [[nodiscard]] auto get_data() const -> std::span<const u8>;
 
-    auto read(Gba& gba, std::uint32_t addr) -> std::uint8_t;
-    auto write(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void;
+    auto read(Gba& gba, u32 addr) -> u8;
+    auto write(Gba& gba, u32 addr, u8 value) -> void;
 
 private:
     auto on_state_change(State new_state) -> void;

@@ -1,6 +1,7 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
+#include "arm7tdmi/barrel_shifter.hpp"
 #include "move_compare_add_subtract_immediate.cpp"
 #include "hi_register_operations.cpp"
 #include "load_address.cpp"
@@ -23,11 +24,11 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "gba.hpp"
 #include <cassert>
-#include <cstdint>
 #include <cstdio>
 #include <array>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 enum class Instruction
 {
@@ -54,7 +55,8 @@ enum class Instruction
 };
 
 // page 108
-constexpr auto decode(uint16_t opcode) -> Instruction
+[[nodiscard]]
+consteval auto decode(const u16 opcode) -> Instruction
 {
     // only need bits 5-15
     constexpr auto shift_down = 6;
@@ -197,42 +199,13 @@ constexpr auto decode(uint16_t opcode) -> Instruction
     return Instruction::undefined;
 }
 
-constexpr auto decode_str(Instruction i) -> const char*
-{
-    switch (i)
-    {
-        case Instruction::move_shifted_register: return "move_shifted_register";
-        case Instruction::add_subtract: return "add_subtract";
-        case Instruction::move_compare_add_subtract_immediate: return "move_compare_add_subtract_immediate";
-        case Instruction::alu_operations: return "alu_operations";
-        case Instruction::hi_register_operations: return "hi_register_operations";
-        case Instruction::pc_relative_load: return "pc_relative_load";
-        case Instruction::load_store_with_register_offset: return "load_store_with_register_offset";
-        case Instruction::load_store_sign_extended_byte_halfword: return "load_store_sign_extended_byte_halfword";
-        case Instruction::load_store_with_immediate_offset: return "load_store_with_immediate_offset";
-        case Instruction::load_store_halfword: return "load_store_halfword";
-        case Instruction::sp_relative_load_store: return "sp_relative_load_store";
-        case Instruction::load_address: return "load_address";
-        case Instruction::add_offset_to_stack_pointer: return "add_offset_to_stack_pointer";
-        case Instruction::push_pop_registers: return "push_pop_registers";
-        case Instruction::multiple_load_store: return "multiple_load_store";
-        case Instruction::conditional_branch: return "conditional_branch";
-        case Instruction::software_interrupt: return "software_interrupt";
-        case Instruction::unconditional_branch: return "unconditional_branch";
-        case Instruction::long_branch_with_link: return "long_branch_with_link";
-        case Instruction::undefined: return "undefined";
-    }
-
-    std::unreachable();
-}
-
-auto undefined(gba::Gba &gba, uint16_t opcode) -> void
+auto undefined([[maybe_unused]] gba::Gba &gba, u16 opcode) -> void
 {
     std::printf("[THUMB] undefined %04X\n", opcode);
     assert(!"[THUMB] undefined instruction hit");
 }
 
-template<auto b>
+template<auto b> [[nodiscard]]
 consteval auto decoded_is_set(auto v)
 {
     static_assert(b >= 6, "invalid");
@@ -241,7 +214,7 @@ consteval auto decoded_is_set(auto v)
     return bit::is_set<new_bit>(v);
 }
 
-template<u8 start, u8 end>
+template<u8 start, u8 end> [[nodiscard]]
 consteval auto decoded_get_range(auto v)
 {
     static_assert(start >= 6, "invalid");
@@ -261,7 +234,7 @@ consteval auto fill_table(auto& table) -> void
     switch (instruction)
     {
         case Instruction::move_shifted_register: {
-            constexpr auto Op = decoded_get_range<11, 12>(i);
+            constexpr auto Op = static_cast<barrel::type>(decoded_get_range<11, 12>(i));
             table[i] = move_shifted_register<Op>;
         } break;
 
@@ -363,19 +336,16 @@ consteval auto fill_table(auto& table) -> void
         } break;
     }
 
-    if constexpr (i == end)
-    {
-        return;
-    }
-    else
+    if constexpr(i < end)
     {
         fill_table<i + 1, end>(table);
     }
 }
 
+[[nodiscard]]
 consteval auto generate_function_table()
 {
-    using func_type = void (*)(gba::Gba&, uint16_t);
+    using func_type = void (*)(gba::Gba&, u16);
     std::array<func_type, 1024> table{};
     table.fill(undefined); // also handled in fill_table.
 
@@ -387,23 +357,25 @@ consteval auto generate_function_table()
     return table;
 };
 
-constexpr auto func_table = generate_function_table();
-
-auto fetch(Gba& gba) -> std::uint16_t
+[[nodiscard]]
+auto fetch(Gba& gba)
 {
-    const std::uint16_t opcode = CPU.pipeline[0];
+    const u16 opcode = CPU.pipeline[0];
     CPU.pipeline[0] = CPU.pipeline[1];
     gba.cpu.registers[PC_INDEX] += 2;
     CPU.pipeline[1] = mem::read16(gba, get_pc(gba));
-    CPU.opcode = opcode;
 
     return opcode;
 }
 
+} // namespace
+
 auto execute(Gba& gba) -> void
 {
+    static constexpr auto func_table = generate_function_table();
+
     const auto opcode = fetch(gba);
-    func_table[opcode>>6](gba, opcode);
+    func_table[opcode >> 6](gba, opcode);
 }
 
 } // namespace gba::arm7tdmi::thumb

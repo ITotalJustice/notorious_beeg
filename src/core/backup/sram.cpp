@@ -1,25 +1,20 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include "backup/sram.hpp"
+#include "sram.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
 #include <algorithm>
 #include <ranges>
-#include <cstdint>
 
-namespace gba::backup::sram
-{
+namespace gba::backup::sram {
 
-auto Sram::init(Gba& gba) -> void
+auto Sram::init([[maybe_unused]] Gba& gba) -> void
 {
-    // this is just to satisfy valid union access
-    // by first writing to the union before reading
-    // without causing UB.
-    this->dummy_union_write = true;
+    std::ranges::fill(this->data, 0xFF);
 }
 
-auto Sram::load_data(std::span<const std::uint8_t> new_data) -> bool
+auto Sram::load_data(std::span<const u8> new_data) -> bool
 {
     if (new_data.size() <= std::size(this->data))
     {
@@ -33,21 +28,22 @@ auto Sram::load_data(std::span<const std::uint8_t> new_data) -> bool
     }
 }
 
-auto Sram::get_data() const -> std::span<const std::uint8_t>
+auto Sram::get_data() const -> std::span<const u8>
 {
     return this->data;
 }
 
 constexpr auto SRAM_MASK = sizeof(Sram::data)-1;
 
-auto Sram::read(Gba& gba, std::uint32_t addr) -> std::uint8_t
+auto Sram::read([[maybe_unused]] Gba& gba, u32 addr) const -> u8
 {
-    return mem::read_array<std::uint8_t>(this->data, SRAM_MASK, addr);
+    return this->data[addr & SRAM_MASK];
 }
 
-auto Sram::write(Gba& gba, std::uint32_t addr, std::uint8_t value) -> void
+auto Sram::write([[maybe_unused]] Gba& gba, u32 addr, u8 value) -> void
 {
-    mem::write_array<std::uint8_t>(this->data, SRAM_MASK, addr, value);
+    this->data[addr & SRAM_MASK] = value;
+    gba.backup.dirty_ram = true;
 }
 
 } // namespace gba::backup::eeprom

@@ -1,0 +1,39 @@
+name: build-pc
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04]
+        preset: [imgui, imgui-dev, sdl2, sdl2-dev, sdl2-table, sdl2-switch, sdl2-goto]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install gcc-12 (ubuntu)
+      if: ${{ matrix.os == 'ubuntu-22.04' }}
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/ppa -y
+        sudo apt-get update
+        sudo apt upgrade -y
+        sudo apt install gcc-12 g++-12 cmake libsdl2-dev libminizip-dev -y
+
+        sudo unlink /usr/bin/gcc
+        sudo unlink /usr/bin/g++
+        sudo ln -s /usr/bin/gcc-12 /usr/bin/gcc
+        sudo ln -s /usr/bin/g++-12 /usr/bin/g++
+
+    - name: Configure CMake
+      run: |
+        cmake --preset ${{ matrix.preset }}
+
+    - name: Build
+      run: cmake --build --preset ${{ matrix.preset }} --parallel 4

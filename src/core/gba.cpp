@@ -13,13 +13,74 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
-#include <iterator>
-#include <fstream>
 #include <ranges>
+#include <numeric>
 
 namespace gba {
+namespace {
+
+// fills the rom with OOB values
+// NOTE: this does NOT work for OOB dma, as they return open bus!!!
+// > offset is the starting point in rom to fill rom
+// > for optimising, offset=rom_size, otherwise fill the entire rom
+constexpr auto fill_rom_oob_values(std::span<u8> rom, const u32 offset)
+{
+    for (auto i = offset; i < rom.size(); i += 2)
+    {
+        rom[i + 0] = i >> 1; // lower nibble (addr >> 1)
+        rom[i + 1] = i >> 9; // upper nibble (addr >> (8 + 1))
+    }
+}
+
+} // namespace
+
+Header::Header(std::span<const u8> rom)
+{
+    if (rom.size() >= sizeof(*this))
+    {
+        std::memcpy(this->raw(), rom.data(), sizeof(*this));
+    }
+}
+
+auto Header::validate_checksum() const -> u8
+{
+    constexpr auto CHECKSUM_OFFSET = 0xA0;
+    constexpr auto CHECKSUM_SIZE = 0x1D;
+
+    const auto check_data = this->span().subspan(CHECKSUM_OFFSET, CHECKSUM_SIZE);
+
+    // perform checksum, sub all entries (with 0xFF wrapping)
+    const auto checksum = std::accumulate(
+        check_data.begin(), check_data.end(),
+        -0x19, std::minus<u8>{}
+    );
+
+    return checksum == this->complement_check;
+}
+
+auto Header::validate_fixed_value() const -> bool
+{
+    constexpr auto FIXED_VALUE = 0x96;
+    return this->fixed_value == FIXED_VALUE;
+}
+
+auto Header::validate_all() const -> bool
+{
+    if (!validate_checksum())
+    {
+        std::printf("failed to validate checksum\n");
+        return false;
+    }
+
+    if (!validate_fixed_value())
+    {
+        std::printf("failed to validate fixed value\n");
+        return false;
+    }
+
+    return true;
+}
 
 auto Gba::reset() -> void
 {
@@ -29,20 +90,29 @@ auto Gba::reset() -> void
         gba::bios::load_normmatt_bios(*this);
     }
 
-    this->scheduler.cycles = 0;
-    this->cycles2 = 0;
+    bool skip_bios = true;
+
     scheduler::reset(*this);
-    mem::reset(*this); // this needed to be before arm::reset because memtables
-    arm7tdmi::reset(*this);
-    ppu::reset(*this);
-    apu::reset(*this);
+    mem::reset(*this, skip_bios); // this needed to be before arm::reset because memtables
+    ppu::reset(*this, skip_bios);
+    apu::reset(*this, skip_bios);
+    gpio::reset(*this, skip_bios);
+    arm7tdmi::reset(*this, skip_bios);
 }
 
-auto Gba::loadrom(std::span<const std::uint8_t> new_rom) -> bool
+auto Gba::loadrom(std::span<const u8> new_rom) -> bool
 {
     if (new_rom.size() > sizeof(this->rom))
     {
         assert(!"rom is way too beeg");
+        return false;
+    }
+
+    const Header header{new_rom};
+
+    if (!header.validate_all())
+    {
+        assert(!"rom failed to validate rom header!");
         return false;
     }
 
@@ -75,89 +145,107 @@ auto Gba::loadrom(std::span<const std::uint8_t> new_rom) -> bool
             break;
     }
 
-    std::ranges::copy(new_rom, this->rom);
+    // pre-calc the OOB rom read values, which is addr >> 1
+    fill_rom_oob_values(this->rom, new_rom.size());
 
-    constexpr auto SIZE_16MiB = 1024*1024*16;
-    if (new_rom.size() <= SIZE_16MiB)
-    {
-        // hack for mirroring, mirror to bank[0x9]
-        // needed for minish cap
-        std::ranges::copy(new_rom, this->rom + SIZE_16MiB);
-    }
+    std::ranges::copy(new_rom, this->rom);
 
     this->reset();
 
     return true;
 }
 
-auto Gba::loadbios(std::span<const std::uint8_t> new_bios) -> bool
+auto Gba::loadbios(std::span<const u8> new_bios) -> bool
 {
-    if (new_bios.size() > std::size(this->mem.bios))
+    if (new_bios.size() > std::size(this->bios))
     {
         assert(!"bios is way too beeg");
         return false;
     }
 
-    std::ranges::copy(new_bios, this->mem.bios);
+    std::ranges::copy(new_bios, this->bios);
     this->has_bios = true;
+
+    this->reset();
 
     return true;
 }
 
-auto Gba::setkeys(std::uint16_t buttons, bool down) -> void
+auto Gba::setkeys(u16 buttons, bool down) -> void
 {
-    #define KEY *reinterpret_cast<uint16_t*>(this->mem.io + (mem::IO_KEY & 0x3FF))
+    auto& gba = *this;
 
     // the pins go LOW when pressed!
     if (down)
     {
-        KEY &= ~buttons;
+        REG_KEY &= ~buttons;
 
     }
     else
     {
-        KEY |= buttons;
+        REG_KEY |= buttons;
     }
 
     // this can be better optimised at some point
-    if (down && (buttons & DIRECTIONAL))
+    if (down && ((buttons & DIRECTIONAL) != 0))
     {
-        if (buttons & RIGHT)
+        if ((buttons & RIGHT) != 0)
         {
-            KEY |= LEFT;
+            REG_KEY |= LEFT;
         }
-        if (buttons & LEFT)
+        if ((buttons & LEFT) != 0)
         {
-            KEY |= RIGHT;
+            REG_KEY |= RIGHT;
         }
-        if (buttons & UP)
+        if ((buttons & UP) != 0)
         {
-            KEY |= DOWN;
+            REG_KEY |= DOWN;
         }
-        if (buttons & DOWN)
+        if ((buttons & DOWN) != 0)
         {
-            KEY |= UP;
+            REG_KEY |= UP;
         }
     }
-
-    #undef KEY
 }
 
-constexpr auto STATE_MAGIC = 0xFACADE;
-constexpr auto STATE_VERSION = 0x1;
-constexpr auto STATE_SIZE = sizeof(State);
+auto Gba::set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate )-> void
+{
+    this->audio_callback = cb;
+    this->sample_data = data;
+    this->sample_count = 0;
+    this->sample_rate_calculated = 280896 * 60 / sample_rate;
+
+    if (this->audio_callback && !this->sample_data.empty() && this->sample_rate_calculated)
+    {
+        scheduler::add(*this, scheduler::Event::APU_SAMPLE, apu::on_sample_event, this->sample_rate_calculated);
+    }
+    else
+    {
+        scheduler::remove(*this, scheduler::Event::APU_SAMPLE);
+    }
+}
+
+auto Gba::get_render_mode() -> u8
+{
+    return ppu::get_mode(*this);
+}
+
+auto Gba::render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> u8
+{
+    return ppu::render_bg_mode(*this, mode, layer, pixels);
+}
 
 auto Gba::loadstate(const State& state) -> bool
 {
-    if (state.magic != STATE_MAGIC)
+    if (state.magic != StateMeta::MAGIC)
     {
         return false;
     }
-    if (state.version != STATE_VERSION)
+    if (state.version != StateMeta::VERSION)
     {
         return false;
     }
-    if (state.size != STATE_SIZE)
+    if (state.size != StateMeta::SIZE)
     {
         return false;
     }
@@ -166,8 +254,6 @@ auto Gba::loadstate(const State& state) -> bool
         return false;
     }
 
-    this->cycles2 = state.cycles2;
-    this->cycles = state.cycles;
     this->scheduler = state.scheduler;
     this->cpu = state.cpu;
     this->apu = state.apu;
@@ -182,6 +268,8 @@ auto Gba::loadstate(const State& state) -> bool
     this->timer[2] = state.timer[2];
     this->timer[3] = state.timer[3];
     this->backup = state.backup;
+    this->gpio = state.gpio;
+
     mem::setup_tables(*this);
     scheduler::on_loadstate(*this);
 
@@ -190,13 +278,11 @@ auto Gba::loadstate(const State& state) -> bool
 
 auto Gba::savestate(State& state) const -> bool
 {
-    state.magic = STATE_MAGIC;
-    state.version = STATE_VERSION;
-    state.size = STATE_SIZE;
+    state.magic = StateMeta::MAGIC;
+    state.version = StateMeta::VERSION;
+    state.size = StateMeta::SIZE;
     state.crc = 0;
 
-    state.cycles2 = this->cycles2;
-    state.cycles = this->cycles;
     state.scheduler = this->scheduler;
     state.cpu = this->cpu;
     state.apu = this->apu;
@@ -211,12 +297,12 @@ auto Gba::savestate(State& state) const -> bool
     state.timer[2] = this->timer[2];
     state.timer[3] = this->timer[3];
     state.backup = this->backup;
+    state.gpio = this->gpio;
 
     return true;
 }
 
-// load a save from data, must be used after a game has loaded
-auto Gba::loadsave(std::span<const std::uint8_t> new_save) -> bool
+auto Gba::loadsave(std::span<const u8> new_save) -> bool
 {
     using enum backup::Type;
     switch (this->backup.type)
@@ -233,8 +319,14 @@ auto Gba::loadsave(std::span<const std::uint8_t> new_save) -> bool
     std::unreachable();
 }
 
-// returns empty spam if the game doesn't have a save
-auto Gba::getsave() const -> std::span<const std::uint8_t>
+auto Gba::is_save_dirty()-> bool
+{
+    const auto result = this->backup.dirty_ram;
+    this->backup.dirty_ram = false;
+    return result;
+}
+
+auto Gba::getsave() const -> std::span<const u8>
 {
     using enum backup::Type;
     switch (this->backup.type)
@@ -251,56 +343,34 @@ auto Gba::getsave() const -> std::span<const std::uint8_t>
     std::unreachable();
 }
 
-#if ENABLE_SCHEDULER
-auto Gba::run(std::size_t _cycles) -> void
+static auto on_frame_event(Gba& gba)
 {
-    auto& gba = *this;
-    std::uint8_t cycles_elasped = 0;
+    gba.scheduler.frame_end = true;
+}
 
-    if (gba.cpu.halted) [[unlikely]]
+auto Gba::run(u32 _cycles) -> void
+{
+    this->scheduler.frame_end = false;
+
+    scheduler::add(*this, scheduler::Event::FRAME, on_frame_event, _cycles);
+
+    if (this->cpu.halted) [[unlikely]]
     {
-        arm7tdmi::on_halt_event(gba);
+        arm7tdmi::on_halt_event(*this);
     }
 
-    for (; this->cycles2 < _cycles; this->cycles2 += cycles_elasped) [[likely]]
+    while (!this->scheduler.frame_end) [[likely]]
     {
-        // reset cycles each ittr
-        gba.cycles = 0;
-
-        arm7tdmi::run(gba);
-        cycles_elasped = gba.cycles;
+        this->scheduler.elapsed = 0;
+        arm7tdmi::run(*this);
 
         // tick scheduler
-        this->scheduler.cycles += cycles_elasped;
+        this->scheduler.cycles += this->scheduler.elapsed;
         if (this->scheduler.next_event_cycles <= this->scheduler.cycles)
         {
-            scheduler::fire(gba);
+            scheduler::fire(*this);
         }
     }
-
-    this->cycles2 -= _cycles;
 }
-#else
-auto Gba::run(std::size_t _cycles) -> void
-{
-    auto& gba = *this;
-    std::uint8_t cycles_elasped = 0;
-
-    for (; this->cycles2 < _cycles; this->cycles2 += cycles_elasped) [[likely]]
-    {
-        // reset cycles each ittr
-        gba.cycles = 0;
-
-        arm7tdmi::run(gba);
-        cycles_elasped = gba.cycles;
-        gba.scheduler.cycles += cycles_elasped;
-        ppu::run(gba, cycles_elasped);
-        apu::run(gba, cycles_elasped);
-        timer::run(gba, cycles_elasped);
-    }
-
-    this->cycles2 -= _cycles;
-}
-#endif
 
 } // namespace gba

@@ -4,11 +4,9 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include "mem.hpp"
-#include <bit>
-#include <cstdint>
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // T1 = final type (u64/i64)
 // T2 = base type (u32/i32) this is used for sign extending
@@ -18,7 +16,7 @@ template<
     bool A,
     bool S
 >
-auto multiply_long(Gba& gba, std::uint32_t opcode) -> void
+auto multiply_long(Gba& gba, const u32 opcode) -> void
 {
     const auto RdHi = bit::get_range<16, 19>(opcode); // dst Hi
     const auto RdLo = bit::get_range<12, 15>(opcode); // dst Lo
@@ -59,16 +57,17 @@ template<
     bool A, // 0=mull, 1=mlal and accumulate
     bool S  // 0=no flags, 1=mod flags
 >
-auto multiply_long(Gba& gba, uint32_t opcode) -> void
+auto multiply_long(Gba& gba, const u32 opcode) -> void
 {
     if constexpr(U) // signed
     {
-        multiply_long<std::int64_t, std::int32_t, A, S>(gba, opcode);
+        multiply_long<s64, s32, A, S>(gba, opcode);
     }
     else // unsigned
     {
-        multiply_long<u64, std::uint32_t, A, S>(gba, opcode);
+        multiply_long<u64, u32, A, S>(gba, opcode);
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

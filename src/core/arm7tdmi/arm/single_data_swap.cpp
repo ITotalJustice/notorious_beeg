@@ -6,15 +6,15 @@
 #include "gba.hpp"
 #include "mem.hpp"
 #include <bit>
-#include <cstdint>
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // page 89 (4.12)
 template<
     bool B // 0=word, 1=byte
 >
-auto single_data_swap(Gba& gba, uint32_t opcode) -> void
+auto single_data_swap(Gba& gba, const u32 opcode) -> void
 {
     const auto Rn = bit::get_range<16, 19>(opcode); // base address
     const auto Rd = bit::get_range<12, 15>(opcode); // dst
@@ -39,4 +39,5 @@ auto single_data_swap(Gba& gba, uint32_t opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

@@ -6,12 +6,14 @@
 #include "gba.hpp"
 
 namespace gba::arm7tdmi::arm {
+namespace {
 
 // page 91 (4.13)
-auto software_interrupt(Gba& gba, uint32_t opcode) -> void
+auto software_interrupt(Gba& gba, const u32 opcode) -> void
 {
     const auto comment_field = bit::get_range<0, 23>(opcode) >> 16;
     arm7tdmi::software_interrupt(gba, comment_field);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::arm

@@ -5,20 +5,40 @@
 
 #include <cstdint>
 
-namespace std
+#ifdef EMSCRIPTEN
+#include <ranges>
+
+namespace std::ranges {
+
+constexpr auto fill(auto& array, auto value) -> void
 {
+    for (auto& entry : array)
+    {
+        entry = value;
+    }
+}
+
+constexpr auto copy(const auto& src, auto dst) -> void
+{
+    std::size_t i = 0;
+
+    for (auto& entry : src)
+    {
+        dst[i++] = entry;
+    }
+}
+
+} // namespace std::ranges
+
+namespace std {
+
 [[noreturn]] inline void unreachable()
 {
-    // Uses compiler specific extensions if possible.
-    // Even if no extension is used, undefined behavior is still raised by
-    // an empty function body and the noreturn attribute.
-#if defined(__GNUC__) // GCC, Clang, ICC
     __builtin_unreachable();
-#elif defined(_MSC_VER) // MSVC
-    __assume(false);
-#endif
 }
-}
+
+} // namespace std
+#endif // EMSCRIPTEN
 
 #if 0
     #include <cstdio>
@@ -32,8 +52,15 @@ namespace std
     #define gba_log_fatal(...)
 #endif // gba_DEBUG
 
+// cmake always sets this variable, however the frontend
+// will not have this macro defined, so we need to define it
+// to silence warnings.
+#ifndef SINGLE_FILE
+    #define SINGLE_FILE 0
+#endif
+
 #if SINGLE_FILE == 1
-    #define STATIC_INLINE [[using gnu : always_inline, hot]] static inline
+    #define STATIC_INLINE [[gnu::always_inline, gnu::hot, msvc::forceinline]] static inline
     #define STATIC static
 #else
     #define STATIC_INLINE

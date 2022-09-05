@@ -5,10 +5,8 @@
 
 #include "fwd.hpp"
 #include <cstddef>
-#include <cstdint>
 
-namespace gba::apu
-{
+namespace gba::apu {
 
 struct Square0;
 struct Square1;
@@ -18,8 +16,8 @@ struct Noise;
 struct FrameSequencer
 {
     static constexpr inline auto tick_rate = 280896*60/512;
-    std::uint16_t cycles;
-    std::uint8_t index;
+    u16 cycles;
+    u8 index;
 
     auto clock(Gba& gba) -> void;
 };
@@ -44,10 +42,10 @@ struct Sweep
 
 struct Envelope
 {
-    enum Mode
+    enum Mode : bool
     {
-        SUB = 0,
-        ADD = 1
+        SUB = false,
+        ADD = true
     };
 
     u8 starting_vol;
@@ -69,9 +67,9 @@ struct Base
 
     auto enable(Gba& gba) -> void;
     auto disable(Gba& gba) -> void;
-    auto is_enabled(Gba& gba) const -> bool;
-    auto left_enabled(Gba& gba) const -> bool;
-    auto right_enabled(Gba& gba) const -> bool;
+    [[nodiscard]] auto is_enabled(Gba& gba) const -> bool;
+    [[nodiscard]] auto left_enabled(Gba& gba) const -> bool;
+    [[nodiscard]] auto right_enabled(Gba& gba) const -> bool;
     // virtual auto sample() const -> s8 = 0;
     // virtual auto get_freq() const -> u32 = 0;
     // virtual auto trigger(Gba& gba) -> void = 0;
@@ -87,9 +85,9 @@ struct SquareBase : Base<Number>
     u8 freq_msb;
     u8 duty_index;
 
-    auto sample(Gba& gba) const -> s8;
-    auto get_freq() const -> u32;
-    auto is_dac_enabled() -> bool;
+    [[nodiscard]] auto sample(Gba& gba) const -> s8;
+    [[nodiscard]] auto get_freq() const -> u32;
+    [[nodiscard]] auto is_dac_enabled() const -> bool;
 };
 
 struct Square0 : SquareBase<0>
@@ -120,9 +118,9 @@ struct Wave : Base<2>
 
     auto advance_position_counter(Gba& gba) -> void;
 
-    auto sample(Gba& gba) const -> s8;
-    auto get_freq() const -> u32;
-    auto is_dac_enabled() -> bool;
+    [[nodiscard]] auto sample(Gba& gba) const -> s8;
+    [[nodiscard]] auto get_freq() const -> u32;
+    [[nodiscard]] auto is_dac_enabled() const -> bool;
 };
 
 struct Noise : Base<3>
@@ -133,13 +131,13 @@ struct Noise : Base<3>
     u8 clock_shift;
     u8 divisor_code;
 
-    bool width_mode;
+    bool half_width_mode;
 
     auto clock_lfsr(Gba& gba) -> void;
 
-    auto sample(Gba& gba) const -> s8;
-    auto get_freq() const -> u32;
-    auto is_dac_enabled() -> bool;
+    [[nodiscard]] auto sample(Gba& gba) const -> s8;
+    [[nodiscard]] auto get_freq() const -> u32;
+    [[nodiscard]] auto is_dac_enabled() const -> bool;
 };
 
 struct Fifo
@@ -151,7 +149,7 @@ struct Fifo
     u8 w_index;
     u8 count;
 
-    int8_t current_sample;
+    s8 current_sample;
     bool volume_code;
     bool enable_right;
     bool enable_left;
@@ -159,16 +157,15 @@ struct Fifo
 
     auto update_current_sample(Gba& gba, u8 num) -> void;
 
-    auto sample() -> int8_t;
+    [[nodiscard]] auto sample() const -> s8;
     auto reset() -> void;
-    auto size() const -> u8;
+    [[nodiscard]] auto size() const -> u8;
     auto push(u8 value) -> void;
-    auto pop() -> s8;
+    [[nodiscard]] auto pop() -> s8;
 };
 
 struct Apu
 {
-    std::size_t cycles;
     Fifo fifo[2];
 
     // legacy gb apu
@@ -181,23 +178,24 @@ struct Apu
     bool enabled;
 };
 
-auto on_fifo_write8(Gba& gba, u8 value, u8 num) -> void;
-auto on_fifo_write16(Gba& gba, u16 value, u8 num) -> void;
-auto on_fifo_write32(Gba& gba, u32 value, u8 num) -> void;
-auto on_timer_overflow(Gba& gba, u8 timer_num) -> void;
-auto on_soundcnt_write(Gba& gba) -> void;
+STATIC auto on_fifo_write8(Gba& gba, u8 value, u8 num) -> void;
+STATIC auto on_fifo_write16(Gba& gba, u16 value, u8 num) -> void;
+STATIC auto on_fifo_write32(Gba& gba, u32 value, u8 num) -> void;
+STATIC auto on_timer_overflow(Gba& gba, u8 timer_num) -> void;
+STATIC auto on_soundcnt_write(Gba& gba) -> void;
 
-auto write_legacy8(Gba& gba, u32 addr, u8 value) -> void;
-auto write_legacy(Gba& gba, u32 addr, u16 value) -> void;
+STATIC auto write_legacy8(Gba& gba, u32 addr, u8 value) -> void;
+STATIC auto write_legacy(Gba& gba, u32 addr, u16 value) -> void;
 
-auto on_square0_event(Gba& gba) -> void;
-auto on_square1_event(Gba& gba) -> void;
-auto on_wave_event(Gba& gba) -> void;
-auto on_noise_event(Gba& gba) -> void;
-auto on_frame_sequencer_event(Gba& gba) -> void;
-auto on_sample_event(Gba& gba) -> void;
+STATIC auto on_square0_event(Gba& gba) -> void;
+STATIC auto on_square1_event(Gba& gba) -> void;
+STATIC auto on_wave_event(Gba& gba) -> void;
+STATIC auto on_noise_event(Gba& gba) -> void;
+STATIC auto on_frame_sequencer_event(Gba& gba) -> void;
+STATIC auto on_sample_event(Gba& gba) -> void;
 
-auto reset(Gba& gba) -> void;
-auto run(Gba& gba, uint8_t cycles) -> void;
+STATIC auto is_apu_enabled(Gba& gba) -> bool;
+
+STATIC auto reset(Gba& gba, bool skip_bios) -> void;
 
 } // namespace gba::apu

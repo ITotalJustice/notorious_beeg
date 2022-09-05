@@ -4,42 +4,41 @@
 #pragma once
 
 #include "fwd.hpp"
-#include <cstdint>
 
-namespace gba::dma
+namespace gba::dma {
+
+enum class Mode : u8
 {
+	immediate = 0b00,
+	vblank = 0b01,
+	hblank = 0b10,
+	special = 0b11,
+};
+
+enum class IncrementType : u8
+{
+	inc = 0b00,
+	dec = 0b01,
+	unchanged = 0b10,
+	// src: invalid
+	// dst: reload dst address
+	special = 0b11,
+};
+
+enum class SizeType : u8
+{
+	half = 0, // 16bit
+	word = 1, // 32bit
+};
+
 struct Channel
 {
-	enum class Mode : std::uint8_t
-	{
-		immediate = 0b00,
-		vblank = 0b01,
-		hblank = 0b10,
-		special = 0b11,
-	};
+	u32 len;
+	u32 src_addr;
+	u32 dst_addr;
 
-	enum class IncrementType : std::uint8_t
-	{
-		inc = 0b00,
-		dec = 0b01,
-		unchanged = 0b10,
-		// src: invalid
-		// dst: reload dst address
-		special = 0b11,
-	};
-
-	enum class SizeType : bool
-	{
-		half = 0, // 16bit
-		word = 1, // 32bit
-	};
-
-	std::uint32_t len;
-	std::uint32_t src_addr;
-	std::uint32_t dst_addr;
-
-	std::int8_t src_increment;
-	std::int8_t dst_increment;
+	s8 src_increment;
+	s8 dst_increment;
 
 	Mode mode;
 	IncrementType src_increment_type;
@@ -51,10 +50,10 @@ struct Channel
 	bool enabled;
 };
 
-// uint32_t& dmasad, uint32_t& dmadad, uint16_t& dmacnt_h, uint16_t& dmacnt_l
-auto on_event(Gba& gba) -> void;
-auto on_hblank(Gba& gba) -> void;
-auto on_vblank(Gba& gba) -> void;
-auto on_fifo_empty(Gba& gba, std::uint8_t num) -> void;
-auto on_cnt_write(Gba& gba, std::uint8_t channel_num) -> void;
+STATIC auto on_event(Gba& gba) -> void;
+STATIC auto on_hblank(Gba& gba) -> void;
+STATIC auto on_vblank(Gba& gba) -> void;
+STATIC auto on_fifo_empty(Gba& gba, u8 num) -> void;
+STATIC auto on_cnt_write(Gba& gba, u8 channel_num) -> void;
+
 } // namespace gba::dma

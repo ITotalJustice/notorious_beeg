@@ -4,22 +4,19 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
-#include "mem.hpp"
-#include <bit>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 136 (5.13)
 template<
     bool S // 0=unsigned, 1=signed
 >
-auto add_offset_to_stack_pointer(Gba& gba, uint16_t opcode) -> void
+auto add_offset_to_stack_pointer(Gba& gba, const u16 opcode) -> void
 {
     auto SWord7 = bit::get_range<0, 6>(opcode) << 2;
 
-    if constexpr (S)
+    if constexpr(S)
     {
         SWord7 *= -1;
     }
@@ -27,4 +24,5 @@ auto add_offset_to_stack_pointer(Gba& gba, uint16_t opcode) -> void
     set_sp(gba, get_sp(gba) + SWord7);
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb

@@ -7,32 +7,27 @@
 #include "mem.hpp"
 #include <bit>
 #include <cassert>
-#include <cstdint>
-#include <cstdio>
 
 namespace gba::arm7tdmi::thumb {
+namespace {
 
 // page 138 (5.14)
 template<
     bool L, // 0=push, 1=pop
     bool R  // 0=non, 1=store lr/load pc
 >
-auto push_pop_registers(Gba& gba, uint16_t opcode) -> void
+auto push_pop_registers(Gba& gba, const u16 opcode) -> void
 {
-    std::uint16_t Rlist = bit::get_range<0, 7>(opcode);
+    u16 Rlist = bit::get_range<0, 7>(opcode);
     auto addr = get_sp(gba);
 
-    // assert(Rlist && "empty rlist edge case");
-    if (!Rlist && !R)
-    {
-        gba_log("[push_pop_registers] empty rlist edge case\n");
-    }
+    assert((Rlist || R) && "empty rlist edge case");
 
-    if constexpr (L) // pop
+    if constexpr(L) // pop
     {
-        if constexpr (R)
+        if constexpr(R)
         {
-            Rlist = bit::set<PC_INDEX>(Rlist, true);
+            Rlist = bit::set<PC_INDEX>(Rlist);
         }
 
         while (Rlist)
@@ -50,9 +45,9 @@ auto push_pop_registers(Gba& gba, uint16_t opcode) -> void
     }
     else // push
     {
-        if constexpr (R)
+        if constexpr(R)
         {
-            Rlist = bit::set<LR_INDEX>(Rlist, true);
+            Rlist = bit::set<LR_INDEX>(Rlist);
         }
 
         // because pop decrements but loads lowest addr first
@@ -74,4 +69,5 @@ auto push_pop_registers(Gba& gba, uint16_t opcode) -> void
     }
 }
 
+} // namespace
 } // namespace gba::arm7tdmi::thumb
