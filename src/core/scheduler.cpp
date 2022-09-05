@@ -153,7 +153,7 @@ auto on_loadstate(Gba& gba) -> void
                 case Event::APU_WAVE: entry.cb = apu::on_wave_event; break;
                 case Event::APU_NOISE: entry.cb = apu::on_noise_event; break;
                 case Event::APU_FRAME_SEQUENCER: entry.cb = apu::on_frame_sequencer_event; break;
-                case Event::APU_SAMPLE: entry.cb = apu::on_sample_event; break;
+                case Event::APU_SAMPLE: /* handled below */ break;
                 case Event::TIMER0: entry.cb = timer::on_timer0_event; break;
                 case Event::TIMER1: entry.cb = timer::on_timer1_event; break;
                 case Event::TIMER2: entry.cb = timer::on_timer2_event; break;
@@ -166,6 +166,17 @@ auto on_loadstate(Gba& gba) -> void
                 case Event::END: assert(!"Event::END somehow in array"); break;
             }
         }
+    }
+
+    // special case for sample event
+    // SEE: https://github.com/ITotalJustice/notorious_beeg/issues/85
+    if (gba.sample_data.empty() || !gba.sample_rate_calculated)
+    {
+        remove(gba, Event::APU_SAMPLE);
+    }
+    else
+    {
+        add(gba, Event::APU_SAMPLE, apu::on_sample_event, gba.sample_rate_calculated);
     }
 }
 
