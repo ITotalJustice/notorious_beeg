@@ -85,4 +85,8 @@ if (BENCHMARK)
     set(FRONTEND ON)
 endif()
 
+if (EMSCRIPTEN)
+    set(FRONTEND ON)
+endif()
+
 add_subdirectory(src)
