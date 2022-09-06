@@ -82,8 +82,8 @@ public:
     SDL_Texture* texture{};
 
     std::vector<SDL_Texture*> gif_textures{};
-    std::size_t gif_index{};
     std::uint32_t gif_delta{};
+    int gif_index{};
     int gif_w{};
     int gif_h{};
     int gif_z{};

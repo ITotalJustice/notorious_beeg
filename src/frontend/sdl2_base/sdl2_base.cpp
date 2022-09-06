@@ -962,14 +962,14 @@ auto Sdl2Base::gif_render(SDL_Rect* src_rect, SDL_Rect* dst_rect) -> void
     if (dst_rect == nullptr)
     {
         const auto [screen_w, screen_h] = get_renderer_size();
-        const auto scale_w = screen_w / gif_w;
-        const auto scale_h = screen_h / gif_h;
+        const auto scale_w = static_cast<double>(screen_w) / static_cast<double>(gif_w);
+        const auto scale_h = static_cast<double>(screen_h) / static_cast<double>(gif_h);
         const auto gif_scale = std::min(scale_w, scale_h);
 
         rect.w = gif_w * gif_scale;
         rect.h = gif_h * gif_scale;
-        rect.x = (screen_w - gif_w) / 2;
-        rect.y = (screen_h - gif_h) / 2;
+        rect.x = (screen_w - rect.w) / 2;
+        rect.y = (screen_h - rect.h) / 2;
 
         dst_rect = &rect;
     }
