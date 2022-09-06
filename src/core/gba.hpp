@@ -82,7 +82,7 @@ struct Gba
     [[nodiscard]] auto loadsave(std::span<const u8> new_save) -> bool;
     // checks if the save has been written to.
     // the flag is cleared upon calling this function.
-    [[nodiscard]] auto is_save_dirty()-> bool;
+    [[nodiscard]] auto is_save_dirty(bool auto_clear) -> bool;
     // returns empty span if the game doesn't have a save
     // call is_save_dirty() first to see if the game needs saving!
     [[nodiscard]] auto getsave() const -> std::span<const u8>;

@@ -319,10 +319,13 @@ auto Gba::loadsave(std::span<const u8> new_save) -> bool
     std::unreachable();
 }
 
-auto Gba::is_save_dirty()-> bool
+auto Gba::is_save_dirty(bool auto_clear) -> bool
 {
     const auto result = this->backup.dirty_ram;
-    this->backup.dirty_ram = false;
+    if (auto_clear)
+    {
+        this->backup.dirty_ram = false;
+    }
     return result;
 }
 

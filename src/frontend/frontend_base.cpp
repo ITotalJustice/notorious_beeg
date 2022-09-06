@@ -483,7 +483,7 @@ auto Base::loadsave(const std::string& path) -> bool
 auto Base::savegame(const std::string& path) -> bool
 {
     // is save isn't dirty, then return early
-    if (!gameboy_advance.is_save_dirty())
+    if (!gameboy_advance.is_save_dirty(true))
     {
         return false;
     }

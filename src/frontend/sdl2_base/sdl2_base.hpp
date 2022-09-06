@@ -64,6 +64,13 @@ public:
     virtual auto update_pixels_from_gba() -> void;
     virtual auto update_texture_from_pixels() -> void;
 
+    // checks a few variables to see if the audio device should be paused
+    // or un-paused.
+    // really, pausing should be called whenever one of these variables
+    // are changed instead of calling this function every frame!
+    // todo: this needs to be re-written
+    auto update_audio_device_pause_status() -> void;
+
 public:
     SDL_Window* window{};
     SDL_Renderer* renderer{};

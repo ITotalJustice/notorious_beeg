@@ -24,9 +24,6 @@ option(EM_USE_THREADS
 option(EMRUN "build with emrun support, used for testing" OFF)
 
 if (EM_USE_THREADS)
-    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-    # target_link_options(notorious_beeg_EMSDK PRIVATE "-pthread")
-    # target_compile_options(notorious_beeg_EMSDK PRIVATE "-pthread")
     target_compile_definitions(notorious_beeg_EMSDK PRIVATE EM_THREADS=1)
 endif()
 

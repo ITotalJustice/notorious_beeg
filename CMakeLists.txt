@@ -72,6 +72,7 @@ option(FRONTEND "enable frontend build" OFF)
 option(SDL2 "basic sdl2 frontend" OFF)
 option(IMGUI "imgui frontend" OFF)
 option(BENCHMARK "benchmark frontend" OFF)
+option(NATIVE "enable native build" OFF)
 
 if (SDL2)
     set(FRONTEND ON)

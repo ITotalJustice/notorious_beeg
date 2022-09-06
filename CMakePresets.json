@@ -121,7 +121,11 @@
             "name": "emsdk",
             "displayName": "emsdk",
             "inherits": ["core"],
-            "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+            "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+            "cacheVariables": {
+                "INTERPRETER": "INTERPRETER_TABLE",
+                "LTO": false
+            }
         },
         {
             "name": "emsdk-dev",
@@ -129,7 +133,8 @@
             "inherits": ["core-dev"],
             "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
             "cacheVariables": {
-                "EMRUN": true
+                "EMRUN": true,
+                "INTERPRETER": "INTERPRETER_TABLE"
             }
         },
         {
@@ -137,7 +142,8 @@
             "displayName": "benchmark",
             "inherits": ["core"],
             "cacheVariables": {
-                "BENCHMARK": true
+                "BENCHMARK": true,
+                "NATIVE": true
             }
         },
         {
@@ -145,7 +151,8 @@
             "displayName": "benchmark-dev",
             "inherits": ["core-dev"],
             "cacheVariables": {
-                "BENCHMARK": true
+                "BENCHMARK": true,
+                "NATIVE": true
             }
         },
         {
@@ -153,15 +160,17 @@
             "displayName": "sdl2-table",
             "inherits": ["sdl2"],
             "cacheVariables": {
-                "INTERPRETER": "INTERPRETER_TABLE"
+                "INTERPRETER": "INTERPRETER_TABLE",
+                "NATIVE": true
             }
         },
         {
             "name": "sdl2-switch",
             "displayName": "sdl2-switch",
-            "inherits": ["sdl2"],
+            "inherits": ["sdl2", "clang"],
             "cacheVariables": {
-                "INTERPRETER": "INTERPRETER_SWITCH"
+                "INTERPRETER": "INTERPRETER_SWITCH",
+                "NATIVE": true
             }
         },
         {
@@ -169,7 +178,8 @@
             "displayName": "sdl2-goto",
             "inherits": ["sdl2"],
             "cacheVariables": {
-                "INTERPRETER": "INTERPRETER_GOTO"
+                "INTERPRETER": "INTERPRETER_GOTO",
+                "NATIVE": true
             }
         },
         {

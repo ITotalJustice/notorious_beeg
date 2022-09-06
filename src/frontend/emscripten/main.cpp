@@ -18,10 +18,12 @@
 #if 0
 #include </home/total/emsdk/upstream/emscripten/cache/sysroot/include/emscripten/emscripten.h>
 #include </home/total/emsdk/upstream/emscripten/cache/sysroot/include/emscripten/html5.h>
+#include </home/total/emsdk/upstream/emscripten/cache/sysroot/include/emscripten/html5_webgl.h>
 #include </home/total/emsdk/upstream/emscripten/cache/sysroot/include/emscripten/console.h>
 #else
 #include <emscripten.h>
 #include <emscripten/html5.h>
+#include <emscripten/html5_webgl.h>
 #include <emscripten/console.h>
 #endif
 
@@ -143,7 +145,6 @@ public:
     auto loadstate(const std::string& path = "") -> bool override;
     auto savestate(const std::string& path = "") -> bool override;
 
-private:
     auto render() -> void override;
 
     auto change_menu(Menu new_menu) -> void;
@@ -172,6 +173,8 @@ private:
     auto on_speed_change() -> void;
     auto on_audio_change() -> void;
 
+    auto on_flush_save() -> void;
+
 public:
     TouchButton touch_buttons[TouchID_MAX]{};
     TouchCacheEntry touch_entries[10]{}; // 10 fingers max
@@ -189,28 +192,360 @@ constexpr auto get_scale(float minw, float minh, float w, float h)
     return std::min(scale_w, scale_h);
 }
 
-auto em_set_loadrom_button_visibility(bool visible)
+auto em_key_callback(int eventType, const EmscriptenKeyboardEvent *keyEvent, void *userData) -> EM_BOOL
 {
-    EM_ASM({
-        let button = document.getElementById('RomFilePicker');
-        if (arguments[0]) {
-            button.style.visibility = 'visible';
-        } else {
-            button.style.visibility = 'hidden';
-        }
-    }, visible);
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_KEYPRESS:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_KEYPRESS]\n");
+            break;
 
-    EM_ASM({
-        let button = document.getElementById('DlSaves');
-        if (arguments[0]) {
-            button.style.visibility = 'visible';
-        } else {
-            button.style.visibility = 'hidden';
-        }
-    }, visible);
+        case EMSCRIPTEN_EVENT_KEYDOWN:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_KEYDOWN]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_KEYUP:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_KEYUP]\n");
+            break;
+    }
+
+    return false;
 }
 
-auto em_idbfs_mkdir(const std::string& path, bool mount = true) -> void
+auto em_mouse_callback(int eventType, const EmscriptenMouseEvent *mouseEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_CLICK:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_CLICK]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_MOUSEDOWN:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_MOUSEDOWN]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_MOUSEUP:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_MOUSEUP]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_DBLCLICK:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_DBLCLICK]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_MOUSEMOVE:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_MOUSEMOVE]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_MOUSEENTER:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_MOUSEENTER]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_MOUSELEAVE:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_MOUSELEAVE]\n");
+            break;
+    }
+
+    return false;
+}
+
+auto em_wheel_callback(int eventType, const EmscriptenWheelEvent *wheelEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_WHEEL:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_WHEEL]\n");
+            break;
+    }
+
+    return false;
+}
+
+auto em_ui_callback(int eventType, const EmscriptenUiEvent *uiEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_RESIZE:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_RESIZE]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_SCROLL:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_SCROLL]\n");
+            break;
+    }
+
+    return false;
+}
+
+auto em_focus_callback(int eventType, const EmscriptenFocusEvent *focusEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_BLUR:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_BLUR] node: %s id: %s\n", focusEvent->nodeName, focusEvent->id);
+            break;
+
+        case EMSCRIPTEN_EVENT_FOCUS:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_FOCUS] node: %s id: %s\n", focusEvent->nodeName, focusEvent->id);
+            break;
+
+        case EMSCRIPTEN_EVENT_FOCUSIN:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_FOCUSIN] node: %s id: %s\n", focusEvent->nodeName, focusEvent->id);
+            break;
+
+        case EMSCRIPTEN_EVENT_FOCUSOUT:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_FOCUSOUT] node: %s id: %s\n", focusEvent->nodeName, focusEvent->id);
+            break;
+    }
+
+    return false;
+}
+
+auto em_deviceorientation_callback(int eventType, const EmscriptenDeviceOrientationEvent *deviceOrientationEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_DEVICEORIENTATION:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_DEVICEORIENTATION]\n");
+            break;
+    }
+
+    return false;
+}
+
+auto em_devicemotion_callback(int eventType, const EmscriptenDeviceMotionEvent *deviceMotionEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_DEVICEMOTION:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_DEVICEMOTION]\n");
+            break;
+    }
+
+    return false;
+}
+
+auto em_orientationchange_callback(int eventType, const EmscriptenOrientationChangeEvent *orientationChangeEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_ORIENTATIONCHANGE:
+            switch (orientationChangeEvent->orientationIndex)
+            {
+                case EMSCRIPTEN_ORIENTATION_PORTRAIT_PRIMARY:
+                    // emscripten_console_logf("[EMSCRIPTEN_ORIENTATION_PORTRAIT_PRIMARY] angle: %d\n", orientationChangeEvent->orientationAngle);
+                    break;
+
+                case EMSCRIPTEN_ORIENTATION_PORTRAIT_SECONDARY:
+                    // emscripten_console_logf("[EMSCRIPTEN_ORIENTATION_PORTRAIT_SECONDARY] angle: %d\n", orientationChangeEvent->orientationAngle);
+                    break;
+
+                case EMSCRIPTEN_ORIENTATION_LANDSCAPE_PRIMARY:
+                    // emscripten_console_logf("[EMSCRIPTEN_ORIENTATION_LANDSCAPE_PRIMARY] angle: %d\n", orientationChangeEvent->orientationAngle);
+                    break;
+
+                case EMSCRIPTEN_ORIENTATION_LANDSCAPE_SECONDARY:
+                    // emscripten_console_logf("[EMSCRIPTEN_ORIENTATION_LANDSCAPE_SECONDARY] angle: %d\n", orientationChangeEvent->orientationAngle);
+                    break;
+
+                default:
+                    // emscripten_console_logf("[EMSCRIPTEN_ORIENTATION_UNKNOWN] angle: %d index: %d\n", orientationChangeEvent->orientationAngle, orientationChangeEvent->orientationIndex);
+                    break;
+            }
+            break;
+    }
+
+    return false;
+}
+
+auto em_fullscreenchange_callback(int eventType, const EmscriptenFullscreenChangeEvent *fullscreenChangeEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_FULLSCREENCHANGE:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_FULLSCREENCHANGE] node: %s id: %s fullscreen: %u screen: %dx%d element: %dx%d\n", fullscreenChangeEvent->nodeName, fullscreenChangeEvent->id, fullscreenChangeEvent->isFullscreen, fullscreenChangeEvent->elementWidth, fullscreenChangeEvent->screenHeight, fullscreenChangeEvent->elementWidth, fullscreenChangeEvent->elementHeight);
+            break;
+    }
+
+    return false;
+}
+
+auto em_pointerlockchange_callback(int eventType, const EmscriptenPointerlockChangeEvent *pointerlockChangeEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_POINTERLOCKCHANGE:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_POINTERLOCKCHANGE] node: %s id: %s\n", pointerlockChangeEvent->nodeName, pointerlockChangeEvent->id);
+            break;
+    }
+
+    return false;
+}
+
+auto em_pointerlockerror_callback(int eventType, const void *reserved, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_POINTERLOCKERROR:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_POINTERLOCKERROR]\n");
+            break;
+    }
+
+    return false;
+}
+
+auto em_visibilitychange_callback(int eventType, const EmscriptenVisibilityChangeEvent *visibilityChangeEvent, void *userData) -> EM_BOOL
+{
+    auto app = static_cast<App*>(userData);
+
+    switch (visibilityChangeEvent->visibilityState)
+    {
+        case EMSCRIPTEN_VISIBILITY_HIDDEN:
+            // this is needed as firefox stops em loop from running very quickly, so
+            // the pause won't be polled nor will sdl events fire in time!
+            app->has_focus = false;
+            app->update_audio_device_pause_status();
+            app->on_flush_save();
+            emscripten_console_logf("[EMSCRIPTEN_VISIBILITY_HIDDEN] hidden: %u\n", visibilityChangeEvent->hidden);
+            break;
+
+        case EMSCRIPTEN_VISIBILITY_VISIBLE:
+            app->has_focus = true;
+            emscripten_console_logf("[EMSCRIPTEN_VISIBILITY_VISIBLE] hidden: %u\n", visibilityChangeEvent->hidden);
+            break;
+
+        case EMSCRIPTEN_VISIBILITY_PRERENDER:
+            emscripten_console_logf("[EMSCRIPTEN_VISIBILITY_PRERENDER] hidden: %u\n", visibilityChangeEvent->hidden);
+            break;
+
+        case EMSCRIPTEN_VISIBILITY_UNLOADED:
+            emscripten_console_logf("[EMSCRIPTEN_VISIBILITY_UNLOADED] hidden: %u\n", visibilityChangeEvent->hidden);
+            break;
+    }
+
+    return false;
+}
+
+auto em_touch_callback(int eventType, const EmscriptenTouchEvent *touchEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_TOUCHSTART:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_TOUCHSTART]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_TOUCHEND:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_TOUCHEND]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_TOUCHMOVE:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_TOUCHMOVE]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_TOUCHCANCEL:
+            // emscripten_console_logf("[EMSCRIPTEN_EVENT_TOUCHCANCEL]\n");
+            break;
+    }
+
+    return false;
+}
+
+auto em_gamepad_callback(int eventType, const EmscriptenGamepadEvent *gamepadEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_GAMEPADCONNECTED:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_GAMEPADCONNECTED] id: %s\n", gamepadEvent->id);
+            break;
+
+        case EMSCRIPTEN_EVENT_GAMEPADDISCONNECTED:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_GAMEPADDISCONNECTED] id: %s\n", gamepadEvent->id);
+            break;
+    }
+
+    return false;
+}
+
+auto em_battery_callback(int eventType, const EmscriptenBatteryEvent *batteryEvent, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_BATTERYCHARGINGCHANGE:
+            if (batteryEvent->charging)
+            {
+                emscripten_console_logf("[EMSCRIPTEN_EVENT_BATTERYCHARGINGCHANGE] time to charge: %.2f\n", batteryEvent->chargingTime);
+            }
+            else
+            {
+                emscripten_console_logf("[EMSCRIPTEN_EVENT_BATTERYCHARGINGCHANGE] discharging, time left: %.2f\n", batteryEvent->dischargingTime);
+            }
+            break;
+
+        case EMSCRIPTEN_EVENT_BATTERYLEVELCHANGE:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_BATTERYLEVELCHANGE] %.2f\n", batteryEvent->level);
+            break;
+    }
+
+    return false;
+}
+
+auto em_beforeunload_callback(int eventType, const void *reserved, void *userData) -> const char*
+{
+    auto app = static_cast<App*>(userData);
+    app->on_flush_save();
+    // return "";
+    return "do you really want to exit?";
+}
+
+auto em_webgl_context_callback(int eventType, const void *reserved, void *userData) -> EM_BOOL
+{
+    switch (eventType)
+    {
+        case EMSCRIPTEN_EVENT_WEBGLCONTEXTLOST:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_WEBGLCONTEXTLOST]\n");
+            break;
+
+        case EMSCRIPTEN_EVENT_WEBGLCONTEXTRESTORED:
+            emscripten_console_logf("[EMSCRIPTEN_EVENT_WEBGLCONTEXTRESTORED]\n");
+            break;
+    }
+
+    return false;
+}
+
+auto em_set_button_rect(const char* id, int x, int y, int w, int h)
+{
+    EM_ASM({
+        let id = UTF8ToString(arguments[0]);
+        let button = document.getElementById(id);
+
+        button.style.left = arguments[1] + 'px';
+        button.style.top = arguments[2] + 'px';
+        button.style.width = arguments[3] + 'px';
+        button.style.height= arguments[4] + 'px';
+    }, id, x, y, w, h);
+}
+
+auto em_set_button_visibility(const char* id, bool visible)
+{
+    EM_ASM({
+        let id = UTF8ToString(arguments[0]);
+        let button = document.getElementById(id);
+
+        if (arguments[1]) {
+            button.style.visibility = 'visible';
+        } else {
+            button.style.visibility = 'hidden';
+        }
+    }, id, visible);
+}
+
+auto em_set_buttons_visibility(bool visible)
+{
+    em_set_button_visibility("RomFilePicker", visible);
+    em_set_button_visibility("DlSaves", visible);
+}
+
+auto em_idbfs_mkdir(const char* path, bool mount = true) -> void
 {
     EM_ASM({
         let path = UTF8ToString(arguments[0]);
@@ -223,7 +558,7 @@ auto em_idbfs_mkdir(const std::string& path, bool mount = true) -> void
         if (mount) {
             FS.mount(IDBFS, {}, path);
         }
-    }, path.c_str(), mount);
+    }, path, mount);
 }
 
 auto em_idbfs_syncfs(bool populate = false) -> void
@@ -249,12 +584,7 @@ auto em_loop(void* user) -> void
 auto sdl2_sram_timer_callback(Uint32 interval, void* user) -> Uint32
 {
     auto app = static_cast<App*>(user);
-    if (app->has_rom)
-    {
-        std::scoped_lock lock{app->core_mutex};
-        app->savegame("");
-    }
-    // std::printf("callback! %u\n", interval);
+    app->on_flush_save();
     return interval;
 }
 #endif
@@ -288,16 +618,15 @@ App::App(int argc, char** argv) : frontend::sdl2::Sdl2Base(argc, argv)
 
     running = false;
 
-    if (!init_audio(this, sdl2_audio_callback, on_audio_callback))
+    gameboy_advance.set_userdata(this);
+    gameboy_advance.set_vblank_callback(on_vblank_callback);
+
+    if (init_audio(this, sdl2_audio_callback, on_audio_callback))
     {
-        return;
+        gameboy_advance.set_audio_callback(on_audio_callback, sample_data);
     }
 
     ROM_LOAD_EVENT = SDL_RegisterEvents(1);
-
-    gameboy_advance.set_userdata(this);
-    gameboy_advance.set_vblank_callback(on_vblank_callback);
-    gameboy_advance.set_audio_callback(on_audio_callback, sample_data);
 
     // setup idbfs
     em_idbfs_mkdir("/save");
@@ -354,9 +683,51 @@ App::App(int argc, char** argv) : frontend::sdl2::Sdl2Base(argc, argv)
         FLUSH_SAVE_EVENT = SDL_RegisterEvents(1);
         EM_ASM( setInterval(_em_flush_save, 1000 * 3); );
     #endif
-    // set fullscreen
-    // set_window_size_from_renderer();
 
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_keypress_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_key_callback)) { emscripten_console_logf("[EM] failed to set keypress callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_key_callback)) { emscripten_console_logf("[EM] failed to set keydown callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_key_callback)) { emscripten_console_logf("[EM] failed to set keyup callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_click_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_mouse_callback)) { emscripten_console_logf("[EM] failed to set click callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_mousedown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_mouse_callback)) { emscripten_console_logf("[EM] failed to set mousedown callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_mouseup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_mouse_callback)) { emscripten_console_logf("[EM] failed to set mouseup callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_dblclick_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_mouse_callback)) { emscripten_console_logf("[EM] failed to set dblclick callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_mousemove_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_mouse_callback)) { emscripten_console_logf("[EM] failed to set mousemove callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_mouseenter_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_mouse_callback)) { emscripten_console_logf("[EM] failed to set mouseenter callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_mouseleave_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_mouse_callback)) { emscripten_console_logf("[EM] failed to set mouseleave callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_mouseover_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_mouse_callback)) { emscripten_console_logf("[EM] failed to set mouseover callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_mouseout_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_mouse_callback)) { emscripten_console_logf("[EM] failed to set mouseout callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_wheel_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_wheel_callback)) { emscripten_console_logf("[EM] failed to set wheel callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_ui_callback)) { emscripten_console_logf("[EM] failed to set resize callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_scroll_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_ui_callback)) { emscripten_console_logf("[EM] failed to set scroll callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_blur_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_focus_callback)) { emscripten_console_logf("[EM] failed to set blur callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_focus_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_focus_callback)) { emscripten_console_logf("[EM] failed to set focus callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_focusin_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_focus_callback)) { emscripten_console_logf("[EM] failed to set focusin callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_focusout_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_focus_callback)) { emscripten_console_logf("[EM] failed to set focusout callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_deviceorientation_callback(this, true, em_deviceorientation_callback)) { emscripten_console_logf("[EM] failed to set deviceorientation callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_devicemotion_callback(this, true, em_devicemotion_callback)) { emscripten_console_logf("[EM] failed to set devicemotion callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_orientationchange_callback(this, true, em_orientationchange_callback)) { emscripten_console_logf("[EM] failed to set orientationchange callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_fullscreenchange_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_fullscreenchange_callback)) { emscripten_console_logf("[EM] failed to set fullscreenchange callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_pointerlockchange_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_pointerlockchange_callback)) { emscripten_console_logf("[EM] failed to set pointerlockchange callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_pointerlockerror_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_pointerlockerror_callback)) { emscripten_console_logf("[EM] failed to set pointerlockerror callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_visibilitychange_callback(this, true, em_visibilitychange_callback)) { emscripten_console_logf("[EM] failed to set visibilitychange callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_touchstart_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_touch_callback)) { emscripten_console_logf("[EM] failed to set touchstart callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_touchend_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_touch_callback)) { emscripten_console_logf("[EM] failed to set touchend callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_touchmove_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_touch_callback)) { emscripten_console_logf("[EM] failed to set touchmove callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_touchcancel_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_touch_callback)) { emscripten_console_logf("[EM] failed to set touchcancel callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_gamepadconnected_callback(this, true, em_gamepad_callback)) { emscripten_console_logf("[EM] failed to set gamepadconnected callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_gamepaddisconnected_callback(this, true, em_gamepad_callback)) { emscripten_console_logf("[EM] failed to set gamepaddisconnected callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_batterychargingchange_callback(this, em_battery_callback)) { emscripten_console_logf("[EM] failed to set batterychargingchange callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_batterylevelchange_callback(this, em_battery_callback)) { emscripten_console_logf("[EM] failed to set batterylevelchange callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_beforeunload_callback(this, em_beforeunload_callback)) { emscripten_console_logf("[EM] failed to set beforeunload callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_webglcontextlost_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_webgl_context_callback)) { emscripten_console_logf("[EM] failed to set webglcontextlost callback\n"); }
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_set_webglcontextrestored_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, em_webgl_context_callback)) { emscripten_console_logf("[EM] failed to set webglcontextrestored callback\n"); }
+
+    if (EMSCRIPTEN_RESULT_SUCCESS != emscripten_lock_orientation(EMSCRIPTEN_ORIENTATION_LANDSCAPE_PRIMARY | EMSCRIPTEN_ORIENTATION_LANDSCAPE_SECONDARY))
+    {
+        emscripten_console_logf("[EM] failed to lock orientation\n");
+    }
+
+    change_menu(Menu::SIDEBAR);
     running = true;
 }
 
@@ -469,13 +840,13 @@ auto App::change_menu(Menu new_menu) -> void
     {
         case Menu::ROM:
             emu_run = true;
-            em_set_loadrom_button_visibility(false);
+            em_set_buttons_visibility(false);
             break;
 
         case Menu::SIDEBAR:
             // unset all buttons
             set_button(gba::Button::ALL, false);
-            em_set_loadrom_button_visibility(true);
+            em_set_buttons_visibility(true);
             break;
     }
 
@@ -717,7 +1088,7 @@ auto App::on_user_event(SDL_UserEvent& e) -> void
 
             char buf[100];
             gba::Header header{gameboy_advance.rom};
-            std::sprintf(buf, "%s - [%.*s]", "Notorious BEEG", 12, header.game_title);
+            emscripten_console_logf(buf, "%s - [%.*s]", "Notorious BEEG", 12, header.game_title);
             SDL_SetWindowTitle(window, buf);
 
             emscripten_console_logf("[EM] loaded rom! name: %s len: %zu\n", data->name, data->len);
@@ -727,11 +1098,7 @@ auto App::on_user_event(SDL_UserEvent& e) -> void
     }
     else if (e.type == FLUSH_SAVE_EVENT)
     {
-        if (has_rom)
-        {
-            std::scoped_lock lock{core_mutex};
-            savegame("");
-        }
+        on_flush_save();
     }
 }
 
@@ -870,17 +1237,12 @@ auto App::toggle_fullscreen() -> void
                 console.log("got msExitFullScreen");
             }
         );
-
-        // emscripten_exit_fullscreen();
     }
     else
     {
-        // works, but removes html buttons, so the file picker breaks...
-        // emscripten_request_fullscreen("#canvas", 1);
-
         EM_ASM(
             if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen();
+                document.documentElement.requestFullscreen({ navigationUI: "hide" });
                 console.log("got requestFullscreen");
             } else if (document.documentElement.mozRequestFullScreen) {
                 document.documentElement.mozRequestFullScreen();
@@ -926,34 +1288,12 @@ auto App::resize_emu_screen() -> void
         }
     }
 
-    #if 0
-    touch_buttons[TouchID_A].rect.x = (w - touch_buttons[TouchID_A].rect.w) - (5 * scale2);
-    touch_buttons[TouchID_A].rect.y = (h - touch_buttons[TouchID_A].rect.h) - (5 * scale2);
-
-    touch_buttons[TouchID_B].rect.x = (touch_buttons[TouchID_A].rect.x - touch_buttons[TouchID_B].rect.w) - (10 * scale2);
-    touch_buttons[TouchID_B].rect.y = touch_buttons[TouchID_A].rect.y;
-    #else
     touch_buttons[TouchID_A].rect.x = (w - touch_buttons[TouchID_A].rect.w) - (20 * scale2);
     touch_buttons[TouchID_A].rect.y = (h - touch_buttons[TouchID_A].rect.h) - (40 * scale2);
 
     touch_buttons[TouchID_B].rect.x = (touch_buttons[TouchID_A].rect.x - touch_buttons[TouchID_B].rect.w) - (20 * scale2);
     touch_buttons[TouchID_B].rect.y = touch_buttons[TouchID_A].rect.y;
 
-    #endif
-
-    #if 0
-    touch_buttons[TouchID_UP].rect.x = 30 * scale2;
-    touch_buttons[TouchID_UP].rect.y = h - 82 * scale2;
-
-    touch_buttons[TouchID_DOWN].rect.x = touch_buttons[TouchID_UP].rect.x;
-    touch_buttons[TouchID_DOWN].rect.y = (touch_buttons[TouchID_UP].rect.y + touch_buttons[TouchID_UP].rect.h);
-
-    touch_buttons[TouchID_LEFT].rect.x = 5 * scale2;
-    touch_buttons[TouchID_LEFT].rect.y = h - 60 * scale2;
-
-    touch_buttons[TouchID_RIGHT].rect.x = (touch_buttons[TouchID_LEFT].rect.x + touch_buttons[TouchID_LEFT].rect.w) + (5 * scale2);
-    touch_buttons[TouchID_RIGHT].rect.y = touch_buttons[TouchID_LEFT].rect.y;
-    #else
     touch_buttons[TouchID_UP].rect.x = 79 * scale2;
     touch_buttons[TouchID_UP].rect.y = h - 200 * scale2;
 
@@ -965,21 +1305,12 @@ auto App::resize_emu_screen() -> void
 
     touch_buttons[TouchID_RIGHT].rect.x = (touch_buttons[TouchID_LEFT].rect.x + touch_buttons[TouchID_LEFT].rect.w) + (16 * scale2);
     touch_buttons[TouchID_RIGHT].rect.y = touch_buttons[TouchID_LEFT].rect.y;
-    #endif
 
-    #if 0
-    touch_buttons[TouchID_L].rect.x = 10 * scale2;
-    touch_buttons[TouchID_L].rect.y = 10 * scale2;
-
-    touch_buttons[TouchID_R].rect.x = w - touch_buttons[TouchID_R].rect.w - 10 * scale2;
-    touch_buttons[TouchID_R].rect.y = 10 * scale2;
-    #else
     touch_buttons[TouchID_L].rect.x = 25 * scale2;
     touch_buttons[TouchID_L].rect.y = 25 * scale2;
 
     touch_buttons[TouchID_R].rect.x = w - touch_buttons[TouchID_R].rect.w - 25 * scale2;
     touch_buttons[TouchID_R].rect.y = 25 * scale2;
-    #endif
 
     touch_buttons[TouchID_TITLE].rect.x = 5 * side_scale;
     touch_buttons[TouchID_TITLE].rect.y = 10 * side_scale;
@@ -1017,18 +1348,6 @@ auto App::resize_emu_screen() -> void
     touch_buttons[TouchID_FASTFORWARD].rect.x = (touch_buttons[TouchID_FULLSCREEN].rect.x - touch_buttons[TouchID_FULLSCREEN].rect.w) - (10 * side_scale);
     touch_buttons[TouchID_FASTFORWARD].rect.y = touch_buttons[TouchID_BACK].rect.y + (10 * side_scale);
 
-    // TouchID_FASTFORWARD
-    // show start/selct on bottom, looks cramped imo
-    #if 0
-    touch_buttons[TouchID_START].rect.x = w / 2 + 5 * scale2;
-    touch_buttons[TouchID_START].rect.y = h - touch_buttons[TouchID_START].rect.h - 10 * scale2;
-
-    touch_buttons[TouchID_SELECT].rect.x = w / 2 - touch_buttons[TouchID_SELECT].rect.w - 5 * scale2;
-    touch_buttons[TouchID_SELECT].rect.y = h - touch_buttons[TouchID_SELECT].rect.h - 10 * scale2;
-
-    touch_buttons[TouchID_OPTIONS].rect.x = w / 2 - touch_buttons[TouchID_OPTIONS].rect.w / 2;
-    touch_buttons[TouchID_OPTIONS].rect.y = 10 * scale2;
-    #else
     touch_buttons[TouchID_START].rect.x = w / 2 + 5 * scale2;
     touch_buttons[TouchID_START].rect.y = 10 * scale2;
 
@@ -1037,32 +1356,16 @@ auto App::resize_emu_screen() -> void
 
     touch_buttons[TouchID_OPTIONS].rect.x = w / 2 - touch_buttons[TouchID_OPTIONS].rect.w / 2;
     touch_buttons[TouchID_OPTIONS].rect.y = h - touch_buttons[TouchID_SELECT].rect.h - 10 * scale2;
-    #endif
 
-    // resize button
-    {const auto& rect = touch_buttons[TouchID_OPEN].rect;
-    const auto [btnx, btny] = get_render_to_window_scale(rect.x, rect.y);
-    const auto [btnw, btnh] = get_render_to_window_scale(rect.w, rect.h);
+    const auto resize_html_button = [this](const char* button_id, TouchID touch_id){
+        const auto& rect = touch_buttons[touch_id].rect;
+        const auto [btnx, btny] = get_render_to_window_scale(rect.x, rect.y);
+        const auto [btnw, btnh] = get_render_to_window_scale(rect.w, rect.h);
+        em_set_button_rect(button_id, btnx, btny, btnw, btnh);
+    };
 
-    EM_ASM({
-        let button = document.getElementById('RomFilePicker');
-        button.style.left = arguments[0] + 'px';
-        button.style.top = arguments[1] + 'px';
-        button.style.width = arguments[2] + 'px';
-        button.style.height= arguments[3] + 'px';
-    }, btnx, btny, btnw, btnh);}
-
-    {const auto& rect = touch_buttons[TouchID_EXPORT].rect;
-    const auto [btnx, btny] = get_render_to_window_scale(rect.x, rect.y);
-    const auto [btnw, btnh] = get_render_to_window_scale(rect.w, rect.h);
-
-    EM_ASM({
-        let button = document.getElementById('DlSaves');
-        button.style.left = arguments[0] + 'px';
-        button.style.top = arguments[1] + 'px';
-        button.style.width = arguments[2] + 'px';
-        button.style.height= arguments[3] + 'px';
-    }, btnx, btny, btnw, btnh);}
+    resize_html_button("RomFilePicker", TouchID_OPEN);
+    resize_html_button("DlSaves", TouchID_EXPORT);
 }
 
 auto App::rom_file_picker() -> void
@@ -1075,6 +1378,14 @@ auto App::rom_file_picker() -> void
 
 auto App::on_speed_change() -> void
 {
+    // don't update audio if audio is disable!
+    if (emu_audio_disabled || !SDL_WasInit(SDL_INIT_AUDIO))
+    {
+        return;
+    }
+
+    std::scoped_lock lock{core_mutex};
+
     if (emu_fast_forward)
     {
         gameboy_advance.set_audio_callback(on_audio_callback, sample_data, 65536 / 2);
@@ -1087,14 +1398,35 @@ auto App::on_speed_change() -> void
 
 auto App::on_audio_change() -> void
 {
+    if (!SDL_WasInit(SDL_INIT_AUDIO))
+    {
+        return;
+    }
+
+    std::scoped_lock lock0{core_mutex};
+    std::scoped_lock lock1{audio_mutex};
+
     if (emu_audio_disabled)
     {
         SDL_AudioStreamClear(audio_stream);
-        gameboy_advance.set_audio_callback(nullptr, sample_data);
+        gameboy_advance.set_audio_callback(nullptr, {});
     }
     else
     {
         gameboy_advance.set_audio_callback(on_audio_callback, sample_data);
+    }
+}
+
+auto App::on_flush_save() -> void
+{
+    // don't want to clear dirty flag as savegame also checks if
+    // if flag is before saving.
+    // i check the flag here in order to avoid locking the mutex
+    // when not needed.
+    if (has_rom && gameboy_advance.is_save_dirty(false))
+    {
+        std::scoped_lock lock{core_mutex};
+        savegame("");
     }
 }
 

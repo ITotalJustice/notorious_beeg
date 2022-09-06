@@ -7,10 +7,25 @@ namespace frontend::sdl2 {
 
 Sdl2Base::Sdl2Base(int argc, char** argv) : frontend::Base{argc, argv}
 {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER))
+    if (SDL_Init(SDL_INIT_VIDEO))
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", SDL_GetError(), nullptr);
         return;
+    }
+
+    if (SDL_InitSubSystem(SDL_INIT_JOYSTICK))
+    {
+        std::printf("[SDL_INIT_JOYSTICK] %s\n", SDL_GetError());
+    }
+
+    if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER))
+    {
+        std::printf("[SDL_INIT_GAMECONTROLLER] %s\n", SDL_GetError());
+    }
+
+    if (SDL_InitSubSystem(SDL_INIT_TIMER))
+    {
+        std::printf("[SDL_INIT_TIMER] %s\n", SDL_GetError());
     }
 
     window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
@@ -46,6 +61,13 @@ Sdl2Base::Sdl2Base(int argc, char** argv) : frontend::Base{argc, argv}
 
 auto Sdl2Base::init_audio(void* user, SDL_AudioCallback sdl2_cb, gba::AudioCallback gba_cb, int sample_rate) -> bool
 {
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO))
+    {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", SDL_GetError(), nullptr);
+        std::printf("[SDL_INIT_AUDIO] %s\n", SDL_GetError());
+        return false;
+    }
+
     aspec_wnt.freq = sample_rate;
     aspec_wnt.format = AUDIO_S16;
     aspec_wnt.channels = 2;
@@ -90,8 +112,6 @@ auto Sdl2Base::init_audio(void* user, SDL_AudioCallback sdl2_cb, gba::AudioCallb
     std::printf("[SDL-AUDIO] samples\twant: %d \tgot: %d\n", aspec_wnt.samples, aspec_got.samples);
     std::printf("[SDL-AUDIO] size\twant: %u \tgot: %u\n", aspec_wnt.size, aspec_got.size);
 
-    SDL_PauseAudioDevice(audio_device, 0);
-
     gameboy_advance.set_audio_callback(gba_cb, sample_data, aspec_wnt.freq);
 
     return true;
@@ -109,6 +129,11 @@ Sdl2Base::~Sdl2Base()
     if (texture != nullptr) { SDL_DestroyTexture(texture); }
     if (renderer != nullptr) { SDL_DestroyRenderer(renderer); }
     if (window != nullptr) { SDL_DestroyWindow(window); }
+
+    if (SDL_WasInit(SDL_INIT_GAMECONTROLLER)) { SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER); }
+    if (SDL_WasInit(SDL_INIT_JOYSTICK)) { SDL_QuitSubSystem(SDL_INIT_JOYSTICK); }
+    if (SDL_WasInit(SDL_INIT_TIMER)) { SDL_QuitSubSystem(SDL_INIT_TIMER); }
+    if (SDL_WasInit(SDL_INIT_AUDIO)) { SDL_QuitSubSystem(SDL_INIT_AUDIO); }
 
     SDL_Quit();
 }
@@ -141,6 +166,7 @@ auto Sdl2Base::step() -> void
     }
 
     poll_events();
+    update_audio_device_pause_status(); // todo: remove this!
     run(delta / div_60);
     render();
 
@@ -197,12 +223,35 @@ auto Sdl2Base::poll_events() -> void
             case SDL_DROPTEXT:
             case SDL_DROPBEGIN:
             case SDL_DROPCOMPLETE:
+                break;
+
             case SDL_APP_TERMINATING:
+                std::printf("[SDL_APP_TERMINATING]\n");
+                break;
+
             case SDL_APP_LOWMEMORY:
+                std::printf("[SDL_APP_LOWMEMORY]\n");
+                break;
+
             case SDL_APP_WILLENTERBACKGROUND:
+                std::printf("[SDL_APP_WILLENTERBACKGROUND]\n");
+                break;
+
             case SDL_APP_DIDENTERBACKGROUND:
+                std::printf("[SDL_APP_DIDENTERBACKGROUND]\n");
+                break;
+
             case SDL_APP_WILLENTERFOREGROUND:
+                std::printf("[SDL_APP_WILLENTERFOREGROUND]\n");
+                break;
+
             case SDL_APP_DIDENTERFOREGROUND:
+                std::printf("[SDL_APP_DIDENTERFOREGROUND]\n");
+                break;
+
+                std::printf("[SDL_APP_DIDENTERFOREGROUND]\n");
+                break;
+
             case SDL_LOCALECHANGED:
             case SDL_SYSWMEVENT:
             case SDL_TEXTEDITING:
@@ -409,14 +458,17 @@ auto Sdl2Base::on_window_event(const SDL_WindowEvent& e) -> void
     {
         case SDL_WINDOWEVENT_SHOWN:
             // std::printf("SDL_WINDOWEVENT_SHOWN\n");
+            has_focus = true;
             break;
 
         case SDL_WINDOWEVENT_HIDDEN:
             // std::printf("SDL_WINDOWEVENT_HIDDEN\n");
+            has_focus = false;
             break;
 
         case SDL_WINDOWEVENT_EXPOSED:
             // std::printf("SDL_WINDOWEVENT_EXPOSED\n");
+            // has_focus = true;
             break;
 
         case SDL_WINDOWEVENT_MOVED:
@@ -487,8 +539,6 @@ auto Sdl2Base::on_dropfile_event(SDL_DropEvent& e) -> void
 
 auto Sdl2Base::on_controlleraxis_event(const SDL_ControllerAxisEvent& e) -> void
 {
-    // touch_hidden = true;
-
     // sdl recommends deadzone of 8000
     constexpr auto DEADZONE = 8000;
     constexpr auto LEFT     = -DEADZONE;
@@ -734,7 +784,11 @@ auto Sdl2Base::fill_audio_data_from_stream(Uint8* data, int len, bool tick_rom) 
     #endif
 
     // too many samples behind so no point catching up, or emu isn't running.
+    #if 0
     if (not_enough_samples || !emu_run || !has_focus || !has_rom || !running || emu_audio_disabled)
+    #else
+    if (not_enough_samples)
+    #endif
     {
         audio_mutex.unlock();
         std::memset(data, aspec_got.silence, len);
@@ -782,7 +836,7 @@ auto Sdl2Base::update_pixels_from_gba() -> void
 {
     if (has_new_frame)
     {
-        std::printf("[WARNING] dropping frame, vblank called before previous frame was displayed!\n");
+        // std::printf("[WARNING] dropping frame, vblank called before previous frame was displayed!\n");
         return;
     }
     std::memcpy(pixels, gameboy_advance.ppu.pixels, sizeof(gameboy_advance.ppu.pixels));
@@ -808,6 +862,23 @@ auto Sdl2Base::update_texture_from_pixels() -> void
         SDL_UnlockTexture(texture);
     }
     core_mutex.unlock();
+}
+
+auto Sdl2Base::update_audio_device_pause_status() -> void
+{
+    if (!SDL_WasInit(SDL_INIT_AUDIO))
+    {
+        return;
+    }
+
+    int pause_on = 0;
+
+    if (!emu_run || !has_focus || !has_rom || !running || emu_audio_disabled)
+    {
+        pause_on = 1;
+    }
+
+    SDL_PauseAudioDevice(audio_device, pause_on);
 }
 
 } // namespace frontend::sdl2

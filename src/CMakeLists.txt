@@ -79,8 +79,8 @@ list(APPEND clang_flags
     # -fno-rtti
     -fno-exceptions
 
-    # # can try enabling this just to see what breaks (still compiles as of clang 11)
-    # # be sure to enable (well, disable) the below flags else a *lot* of "errors"
+    # can try enabling this just to see what breaks (still compiles as of clang 11)
+    # be sure to enable (well, disable) the below flags else a *lot* of "errors"
     -Weverything
     -Wno-c++98-compat
     -Wno-c++98-compat-pedantic
@@ -114,7 +114,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 else()
     list(APPEND msvc_flags
         # /GR- # disable RTTI
-        /Ob /Oi /Ot /Oy /OX /O2
+        /Ob /Ot /Oy /OX /O2
         /Oi # enable intrinsics
     )
 endif()
@@ -173,6 +173,22 @@ function(target_add_common_cflags target scope)
         target_add_compiler_flags(${target} msvc_flags ${scope})
     endif()
 endfunction()
+
+if (NATIVE)
+    list(APPEND gcc_flags -march=native -mtune=native)
+    list(APPEND clang_flags -march=native -mtune=native)
+    list(APPEND msvc_flags
+        # x86 flags
+        /arch:IA32
+        /arch:SSE
+        /arch:SSE2
+
+        # x86-x64 flags
+        /arch:AVX
+        /arch:AVX2
+        /arch:AVX512
+    )
+endif()
 
 add_subdirectory(core)
 
