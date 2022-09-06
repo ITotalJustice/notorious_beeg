@@ -87,7 +87,7 @@ App::App(int argc, char** argv) : frontend::sdl2::Sdl2Base(argc, argv)
 
         char buf[100];
         gba::Header header{gameboy_advance.rom};
-        std::sprintf(buf, "%s - [%.*s]", "Notorious BEEG", 12, header.game_title);
+        std::sprintf(buf, "%s - [%.*s]", "BEEG YOSHI", 12, header.game_title);
         SDL_SetWindowTitle(window, buf);
     }
     else
