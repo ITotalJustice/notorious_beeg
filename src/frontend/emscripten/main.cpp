@@ -727,6 +727,8 @@ App::App(int argc, char** argv) : frontend::sdl2::Sdl2Base(argc, argv)
         emscripten_console_logf("[EM] failed to lock orientation\n");
     }
 
+    load_gif("assets/gif/yoshi-bloated.gif");
+
     change_menu(Menu::SIDEBAR);
     running = true;
 }
@@ -793,7 +795,14 @@ auto App::render() -> void
     update_texture_from_pixels();
 
     // render gba
-    SDL_RenderCopy(renderer, texture, nullptr, &emu_rect);
+    if (has_rom)
+    {
+        SDL_RenderCopy(renderer, texture, nullptr, &emu_rect);
+    }
+    else
+    {
+        gif_render();
+    }
 
     if (menu == Menu::SIDEBAR)
     {

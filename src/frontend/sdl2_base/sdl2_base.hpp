@@ -6,8 +6,10 @@
 #include "../frontend_base.hpp"
 
 #include <SDL.h>
+#include <cstddef>
 #include <unordered_map>
 #include <mutex>
+#include <vector>
 
 namespace frontend::sdl2 {
 
@@ -71,10 +73,23 @@ public:
     // todo: this needs to be re-written
     auto update_audio_device_pause_status() -> void;
 
+    auto load_gif(const char* path) -> bool;
+    auto gif_render(SDL_Rect* src_rect = nullptr, SDL_Rect* dst_rect = nullptr) -> void;
+
 public:
     SDL_Window* window{};
     SDL_Renderer* renderer{};
     SDL_Texture* texture{};
+
+    std::vector<SDL_Texture*> gif_textures{};
+    std::size_t gif_index{};
+    std::uint32_t gif_delta{};
+    int gif_w{};
+    int gif_h{};
+    int gif_z{};
+    int gif_comp{};
+    int* gif_delays{};
+    bool has_gif{false};
 
     SDL_Rect emu_rect{};
 

@@ -1,6 +1,11 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 #include "sdl2_base.hpp"
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_GIF
+#define STBI_NO_STDIO
+#include "stb_image.h"
+#include <cstdio>
 #include <cstring>
 
 namespace frontend::sdl2 {
@@ -119,6 +124,11 @@ auto Sdl2Base::init_audio(void* user, SDL_AudioCallback sdl2_cb, gba::AudioCallb
 
 Sdl2Base::~Sdl2Base()
 {
+    for (auto& tex : gif_textures)
+    {
+        SDL_DestroyTexture(tex);
+    }
+
     for (auto& [_, controller] : controllers)
     {
         SDL_GameControllerClose(controller);
@@ -879,6 +889,100 @@ auto Sdl2Base::update_audio_device_pause_status() -> void
     }
 
     SDL_PauseAudioDevice(audio_device, pause_on);
+}
+
+auto Sdl2Base::load_gif(const char* path) -> bool
+{
+    if (has_gif)
+    {
+        std::printf("only 1 beeg gif allowed!\n");
+        return false;
+    }
+
+    const auto gif_data = loadfile(path);
+    if (gif_data.empty())
+    {
+        std::printf("failed to load gif: %s\n", path);
+        return false;
+    }
+
+    auto data = stbi_load_gif_from_memory(gif_data.data(), gif_data.size(), &gif_delays, &gif_w, &gif_h, &gif_z, &gif_comp, 0);
+    if (!data)
+    {
+        std::printf("failed to load gif into stbi\n");
+        return false;
+    }
+
+    // https://wiki.libsdl.org/SDL_CreateRGBSurface
+    #if SDL_BYTEORDER == SDL_BIG_ENDIAN
+        const uint32_t rmask = 0xff000000;
+        const uint32_t gmask = 0x00ff0000;
+        const uint32_t bmask = 0x0000ff00;
+        const uint32_t amask = 0x000000ff;
+    #else
+        const uint32_t rmask = 0x000000ff;
+        const uint32_t gmask = 0x0000ff00;
+        const uint32_t bmask = 0x00ff0000;
+        const uint32_t amask = 0xff000000;
+    #endif
+
+    gif_textures.resize(gif_z);
+
+    auto surface = SDL_CreateRGBSurface(0, gif_w, gif_h, 32, rmask, gmask, bmask, amask);
+    if (!surface)
+    {
+        std::printf("failed to create surface: %s\n", SDL_GetError());
+        stbi_image_free(data);
+        return false;
+    }
+
+    for (auto i = 0; i < gif_z; i++)
+    {
+        std::memcpy(surface->pixels, data + (gif_w * gif_h * gif_comp * i), gif_w * gif_h * gif_comp);
+        gif_textures[i] = SDL_CreateTextureFromSurface(renderer, surface);
+        // printf("i: %d delay: %d\n", i, gif_delays[i]);
+    }
+
+    SDL_FreeSurface(surface);
+    stbi_image_free(data);
+
+    has_gif = true;
+    return true;
+}
+
+auto Sdl2Base::gif_render(SDL_Rect* src_rect, SDL_Rect* dst_rect) -> void
+{
+    if (!has_gif)
+    {
+        return;
+    }
+
+    SDL_Rect rect;
+
+    if (dst_rect == nullptr)
+    {
+        const auto [screen_w, screen_h] = get_renderer_size();
+        const auto scale_w = screen_w / gif_w;
+        const auto scale_h = screen_h / gif_h;
+        const auto gif_scale = std::min(scale_w, scale_h);
+
+        rect.w = gif_w * gif_scale;
+        rect.h = gif_h * gif_scale;
+        rect.x = (screen_w - gif_w) / 2;
+        rect.y = (screen_h - gif_h) / 2;
+
+        dst_rect = &rect;
+    }
+
+    SDL_RenderCopy(renderer, gif_textures[gif_index], src_rect, dst_rect);
+
+    const auto ticks = SDL_GetTicks();
+
+    if (gif_delta + gif_delays[gif_index] <= ticks)
+    {
+        gif_index = (gif_index + 1) % gif_z;
+        gif_delta = ticks;
+    }
 }
 
 } // namespace frontend::sdl2

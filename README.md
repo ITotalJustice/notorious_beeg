@@ -135,3 +135,4 @@ web builds are the easiest way to quickly test a game. builds are automatically 
 - zayd for info on rtc <https://beanmachine.alt.icu/post/rtc/>
 - pokeemerald for a being a good reference <https://github.com/pret/pokeemerald>
 - kenney for the onscreen control buttons <https://www.kenney.nl/assets/onscreen-controls>
+- ifeelfine for yoshi gif <https://tenor.com/view/yoshi-bloated-cute-gif-12835998>

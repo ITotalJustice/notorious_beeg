@@ -103,7 +103,11 @@ auto App::render() -> void
 
     update_texture_from_pixels();
 
-    SDL_RenderCopy(renderer, texture, nullptr, &emu_rect);
+    if (has_rom)
+    {
+        SDL_RenderCopy(renderer, texture, nullptr, &emu_rect);
+    }
+
     SDL_RenderPresent(renderer);
 }
 
