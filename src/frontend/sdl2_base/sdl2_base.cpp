@@ -129,6 +129,11 @@ Sdl2Base::~Sdl2Base()
         SDL_DestroyTexture(tex);
     }
 
+    if (gif_delays)
+    {
+        STBI_FREE(gif_delays);
+    }
+
     for (auto& [_, controller] : controllers)
     {
         SDL_GameControllerClose(controller);
@@ -256,9 +261,6 @@ auto Sdl2Base::poll_events() -> void
                 break;
 
             case SDL_APP_DIDENTERFOREGROUND:
-                std::printf("[SDL_APP_DIDENTERFOREGROUND]\n");
-                break;
-
                 std::printf("[SDL_APP_DIDENTERFOREGROUND]\n");
                 break;
 
@@ -913,37 +915,23 @@ auto Sdl2Base::load_gif(const char* path) -> bool
         return false;
     }
 
-    // https://wiki.libsdl.org/SDL_CreateRGBSurface
-    #if SDL_BYTEORDER == SDL_BIG_ENDIAN
-        const uint32_t rmask = 0xff000000;
-        const uint32_t gmask = 0x00ff0000;
-        const uint32_t bmask = 0x0000ff00;
-        const uint32_t amask = 0x000000ff;
-    #else
-        const uint32_t rmask = 0x000000ff;
-        const uint32_t gmask = 0x0000ff00;
-        const uint32_t bmask = 0x00ff0000;
-        const uint32_t amask = 0xff000000;
-    #endif
-
     gif_textures.resize(gif_z);
-
-    auto surface = SDL_CreateRGBSurface(0, gif_w, gif_h, 32, rmask, gmask, bmask, amask);
-    if (!surface)
-    {
-        std::printf("failed to create surface: %s\n", SDL_GetError());
-        stbi_image_free(data);
-        return false;
-    }
 
     for (auto i = 0; i < gif_z; i++)
     {
-        std::memcpy(surface->pixels, data + (gif_w * gif_h * gif_comp * i), gif_w * gif_h * gif_comp);
-        gif_textures[i] = SDL_CreateTextureFromSurface(renderer, surface);
-        // printf("i: %d delay: %d\n", i, gif_delays[i]);
+        if (auto surface = SDL_CreateRGBSurfaceWithFormatFrom(data + (gif_w * gif_h * gif_comp * i), gif_w, gif_h, 32, gif_w * gif_comp, SDL_PIXELFORMAT_RGBA32))
+        {
+            gif_textures[i] = SDL_CreateTextureFromSurface(renderer, surface);
+            SDL_FreeSurface(surface);
+        }
+        else
+        {
+            std::printf("failed to create surface: %s\n", SDL_GetError());
+            stbi_image_free(data);
+            return false;
+        }
     }
 
-    SDL_FreeSurface(surface);
     stbi_image_free(data);
 
     has_gif = true;
