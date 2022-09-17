@@ -492,8 +492,8 @@ auto em_beforeunload_callback(int eventType, const void *reserved, void *userDat
 {
     auto app = static_cast<App*>(userData);
     app->on_flush_save();
-    // return "";
-    return "do you really want to exit?";
+    return "";
+    // return "do you really want to exit?";
 }
 
 auto em_webgl_context_callback(int eventType, const void *reserved, void *userData) -> EM_BOOL
@@ -609,6 +609,45 @@ auto on_audio_callback(void* user) -> void
     app->fill_stream_from_sample_data();
 }
 
+auto on_colour_callback(void* user, gba::Colour c) -> std::uint32_t
+{
+    auto app = static_cast<App*>(user);
+
+    if (app->gameboy_advance.is_gb())
+    {
+        const auto r = c.r();
+        const auto g = c.g();
+        const auto b = c.b();
+
+        auto R = (r * 26 + g * 4 + b * 2);
+        auto G = (g * 24 + b * 8);
+        auto B = (r * 6 + g * 4 + b * 22);
+
+        R = std::min(960, R) >> 2;
+        G = std::min(960, G) >> 2;
+        B = std::min(960, B) >> 2;
+
+        R = (R - (R >> 2)) + 8;
+        G = (G - (G >> 2)) + 8;
+        B = (B - (B >> 2)) + 8;
+
+        return SDL_MapRGB(app->pixel_format, R, G, B);
+    }
+    else
+    {
+        // SOURCE: https://gbdev.io/pandocs/Palettes.html
+        auto r = (c.r8() - (c.r8() >> 2)) + 8;
+        auto g = (c.g8() - (c.g8() >> 2)) + 8;
+        auto b = (c.b8() - (c.b8() >> 2)) + 8;
+
+        r = std::min(r, 255);
+        g = std::min(g, 255);
+        b = std::min(b, 255);
+
+        return SDL_MapRGB(app->pixel_format, r, g, b);
+    }
+}
+
 App::App(int argc, char** argv) : frontend::sdl2::Sdl2Base(argc, argv)
 {
     if (!running)
@@ -620,10 +659,11 @@ App::App(int argc, char** argv) : frontend::sdl2::Sdl2Base(argc, argv)
 
     gameboy_advance.set_userdata(this);
     gameboy_advance.set_vblank_callback(on_vblank_callback);
+    gameboy_advance.set_colour_callback(on_colour_callback);
 
     if (init_audio(this, sdl2_audio_callback, on_audio_callback))
     {
-        gameboy_advance.set_audio_callback(on_audio_callback, sample_data);
+        // gameboy_advance.set_audio_callback(on_audio_callback, sample_data);
     }
 
     ROM_LOAD_EVENT = SDL_RegisterEvents(1);
@@ -797,7 +837,15 @@ auto App::render() -> void
     // render gba
     if (has_rom)
     {
-        SDL_RenderCopy(renderer, texture, nullptr, &emu_rect);
+        SDL_Rect src = { .x = 0, .y = 0, .w = 240, .h = 160 };
+
+        if (gameboy_advance.is_gb() && gameboy_advance.stretch)
+        {
+            src.x = 40;
+            src.w = 160;
+        }
+
+        SDL_RenderCopy(renderer, texture, &src, &emu_rect);
     }
     else
     {
@@ -1003,6 +1051,7 @@ auto App::on_touch_up(std::span<TouchCacheEntry> cache, SDL_FingerID id) -> void
     {
         if (i.down && i.finger_id == id)
         {
+            i.finger_id = INT64_MAX;
             i.down = false;
             on_touch_button_change(i.touch_id, false);
             break;
@@ -1030,6 +1079,12 @@ auto App::on_touch_down(std::span<TouchCacheEntry> cache, SDL_FingerID id, int x
     // find the first free entry and add it to it
     for (auto& i : cache)
     {
+        if (i.down && i.finger_id == id)
+        {
+            // bug in sdl
+            on_touch_up(cache, id);
+        }
+
         if (!i.down)
         {
             i.finger_id = id;
@@ -1062,7 +1117,7 @@ auto App::on_touch_motion(std::span<TouchCacheEntry> cache, SDL_FingerID id, int
 
     for (auto& i : cache)
     {
-        if (i.touch_id == touch_id)
+        if (i.down && i.touch_id == touch_id)
         {
             return;
         }
@@ -1096,9 +1151,12 @@ auto App::on_user_event(SDL_UserEvent& e) -> void
             change_menu(Menu::ROM);
 
             char buf[100];
-            gba::Header header{gameboy_advance.rom};
-            emscripten_console_logf(buf, "%s - [%.*s]", "Notorious BEEG", 12, header.game_title);
+            const auto title = gameboy_advance.get_rom_name();
+            std::sprintf(buf, "%s - [%s]", "Notorious BEEG", title.str);
             SDL_SetWindowTitle(window, buf);
+
+            std::ranges::fill(frontbuffer, 0);
+            std::ranges::fill(backbuffer, 0);
 
             emscripten_console_logf("[EM] loaded rom! name: %s len: %zu\n", data->name, data->len);
         }

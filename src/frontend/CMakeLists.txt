@@ -81,7 +81,6 @@ if (NOT FOUND_MINIZIP)
 endif()
 
 if (IMGUI)
-    add_subdirectory(sdl2_base)
     add_subdirectory(imgui)
 endif()
 

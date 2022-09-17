@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "scheduler.hpp"
+#include "gameboy/internal.hpp"
+#include "gameboy/ppu/ppu.hpp"
 #include "gba.hpp"
 #include "timer.hpp"
 #include "dma.hpp"
@@ -43,11 +45,8 @@ auto fire_all_expired_events(Gba& gba) -> bool
                 assert(static_cast<Event>(i) != Event::HALT);
                 entry.enabled = false;
 
-                if (static_cast<Event>(i) != Event::HALT && static_cast<Event>(i) != Event::DMA)
-                {
-                    entry.delta = entry.cycles - gba.scheduler.cycles;
-                    assert(entry.delta <= 0);
-                }
+                entry.delta = entry.cycles - gba.scheduler.cycles;
+                assert(entry.delta <= 0);
                 entry.cb(gba);
             }
         }
@@ -145,25 +144,51 @@ auto on_loadstate(Gba& gba) -> void
 
         if (entry.enabled)
         {
-            switch (static_cast<Event>(i))
+            if (gba.is_gba())
             {
-                case Event::PPU: entry.cb = ppu::on_event; break;
-                case Event::APU_SQUARE0: entry.cb = apu::on_square0_event; break;
-                case Event::APU_SQUARE1: entry.cb = apu::on_square1_event; break;
-                case Event::APU_WAVE: entry.cb = apu::on_wave_event; break;
-                case Event::APU_NOISE: entry.cb = apu::on_noise_event; break;
-                case Event::APU_FRAME_SEQUENCER: entry.cb = apu::on_frame_sequencer_event; break;
-                case Event::APU_SAMPLE: /* handled below */ break;
-                case Event::TIMER0: entry.cb = timer::on_timer0_event; break;
-                case Event::TIMER1: entry.cb = timer::on_timer1_event; break;
-                case Event::TIMER2: entry.cb = timer::on_timer2_event; break;
-                case Event::TIMER3: entry.cb = timer::on_timer3_event; break;
-                case Event::DMA: entry.cb = dma::on_event; break;
-                case Event::INTERRUPT: entry.cb = arm7tdmi::on_interrupt_event; break;
-                case Event::HALT: entry.cb = arm7tdmi::on_halt_event; break;
-                case Event::FRAME: /*this will get set on run() anyway*/ break;
-                case Event::RESET: entry.cb = scheduler::on_reset_event; break;
-                case Event::END: assert(!"Event::END somehow in array"); break;
+                switch (static_cast<Event>(i))
+                {
+                    case Event::PPU: entry.cb = ppu::on_event; break;
+                    case Event::APU_SQUARE0: entry.cb = apu::on_square0_event; break;
+                    case Event::APU_SQUARE1: entry.cb = apu::on_square1_event; break;
+                    case Event::APU_WAVE: entry.cb = apu::on_wave_event; break;
+                    case Event::APU_NOISE: entry.cb = apu::on_noise_event; break;
+                    case Event::APU_FRAME_SEQUENCER: entry.cb = apu::on_frame_sequencer_event; break;
+                    case Event::APU_SAMPLE: /* handled below */ break;
+                    case Event::TIMER0: entry.cb = timer::on_timer0_event; break;
+                    case Event::TIMER1: entry.cb = timer::on_timer1_event; break;
+                    case Event::TIMER2: entry.cb = timer::on_timer2_event; break;
+                    case Event::TIMER3: entry.cb = timer::on_timer3_event; break;
+                    case Event::DMA: entry.cb = dma::on_event; break;
+                    case Event::INTERRUPT: entry.cb = arm7tdmi::on_interrupt_event; break;
+                    case Event::HALT: entry.cb = arm7tdmi::on_halt_event; break;
+                    case Event::FRAME: /*this will get set on run() anyway*/ break;
+                    case Event::RESET: entry.cb = scheduler::on_reset_event; break;
+                    case Event::END: assert(!"Event::END somehow in array"); break;
+                }
+            }
+            else
+            {
+                switch (static_cast<Event>(i))
+                {
+                    case Event::PPU: entry.cb = gb::on_ppu_event; break;
+                    case Event::APU_SQUARE0: entry.cb = apu::on_square0_event; break;
+                    case Event::APU_SQUARE1: entry.cb = apu::on_square1_event; break;
+                    case Event::APU_WAVE: entry.cb = apu::on_wave_event; break;
+                    case Event::APU_NOISE: entry.cb = apu::on_noise_event; break;
+                    case Event::APU_FRAME_SEQUENCER: entry.cb = apu::on_frame_sequencer_event; break;
+                    case Event::APU_SAMPLE: /* handled below */ break;
+                    case Event::TIMER0: entry.cb = gb::on_timer_event; break;
+                    case Event::TIMER1: entry.cb = gb::on_div_event; break;
+                    case Event::TIMER2: assert(!"invalid"); break;
+                    case Event::TIMER3: assert(!"invalid"); break;
+                    case Event::DMA: assert(!"invalid"); break;
+                    case Event::INTERRUPT: entry.cb = gb::on_interrupt_event; break;
+                    case Event::HALT: entry.cb = gb::on_halt_event; break;
+                    case Event::FRAME: /*this will get set on run() anyway*/ break;
+                    case Event::RESET: entry.cb = scheduler::on_reset_event; break;
+                    case Event::END: assert(!"Event::END somehow in array"); break;
+                }
             }
         }
     }
@@ -188,19 +213,21 @@ auto fire(Gba& gba) -> void
     gba.scheduler.next_event = Event::END;
 
     // calculate delta so that we don't drift
-    if (next_event != Event::HALT && next_event != Event::DMA)
-    {
-        assert(entry.cycles <= gba.scheduler.cycles);
-        entry.delta = entry.cycles - gba.scheduler.cycles;
-        assert(entry.cycles <= gba.scheduler.cycles);
-        assert(entry.delta <= 0); // todo: debug this with emerald
-    }
+    assert(entry.cycles <= gba.scheduler.cycles);
+    entry.delta = entry.cycles - gba.scheduler.cycles;
+    assert(entry.cycles <= gba.scheduler.cycles);
+    assert(entry.delta <= 0); // todo: debug this with emerald
 
     if (next_event == Event::HALT)
     {
         // halt event loops over all events until halt is exited
         // so we need to change events and fire any expired events
+        // NOTE: i am 99% sure that i don't need to fire events, only find next
+        #if 0
         find_next_event(gba, true);
+        #else
+        find_next_event(gba, false);
+        #endif
         assert(gba.scheduler.next_event != Event::HALT);
     }
 
@@ -220,11 +247,38 @@ auto add(Gba& gba, Event e, callback cb, u32 cycles) -> void
     //     return;
     // }
 
+    #if 0
+    if (e == Event::APU_NOISE || e == Event::APU_SQUARE0 || e == Event::APU_SQUARE1 || e == Event::APU_WAVE)
+    {
+        return;
+    }
+    #endif
+
+    #if 0
+    if (e == Event::APU_NOISE)
+    {
+        return;
+    }
+    #endif
+
     auto& entry = gba.scheduler.entries[std::to_underlying(e)];
     entry.cb = cb;
-    entry.cycles = (gba.scheduler.cycles + cycles) + entry.delta;
+    entry.cycles = (gba.scheduler.cycles + cycles);
     entry.enabled = true;
-    entry.delta = 0;
+
+    if (e != scheduler::Event::INTERRUPT && e != Event::HALT && e != Event::DMA)
+    {
+        entry.cycles += entry.delta;
+
+        if (entry.cycles < gba.scheduler.cycles)
+        {
+            entry.delta = entry.cycles - gba.scheduler.cycles;
+        }
+        else
+        {
+            entry.delta = 0;
+        }
+    }
 
     // check if the new event if sooner than current event
     if (entry.cycles < gba.scheduler.next_event_cycles)

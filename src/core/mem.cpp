@@ -413,11 +413,6 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
             REG_DISPSTAT = (REG_DISPSTAT & 0x7) | (value & ~0x7);
             break;
 
-        case IO_SOUNDCNT_X:
-            REG_SOUNDCNT_X = (REG_SOUNDCNT_X & 0xF) | (value & ~0xF);
-            apu::write_legacy8(gba, addr, value); // only 8-bits of CNT_X are used
-            break;
-
         case IO_WSCNT: {
             const auto old_value = REG_WSCNT;
             const auto new_value = value;
@@ -470,7 +465,6 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
         case IO_BLDMOD:
         case IO_COLEV:
         case IO_COLEY:
-        case IO_SOUNDCNT_L:
         case IO_SOUNDBIAS:
         case IO_DMA0SAD:
         case IO_DMA1SAD:
@@ -496,18 +490,53 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
             gba.mem.io[(addr & IO_MASK) >> 1] = value;
             break;
 
-        // todo: read only when apu is off
         case IO_SOUND1CNT_L:
+            apu::write_NR10(gba, value >> 0);
+            break;
         case IO_SOUND1CNT_H:
+            apu::write_NR11(gba, value >> 0);
+            apu::write_NR12(gba, value >> 8);
+            break;
         case IO_SOUND1CNT_X:
+            apu::write_NR13(gba, value >> 0);
+            apu::write_NR14(gba, value >> 8);
+            break;
         case IO_SOUND2CNT_L:
+            apu::write_NR21(gba, value >> 0);
+            apu::write_NR22(gba, value >> 8);
+            break;
         case IO_SOUND2CNT_H:
+            apu::write_NR23(gba, value >> 0);
+            apu::write_NR24(gba, value >> 8);
+            break;
         case IO_SOUND3CNT_L:
+            apu::write_NR30(gba, value >> 0);
+            break;
         case IO_SOUND3CNT_H:
+            apu::write_NR31(gba, value >> 0);
+            apu::write_NR32(gba, value >> 8);
+            break;
         case IO_SOUND3CNT_X:
+            apu::write_NR33(gba, value >> 0);
+            apu::write_NR34(gba, value >> 8);
+            break;
         case IO_SOUND4CNT_L:
+            apu::write_NR41(gba, value >> 0);
+            apu::write_NR42(gba, value >> 8);
+            break;
         case IO_SOUND4CNT_H:
-        // case IO_SOUNDCNT_X:
+            apu::write_NR43(gba, value >> 0);
+            apu::write_NR44(gba, value >> 8);
+            break;
+        case IO_SOUNDCNT_L:
+            apu::write_NR50(gba, value >> 0);
+            apu::write_NR51(gba, value >> 8);
+            break;
+        case IO_SOUNDCNT_X:
+            REG_SOUNDCNT_X = (REG_SOUNDCNT_X & 0xF) | (value & ~0xF); // only 8-bits of CNT_X are used
+            apu::write_NR52(gba, value);
+            break;
+
         case IO_WAVE_RAM0_L:
         case IO_WAVE_RAM0_H:
         case IO_WAVE_RAM1_L:
@@ -516,11 +545,8 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
         case IO_WAVE_RAM2_H:
         case IO_WAVE_RAM3_L:
         case IO_WAVE_RAM3_H:
-            if (apu::is_apu_enabled(gba))
-            {
-                gba.mem.io[(addr & IO_MASK) >> 1] = value;
-                apu::write_legacy(gba, addr, value);
-            }
+            apu::write_WAVE(gba, addr + 0, value >> 0);
+            apu::write_WAVE(gba, addr + 1, value >> 8);
             break;
 
         case IO_TM0CNT:
@@ -643,24 +669,27 @@ inline auto write_io8(Gba& gba, const u32 addr, const u8 value) -> void
 {
     switch (addr)
     {
-        case IO_SOUND1CNT_L + 0:
-        case IO_SOUND1CNT_H + 0:
-        case IO_SOUND1CNT_H + 1:
-        case IO_SOUND1CNT_X + 0:
-        case IO_SOUND1CNT_X + 1:
-        case IO_SOUND2CNT_L + 0:
-        case IO_SOUND2CNT_L + 1:
-        case IO_SOUND2CNT_H + 0:
-        case IO_SOUND2CNT_H + 1:
-        case IO_SOUND3CNT_L + 0:
-        case IO_SOUND3CNT_H + 0:
-        case IO_SOUND3CNT_H + 1:
-        case IO_SOUND3CNT_X + 0:
-        case IO_SOUND3CNT_X + 1:
-        case IO_SOUND4CNT_L + 0:
-        case IO_SOUND4CNT_L + 1:
-        case IO_SOUND4CNT_H + 0:
-        case IO_SOUND4CNT_H + 1:
+        case IO_SOUND1CNT_L + 0: apu::write_NR10(gba, value); break;
+        case IO_SOUND1CNT_H + 0: apu::write_NR11(gba, value); break;
+        case IO_SOUND1CNT_H + 1: apu::write_NR12(gba, value); break;
+        case IO_SOUND1CNT_X + 0: apu::write_NR13(gba, value); break;
+        case IO_SOUND1CNT_X + 1: apu::write_NR14(gba, value); break;
+        case IO_SOUND2CNT_L + 0: apu::write_NR21(gba, value); break;
+        case IO_SOUND2CNT_L + 1: apu::write_NR22(gba, value); break;
+        case IO_SOUND2CNT_H + 0: apu::write_NR23(gba, value); break;
+        case IO_SOUND2CNT_H + 1: apu::write_NR24(gba, value); break;
+        case IO_SOUND3CNT_L + 0: apu::write_NR30(gba, value); break;
+        case IO_SOUND3CNT_H + 0: apu::write_NR31(gba, value); break;
+        case IO_SOUND3CNT_H + 1: apu::write_NR32(gba, value); break;
+        case IO_SOUND3CNT_X + 0: apu::write_NR33(gba, value); break;
+        case IO_SOUND3CNT_X + 1: apu::write_NR34(gba, value); break;
+        case IO_SOUND4CNT_L + 0: apu::write_NR41(gba, value); break;
+        case IO_SOUND4CNT_L + 1: apu::write_NR42(gba, value); break;
+        case IO_SOUND4CNT_H + 0: apu::write_NR43(gba, value); break;
+        case IO_SOUND4CNT_H + 1: apu::write_NR44(gba, value); break;
+        case IO_SOUNDCNT_L + 0: apu::write_NR50(gba, value); break;
+        case IO_SOUNDCNT_L + 1: apu::write_NR51(gba, value); break;
+
         case IO_WAVE_RAM0_L + 0:
         case IO_WAVE_RAM0_L + 1:
         case IO_WAVE_RAM0_H + 0:
@@ -677,20 +706,7 @@ inline auto write_io8(Gba& gba, const u32 addr, const u8 value) -> void
         case IO_WAVE_RAM3_L + 1:
         case IO_WAVE_RAM3_H + 0:
         case IO_WAVE_RAM3_H + 1:
-            if (apu::is_apu_enabled(gba))
-            {
-                if (addr & 1)
-                {
-                    gba.mem.io[(addr & IO_MASK) >> 1] &= 0x00FF;
-                    gba.mem.io[(addr & IO_MASK) >> 1] |= value << 8;
-                }
-                else
-                {
-                    gba.mem.io[(addr & IO_MASK) >> 1] &= 0xFF00;
-                    gba.mem.io[(addr & IO_MASK) >> 1] |= value;
-                }
-                apu::write_legacy8(gba, addr, value);
-            }
+            apu::write_WAVE(gba, addr, value);
             break;
 
         case IO_IF + 0:

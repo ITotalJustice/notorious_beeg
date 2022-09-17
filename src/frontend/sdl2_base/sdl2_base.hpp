@@ -81,6 +81,9 @@ public:
     SDL_Renderer* renderer{};
     SDL_Texture* texture{};
 
+    std::uint32_t pixel_format_enum{};
+    SDL_PixelFormat* pixel_format{};
+
     std::vector<SDL_Texture*> gif_textures{};
     std::uint32_t gif_delta{};
     int gif_index{};
@@ -101,8 +104,10 @@ public:
     std::mutex core_mutex{};
     std::vector<std::int16_t> sample_data{};
     bool has_focus{true};
+    bool audio_paused{true};
 
-    std::uint16_t pixels[160][240]{};
+    std::vector<std::uint8_t> frontbuffer;
+    std::vector<std::uint8_t> backbuffer;
     bool has_new_frame{false};
 
     std::unordered_map<Sint32, SDL_GameController*> controllers{};

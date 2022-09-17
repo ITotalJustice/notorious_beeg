@@ -37,4 +37,15 @@
         #include "arm7tdmi/arm/arm_goto.cpp"
         #include "arm7tdmi/thumb/thumb_goto.cpp"
     #endif
+
+    #include "gameboy/gb.cpp"
+    #include "gameboy/cpu.cpp"
+    #include "gameboy/bus.cpp"
+    #include "gameboy/joypad.cpp"
+    #include "gameboy/ppu/ppu.cpp"
+    #include "gameboy/ppu/dmg_renderer.cpp"
+    #include "gameboy/ppu/gbc_renderer.cpp"
+    #include "gameboy/mbc.cpp"
+    #include "gameboy/timers.cpp"
+    #include "gameboy/palette_table.cpp"
 #endif

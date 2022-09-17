@@ -38,7 +38,8 @@ target_include_directories(imgui INTERFACE ${imgui_club_SOURCE_DIR}/imgui_memory
 
 add_library(imgui_base
     imgui_base.cpp
-    debugger_io.cpp
+    debugger_io_gb.cpp
+    debugger_io_gba.cpp
 )
 
 target_include_directories(imgui_base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

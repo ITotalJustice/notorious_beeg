@@ -4,6 +4,7 @@
 #pragma once
 
 #include "arm7tdmi/arm7tdmi.hpp"
+#include "gameboy/types.hpp"
 #include "ppu/ppu.hpp"
 #include "apu/apu.hpp"
 #include "mem.hpp"
@@ -40,12 +41,47 @@ enum Button : u16
     ALL = A | B | SELECT | START | RIGHT | LEFT | UP | DOWN | R | L,
 };
 
+enum class System
+{
+    GBA,
+    GB,
+};
+
+struct Colour
+{
+    constexpr Colour(u16 colour) : bgr555{colour} { }
+
+    [[nodiscard]] constexpr auto r() const -> u8 { return (bgr555 >> 0) & 31;  }
+    [[nodiscard]] constexpr auto g() const -> u8 { return (bgr555 >> 5) & 31;  }
+    [[nodiscard]] constexpr auto b() const -> u8 { return (bgr555 >> 10) & 31;  }
+
+    // converts 5bit colour to 8bit colour
+    // low 3 bits are filled, the latter method being the best.
+#if 0
+    [[nodiscard]] constexpr auto r8() const -> u8 { return (r() * 255 / 31); }
+    [[nodiscard]] constexpr auto g8() const -> u8 { return (g() * 255 / 31); }
+    [[nodiscard]] constexpr auto b8() const -> u8 { return (b() * 255 / 31); }
+#else
+    [[nodiscard]] constexpr auto r8() const -> u8 { return (r() << 3) | ((r() >> 2) & 0x7); }
+    [[nodiscard]] constexpr auto g8() const -> u8 { return (g() << 3) | ((g() >> 2) & 0x7); }
+    [[nodiscard]] constexpr auto b8() const -> u8 { return (b() << 3) | ((b() >> 2) & 0x7); }
+#endif
+
+    u16 bgr555;
+};
+
+struct RomName
+{
+    char str[17]; // NULL terminanted
+};
+
 struct State;
 struct Header;
 
 using AudioCallback = void(*)(void* user);
 using VblankCallback = void(*)(void* user);
 using HblankCallback = void(*)(void* user, u16 line);
+using ColourCallback = u32(*)(void* user, Colour colour);
 
 struct Gba
 {
@@ -63,12 +99,16 @@ struct Gba
     backup::Backup backup;
     gpio::Gpio gpio;
 
+    gb::Core gameboy;
+
     // 16kb, 32-bus
     u8 bios[1024 * 16];
+    bool has_bios;
+
     // 32mb(max), 16-bus
     u8 rom[0x2000000];
 
-    bool has_bios;
+    bool stretch;
 
     auto reset() -> void;
     [[nodiscard]] auto loadrom(std::span<const u8> new_rom) -> bool;
@@ -94,21 +134,39 @@ struct Gba
     auto set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate = 65536) -> void;
     auto set_vblank_callback(VblankCallback cb) { this->vblank_callback = cb; }
     auto set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
+    auto set_colour_callback(ColourCallback cb) { this->colour_callback = cb; }
+
+    // set the pixels that the game will render to
+    // IMPORTANT: if pixels == NULL, then no rendering will happen!
+    auto set_pixels(void* pixels, u32 stride, u8 bpp) -> void;
 
     [[nodiscard]] auto get_render_mode() -> u8;
     // returns the priority of the layer
     [[nodiscard]] auto render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> u8;
+
+    [[nodiscard]] auto is_gba() const { return system == System::GBA; }
+    [[nodiscard]] auto is_gb() const { return system == System::GB; }
+
+    [[nodiscard]] auto get_rom_name() const -> RomName;
+
+    System system;
 
     bool bit_crushing{false};
 
     void* userdata{};
     std::span<s16> sample_data;
     std::size_t sample_count;
-    std::uint32_t sample_rate_calculated;
+    u32 sample_rate;
+    u32 sample_rate_calculated;
+
+    void* pixels;
+    u32 stride;
+    u8 bpp;
 
     AudioCallback audio_callback{};
     VblankCallback vblank_callback{};
     HblankCallback hblank_callback{};
+    ColourCallback colour_callback{};
 };
 
 struct State
@@ -127,12 +185,13 @@ struct State
     timer::Timer timer[4];
     backup::Backup backup;
     gpio::Gpio gpio;
+    gb::State gb_state;
 };
 
 enum StateMeta : u32
 {
     MAGIC = 0xFACADE,
-    VERSION = 4,
+    VERSION = 5,
     SIZE = sizeof(State),
 };
 

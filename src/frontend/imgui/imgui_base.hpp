@@ -69,6 +69,8 @@ public:
         static constexpr inline bool debug_mode{true};
     #endif
 public:
+    std::uint16_t pixels[160][240];
+
     Rect emu_rect{};
     int emu_scale{scale};
 

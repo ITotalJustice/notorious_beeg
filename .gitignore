@@ -19,3 +19,6 @@ imgui.ini
 CMakeUserPresets.json
 rtc.md
 n64-emu
+
+# Local Netlify folder
+.netlify

@@ -6,6 +6,7 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "backup/backup.hpp"
 #include "backup/flash.hpp"
+#include "gameboy/gb.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
 #include "bios.hpp"
@@ -31,6 +32,186 @@ constexpr auto fill_rom_oob_values(std::span<u8> rom, const u32 offset)
         rom[i + 0] = i >> 1; // lower nibble (addr >> 1)
         rom[i + 1] = i >> 9; // upper nibble (addr >> (8 + 1))
     }
+}
+
+auto set_buttons_gb(Gba& gba, u16 buttons, bool down)
+{
+    gb::set_buttons(gba, buttons, down);
+
+    if (down && buttons & Button::L)
+    {
+        gba.stretch = true;
+    }
+
+    if (down && buttons & Button::R)
+    {
+        gba.stretch = false;
+    }
+}
+
+auto set_buttons_gba(Gba& gba, u16 buttons, bool down)
+{
+    // the pins go LOW when pressed!
+    if (down)
+    {
+        REG_KEY &= ~buttons;
+
+    }
+    else
+    {
+        REG_KEY |= buttons;
+    }
+
+    // this can be better optimised at some point
+    if (down && ((buttons & DIRECTIONAL) != 0))
+    {
+        if ((buttons & RIGHT) != 0)
+        {
+            REG_KEY |= LEFT;
+        }
+        if ((buttons & LEFT) != 0)
+        {
+            REG_KEY |= RIGHT;
+        }
+        if ((buttons & UP) != 0)
+        {
+            REG_KEY |= DOWN;
+        }
+        if ((buttons & DOWN) != 0)
+        {
+            REG_KEY |= UP;
+        }
+    }
+}
+
+auto loadsave_gb(Gba& gba, std::span<const u8> new_save) -> bool
+{
+    std::ranges::copy(new_save, gba.gameboy.ram);
+    return true;
+}
+
+auto loadsave_gba(Gba& gba, std::span<const u8> new_save) -> bool
+{
+    using enum backup::Type;
+    switch (gba.backup.type)
+    {
+        case NONE: return false;
+        case EEPROM: return gba.backup.eeprom.load_data(new_save);
+        case SRAM: return gba.backup.sram.load_data(new_save);
+
+        case FLASH: [[fallthrough]];
+        case FLASH512: [[fallthrough]];
+        case FLASH1M: return gba.backup.flash.load_data(new_save);
+    }
+
+    std::unreachable();
+}
+
+auto is_save_dirty_gb(Gba& gba, bool auto_clear) -> bool
+{
+    const auto result = gba.gameboy.ram_dirty;
+
+    if (auto_clear)
+    {
+        gba.gameboy.ram_dirty = false;
+    }
+
+    return result;
+}
+
+auto is_save_dirty_gba(Gba& gba, bool auto_clear) -> bool
+{
+    const auto result = gba.backup.dirty_ram;
+
+    if (auto_clear)
+    {
+        gba.backup.dirty_ram = false;
+    }
+
+    return result;
+}
+
+auto get_save_gb(const Gba& gba) -> std::span<const u8>
+{
+    if (gb::has_save(gba))
+    {
+        const auto size = gb::calculate_savedata_size(gba);
+        return { gba.gameboy.ram, size };
+    }
+
+    return {};
+}
+
+auto get_save_gba(const Gba& gba) -> std::span<const u8>
+{
+    using enum backup::Type;
+    switch (gba.backup.type)
+    {
+        case NONE: return {};
+        case EEPROM: return gba.backup.eeprom.get_data();
+        case SRAM: return gba.backup.sram.get_data();
+
+        case FLASH: [[fallthrough]];
+        case FLASH512: [[fallthrough]];
+        case FLASH1M: return gba.backup.flash.get_data();
+    }
+
+    std::unreachable();
+}
+
+auto run_gb(Gba& gba, u32 cycles)
+{
+    gb::run(gba, cycles / 4);
+}
+
+auto run_gba(Gba& gba, u32 cycles)
+{
+    gba.scheduler.frame_end = false;
+    scheduler::add(gba, scheduler::Event::FRAME, [](Gba& _gba){ _gba.scheduler.frame_end = true; }, cycles);
+
+    if (gba.cpu.halted) [[unlikely]]
+    {
+        arm7tdmi::on_halt_event(gba);
+
+        // lets say the gba needs to run for 100 cycles and is halted somewhere
+        // in those cycles.
+        // the gba is then ticked again for 100 cycles, as its in halt, the if(halted)
+        // will enter and stop after 100 cycles, possibly still within halt.
+        // without the below if, the for(;;) loop will enter and tick the cpu
+        // at least once even though it's halted!
+        if (gba.scheduler.frame_end)
+        {
+            return;
+        }
+    }
+
+    #if INTERPRETER == INTERPRETER_GOTO
+    while (!gba.scheduler.frame_end) [[likely]]
+    {
+        arm7tdmi::run(gba);
+    }
+    #else
+    if (!gba.scheduler.frame_end)
+    {
+        for (;;)
+        {
+            arm7tdmi::run(gba);
+
+            gba.scheduler.cycles += gba.scheduler.elapsed;
+            gba.scheduler.elapsed = 0;
+
+            if (gba.scheduler.next_event_cycles <= gba.scheduler.cycles)
+            {
+                scheduler::fire(gba);
+
+                if (gba.scheduler.frame_end) [[unlikely]]
+                {
+                    break;
+                }
+            }
+        }
+    }
+    #endif // INTERPRETER_GOTO
 }
 
 } // namespace
@@ -112,9 +293,20 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
 
     if (!header.validate_all())
     {
-        assert(!"rom failed to validate rom header!");
+        gb::init(*this);
+        // reset the sram
+        std::ranges::fill(mem.ewram, 0xFF);
+
+        if (gb::loadrom(*this, new_rom))
+        {
+            system = System::GB;
+            return true;
+        }
+
         return false;
     }
+
+    system = System::GBA;
 
     // todo: handle if the user has already set / loaded sram for the game
     // or maybe it should always be like this, load game, then load backup
@@ -173,47 +365,34 @@ auto Gba::loadbios(std::span<const u8> new_bios) -> bool
 
 auto Gba::setkeys(u16 buttons, bool down) -> void
 {
-    auto& gba = *this;
-
-    // the pins go LOW when pressed!
-    if (down)
+    if (is_gb())
     {
-        REG_KEY &= ~buttons;
-
+        set_buttons_gb(*this, buttons, down);
     }
     else
     {
-        REG_KEY |= buttons;
-    }
-
-    // this can be better optimised at some point
-    if (down && ((buttons & DIRECTIONAL) != 0))
-    {
-        if ((buttons & RIGHT) != 0)
-        {
-            REG_KEY |= LEFT;
-        }
-        if ((buttons & LEFT) != 0)
-        {
-            REG_KEY |= RIGHT;
-        }
-        if ((buttons & UP) != 0)
-        {
-            REG_KEY |= DOWN;
-        }
-        if ((buttons & DOWN) != 0)
-        {
-            REG_KEY |= UP;
-        }
+        set_buttons_gba(*this, buttons, down);
     }
 }
 
-auto Gba::set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate )-> void
+auto Gba::set_audio_callback(AudioCallback cb, std::span<s16> data, u32 _sample_rate)-> void
 {
+    this->sample_rate = _sample_rate;
     this->audio_callback = cb;
     this->sample_data = data;
     this->sample_count = 0;
-    this->sample_rate_calculated = 280896 * 60 / sample_rate;
+
+    if (sample_rate)
+    {
+        if (is_gb())
+        {
+            this->sample_rate_calculated = gb::CPU_CYCLES / sample_rate;
+        }
+        else
+        {
+            this->sample_rate_calculated = 280896 * 60 / sample_rate;
+        }
+    }
 
     if (this->audio_callback && !this->sample_data.empty() && this->sample_rate_calculated)
     {
@@ -225,14 +404,28 @@ auto Gba::set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_r
     }
 }
 
+auto Gba::set_pixels(void* _pixels, u32 _stride, u8 _bpp) -> void
+{
+    this->pixels = _pixels;
+    this->stride = _stride;
+    this->bpp = _bpp;
+}
+
 auto Gba::get_render_mode() -> u8
 {
     return ppu::get_mode(*this);
 }
 
-auto Gba::render_mode(std::span<u16> pixels, u8 mode, u8 layer) -> u8
+auto Gba::render_mode(std::span<u16> _pixels, u8 mode, u8 layer) -> u8
 {
-    return ppu::render_bg_mode(*this, mode, layer, pixels);
+    if (is_gb())
+    {
+        return gb::render_layer(*this, mode, layer, _pixels);
+    }
+    else
+    {
+        return ppu::render_bg_mode(*this, mode, layer, _pixels);
+    }
 }
 
 auto Gba::loadstate(const State& state) -> bool
@@ -270,6 +463,11 @@ auto Gba::loadstate(const State& state) -> bool
     this->backup = state.backup;
     this->gpio = state.gpio;
 
+    if (is_gb())
+    {
+        gb::loadstate(*this, &state.gb_state);
+    }
+
     mem::setup_tables(*this);
     scheduler::on_loadstate(*this);
 
@@ -299,93 +497,79 @@ auto Gba::savestate(State& state) const -> bool
     state.backup = this->backup;
     state.gpio = this->gpio;
 
+    if (is_gb())
+    {
+        gb::savestate(*this, &state.gb_state);
+    }
+
     return true;
 }
 
 auto Gba::loadsave(std::span<const u8> new_save) -> bool
 {
-    using enum backup::Type;
-    switch (this->backup.type)
+    if (is_gb())
     {
-        case NONE: return false;
-        case EEPROM: return this->backup.eeprom.load_data(new_save);
-        case SRAM: return this->backup.sram.load_data(new_save);
-
-        case FLASH: [[fallthrough]];
-        case FLASH512: [[fallthrough]];
-        case FLASH1M: return this->backup.flash.load_data(new_save);
+        return loadsave_gb(*this, new_save);
     }
-
-    std::unreachable();
+    else
+    {
+        return loadsave_gba(*this, new_save);
+    }
 }
 
 auto Gba::is_save_dirty(bool auto_clear) -> bool
 {
-    const auto result = this->backup.dirty_ram;
-    if (auto_clear)
+    if (is_gb())
     {
-        this->backup.dirty_ram = false;
+        return is_save_dirty_gb(*this, auto_clear);
     }
-    return result;
+    else
+    {
+        return is_save_dirty_gba(*this, auto_clear);
+    }
 }
 
 auto Gba::getsave() const -> std::span<const u8>
 {
-    using enum backup::Type;
-    switch (this->backup.type)
+    if (is_gb())
     {
-        case NONE: return {};
-        case EEPROM: return this->backup.eeprom.get_data();
-        case SRAM: return this->backup.sram.get_data();
-
-        case FLASH: [[fallthrough]];
-        case FLASH512: [[fallthrough]];
-        case FLASH1M: return this->backup.flash.get_data();
+        return get_save_gb(*this);
     }
-
-    std::unreachable();
+    else
+    {
+        return get_save_gba(*this);
+    }
 }
 
-static auto on_frame_event(Gba& gba)
+auto Gba::get_rom_name() const -> RomName
 {
-    gba.scheduler.frame_end = true;
+    RomName name{};
+
+    if (is_gb())
+    {
+        gb::CartName gb_name;
+        gb::get_rom_name(*this, &gb_name);
+        std::strcpy(name.str, gb_name.name);
+    }
+    else
+    {
+        const Header header{this->rom};
+        std::strncpy(name.str, header.game_title, sizeof(header.game_title));
+    }
+
+    return name;
 }
 
 auto Gba::run(u32 _cycles) -> void
 {
-    this->scheduler.frame_end = false;
-
-    scheduler::add(*this, scheduler::Event::FRAME, on_frame_event, _cycles);
-
-    if (this->cpu.halted) [[unlikely]]
+    if (is_gb())
     {
-        arm7tdmi::on_halt_event(*this);
+        run_gb(*this, _cycles);
     }
-
-#if INTERPRETER == INTERPRETER_GOTO
-    while (!this->scheduler.frame_end) [[likely]]
+    else
     {
-        arm7tdmi::run(*this);
+        run_gba(*this, _cycles);
     }
-#else
-    for (;;)
-    {
-        arm7tdmi::run(*this);
-
-        this->scheduler.cycles += this->scheduler.elapsed;
-        this->scheduler.elapsed = 0;
-
-        if (this->scheduler.next_event_cycles <= this->scheduler.cycles)
-        {
-            scheduler::fire(*this);
-
-            if (this->scheduler.frame_end) [[unlikely]]
-            {
-                break;
-            }
-        }
-    }
-#endif // INTERPRETER_GOTO
 }
 
 } // namespace gba
