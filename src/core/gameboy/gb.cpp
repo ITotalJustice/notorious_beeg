@@ -415,7 +415,7 @@ auto get_rom_info(const u8* data, std::size_t size, struct RomInfo* info_out) ->
     // todo: should ensure the romsize is okay!
     (void)size;
 
-    const auto* header = get_rom_header_ptr_from_data(data);
+    const auto header = get_rom_header_ptr_from_data(data);
 
     info_out->rom_size = ROM_SIZE_MULT << header->rom_size;
 
@@ -449,7 +449,7 @@ auto loadrom(Gba& gba, std::span<const u8> rom) -> bool
         return false;
     }
 
-    const auto* header = get_rom_header_ptr_from_data(rom.data());
+    const auto header = get_rom_header_ptr_from_data(rom.data());
     if (!header)
     {
         return false;

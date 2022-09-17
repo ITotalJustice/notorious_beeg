@@ -1,7 +1,8 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include "gameboy/internal.hpp"
+#include <gameboy/gb.hpp>
+#include <gameboy/internal.hpp>
 #include "mem.hpp"
 #include <cstddef>
 #include <cstdint>

@@ -364,7 +364,7 @@ void render_obj_gbc(Gba& gba, u32* pixels, const GbcPrioBuf& prio_buf)
         const auto byte_a = vram_read(gba, offset + 0, sprite.a.bank);
         const auto byte_b = vram_read(gba, offset + 1, sprite.a.bank);
 
-        const auto* bit = sprite.a.xflip ? PIXEL_BIT_GROW : PIXEL_BIT_SHRINK;
+        const auto bit = sprite.a.xflip ? PIXEL_BIT_GROW : PIXEL_BIT_SHRINK;
 
         for (auto x = 0; x < 8; x++)
         {

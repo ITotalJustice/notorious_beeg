@@ -15,7 +15,7 @@ list(APPEND gcc_flags
     -Wundef
     -Wmissing-include-dirs
     -fstrict-aliasing
-    -Wstrict-overflow=5
+    -Wstrict-overflow=2
     -Walloca
     -Wduplicated-branches
     -Wduplicated-cond

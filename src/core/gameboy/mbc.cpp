@@ -471,7 +471,7 @@ auto mbc_get_ram_bank(Gba& gba) -> struct MBC_RamBankInfo
     }
 
     struct MBC_RamBankInfo info{};
-    auto* ptr = gba.gameboy.ram + (0x2000 * gba.gameboy.cart.ram_bank);
+    auto ptr = gba.gameboy.ram + (0x2000 * gba.gameboy.cart.ram_bank);
 
     switch (gba.gameboy.cart.type)
     {
@@ -539,7 +539,7 @@ auto get_rom_name_from_header(const struct CartHeader* header, struct CartName* 
 
 auto get_rom_name(const Gba& gba, struct CartName* name) -> int
 {
-    const auto* header = get_rom_header_ptr(gba);
+    const auto header = get_rom_header_ptr(gba);
 
     return get_rom_name_from_header(header, name);
 }
