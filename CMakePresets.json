@@ -20,7 +20,6 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "LTO": true,
                 "SINGLE_FILE": true
             }
         },
@@ -214,7 +213,8 @@
             "displayName": "benchmark-table-lto",
             "inherits": ["benchmark"],
             "cacheVariables": {
-                "INTERPRETER": "INTERPRETER_TABLE"
+                "INTERPRETER": "INTERPRETER_TABLE",
+                "LTO": true
             }
         },
         {
@@ -222,7 +222,8 @@
             "displayName": "benchmark-switch-lto",
             "inherits": ["benchmark"],
             "cacheVariables": {
-                "INTERPRETER": "INTERPRETER_SWITCH"
+                "INTERPRETER": "INTERPRETER_SWITCH",
+                "LTO": true
             }
         },
         {
@@ -230,7 +231,8 @@
             "displayName": "benchmark-goto-lto",
             "inherits": ["benchmark"],
             "cacheVariables": {
-                "INTERPRETER": "INTERPRETER_GOTO"
+                "INTERPRETER": "INTERPRETER_GOTO",
+                "LTO": true
             }
         },
         {

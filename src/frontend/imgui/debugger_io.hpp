@@ -5,6 +5,7 @@ namespace gba { struct Gba; }
 
 namespace debugger::io {
 
-auto render(gba::Gba& gba, bool* p_open) -> void;
+auto render_gb(gba::Gba& gba, bool* p_open) -> void;
+auto render_gba(gba::Gba& gba, bool* p_open) -> void;
 
 } // namespace debugger::io

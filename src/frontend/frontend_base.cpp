@@ -2,19 +2,35 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "frontend_base.hpp"
+#include "gba.hpp"
 #include <cassert>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <filesystem>
+#include <string_view>
+#include <vector>
 #include <zlib.h>
 #include <minizip/unzip.h>
 #include <minizip/zip.h>
 
 namespace frontend {
 namespace {
+
+auto is_valid_rom_ext(std::string str)
+{
+    for (auto& c : str)
+    {
+        c = std::tolower(c);
+    }
+
+    const auto view = std::string_view{str};
+
+    return view.ends_with(".gba") || view.ends_with(".gb") || view.ends_with(".gbc") || view.ends_with(".dmg");
+}
 
 struct MzMem
 {
@@ -206,7 +222,7 @@ auto loadzip_internal(unzFile zf) -> std::vector<std::uint8_t>
 
                     if (UNZ_OK == unzGetCurrentFileInfo64(zf, &file_info, name, sizeof(name), nullptr, 0, nullptr, 0))
                     {
-                        if (std::string_view{ name }.ends_with(".gba") || std::string_view{ name }.ends_with(".GBA"))
+                        if (is_valid_rom_ext(name))
                         {
                             std::vector<std::uint8_t> data;
                             data.resize(file_info.uncompressed_size);
@@ -503,12 +519,17 @@ auto Base::loadstate(const std::string& path) -> bool
 {
     const auto state_path = create_state_path(path, state_slot);
     const auto state_data = loadfile(state_path);
-    if (!state_data.empty() && state_data.size() == sizeof(gba::State))
+
+    if (!state_data.empty())
     {
-        std::printf("loadstate from: %s\n", state_path.c_str());
         auto state = std::make_unique<gba::State>();
-        std::memcpy(state.get(), state_data.data(), state_data.size());
-        return gameboy_advance.loadstate(*state);
+        uLongf dst_size = gba::StateMeta::SIZE;
+
+        if (Z_OK == uncompress(reinterpret_cast<std::uint8_t*>(state.get()), &dst_size, state_data.data(), state_data.size()))
+        {
+            std::printf("loadstate from: %s\n", state_path.c_str());
+            return gameboy_advance.loadstate(*state);
+        }
     }
     return false;
 }
@@ -519,8 +540,17 @@ auto Base::savestate(const std::string& path) -> bool
     if (gameboy_advance.savestate(*state))
     {
         const auto state_path = create_state_path(path, state_slot);
-        std::printf("savestate to: %s\n", state_path.c_str());
-        return dumpfile(state_path, {reinterpret_cast<std::uint8_t*>(state.get()), sizeof(gba::State)});
+
+        std::vector<std::uint8_t> buf;
+        buf.resize(compressBound(gba::StateMeta::SIZE));
+        uLongf dst_size = gba::StateMeta::SIZE;
+
+        if (Z_OK == compress(buf.data(), &dst_size, reinterpret_cast<std::uint8_t*>(state.get()), gba::StateMeta::SIZE))
+        {
+            buf.resize(dst_size);
+            std::printf("savestate to: %s\n", state_path.c_str());
+            return dumpfile(state_path, buf);
+        }
     }
     return false;
 }

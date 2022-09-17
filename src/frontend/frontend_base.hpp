@@ -55,7 +55,7 @@ public:
 
     static constexpr auto width{240};
     static constexpr auto height{160};
-    int scale{4};
+    int scale{3};
 
     int state_slot{};
     std::string rom_path{};

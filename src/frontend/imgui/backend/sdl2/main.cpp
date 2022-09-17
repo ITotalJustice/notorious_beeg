@@ -116,19 +116,7 @@ App::App(int argc, char** argv) : ImguiBase{argc, argv}
         return;
     }
 
-    #if SDL_BYTEORDER == SDL_BIG_ENDIAN
-        const auto rmask = 0xff000000;
-        const auto gmask = 0x00ff0000;
-        const auto bmask = 0x0000ff00;
-        const auto amask = 0xff;
-    #else // little endian, like x86
-        const auto rmask = 0x000000ff;
-        const auto gmask = 0x0000ff00;
-        const auto bmask = 0x00ff0000;
-        const auto amask = 0xff000000;
-    #endif
-
-    auto icon = SDL_CreateRGBSurfaceFrom(const_cast<uint32_t*>(app_icon_data), 32, 32, 32, 4*32, rmask, gmask, bmask, amask);
+    auto icon = SDL_CreateRGBSurfaceWithFormatFrom(const_cast<uint32_t*>(app_icon_data), 32, 32, 32, 4*32, SDL_PIXELFORMAT_RGBA32);
     if (icon != nullptr)
     {
         SDL_SetWindowIcon(window, icon);
@@ -628,7 +616,7 @@ auto App::get_texture(TextureID id) -> void*
     return nullptr;
 }
 
-auto App::update_texture(TextureID id, std::uint16_t pixels[160][240]) -> void
+auto App::update_texture(TextureID id, std::uint16_t _pixels[160][240]) -> void
 {
     auto _texture = static_cast<SDL_Texture*>(get_texture(id));
     void* texture_pixels{};
@@ -637,7 +625,7 @@ auto App::update_texture(TextureID id, std::uint16_t pixels[160][240]) -> void
     SDL_LockTexture(_texture, nullptr, &texture_pixels, &pitch);
         SDL_ConvertPixels(
             width, height, // w,h
-            SDL_PIXELFORMAT_BGR555, pixels, width * sizeof(std::uint16_t), // src
+            SDL_PIXELFORMAT_BGR555, _pixels, width * sizeof(std::uint16_t), // src
             SDL_PIXELFORMAT_BGR555, texture_pixels, pitch // dst
         );
     SDL_UnlockTexture(_texture);

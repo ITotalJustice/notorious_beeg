@@ -15,7 +15,7 @@ list(APPEND gcc_flags
     -Wundef
     -Wmissing-include-dirs
     -fstrict-aliasing
-    -Wstrict-overflow=5
+    -Wstrict-overflow=2
     -Walloca
     -Wduplicated-branches
     -Wduplicated-cond
@@ -39,11 +39,13 @@ list(APPEND gcc_flags
 
     # -fno-rtti
     -fno-exceptions
+    -Wno-missing-field-initializers
     # -fanalyzer
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    list(APPEND gcc_flags -Og) # always enable otherwise debug builds would be too slow
+    # list(APPEND gcc_flags -Og) # always enable otherwise debug builds would be too slow
+    list(APPEND gcc_flags -O3) # always enable otherwise debug builds would be too slow
 else()
     list(APPEND gcc_flags -O3)
 endif()

@@ -330,4 +330,67 @@ static_assert(
 
     "bit::reverse2 is broken!"
 );
+
+// scales [v] from src_bits to dst_bits
+// slightly more accurate than simply shifting the number
+template<u8 src_bits, u8 dst_bits, IntV T> [[nodiscard]]
+constexpr auto scale(const auto v) -> T
+{
+    static_assert(src_bits > 0 && dst_bits > 0, "starting bits should be > 1");
+    static_assert(src_bits < dst_bits, "only scaling up is supported!");
+
+    constexpr auto up = bit::get_mask<0, dst_bits-1, int>();
+    constexpr auto down = bit::get_mask<0, src_bits-1, int>();
+
+    return (v * up) / down;
+}
+
+static_assert(
+    // some 10bit to 16bit scales
+    bit::scale<10, 16, u16>(0x3FF) == 0xFFFF &&
+    bit::scale<10, 16, u16>(0x100) == 0x400F &&
+
+    // some 5bit to 8bit scales
+    bit::scale<5, 8, u8>(18) == 148 &&
+    bit::scale<5, 8, u8>(31) == 255 &&
+
+    // examples of novice scaling (loses precision)
+    (18 << 3) == 144 &&
+    (31 << 3) == 248 &&
+
+    "bit::scale is broken!"
+);
+
+#if 0
+// slightly more accurate than above
+template<u8 src_bits, u8 dst_bits, IntV T> [[nodiscard]]
+constexpr auto scale2(const auto v) -> T
+{
+    static_assert(src_bits > 0 && dst_bits > 0, "starting bits should be > 1");
+    static_assert(src_bits < dst_bits, "only scaling up is supported!");
+    static_assert(dst_bits <= src_bits * 2, "scale2 at > x2 is not supported");
+
+    constexpr auto up = dst_bits - src_bits;
+    constexpr auto down = src_bits - up;
+
+    return (v << up) | (v >> down);
+}
+
+static_assert(
+    // some 10bit to 16bit scales
+    bit::scale2<10, 16, u16>(0x3FF) == 0xFFFF &&
+    bit::scale2<10, 16, u16>(0x100) == 0x4010 &&
+
+    // some 5bit to 16bit scales
+    bit::scale2<5, 8, u8>(18) == 148 &&
+    bit::scale2<5, 8, u8>(31) == 255 &&
+
+    // examples of novice scaling (loses precision)
+    (18 << 3) == 144 &&
+    (31 << 3) == 248 &&
+
+    "bit::scale2 is broken!"
+);
+#endif
+
 } // namespace bit

@@ -1,5 +1,7 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
+#include "gba.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -41,6 +43,45 @@ auto on_audio_callback(void* user) -> void
     app->fill_stream_from_sample_data();
 }
 
+auto on_colour_callback(void* user, gba::Colour c) -> std::uint32_t
+{
+    auto app = static_cast<App*>(user);
+
+    if (app->gameboy_advance.is_gb())
+    {
+        auto r = c.r();
+        auto g = c.g();
+        auto b = c.b();
+
+        auto R = (r * 26 + g * 4 + b * 2);
+        auto G = (g * 24 + b * 8);
+        auto B = (r * 6 + g * 4 + b * 22);
+
+        R = std::min(960, R) >> 2;
+        G = std::min(960, G) >> 2;
+        B = std::min(960, B) >> 2;
+
+        R = (R - (R >> 2)) + 8;
+        G = (G - (G >> 2)) + 8;
+        B = (B - (B >> 2)) + 8;
+
+        return SDL_MapRGB(app->pixel_format, R, G, B);
+    }
+    else
+    {
+        // SOURCE: https://gbdev.io/pandocs/Palettes.html
+        auto r = (c.r8() - (c.r8() >> 2)) + 8;
+        auto g = (c.g8() - (c.g8() >> 2)) + 8;
+        auto b = (c.b8() - (c.b8() >> 2)) + 8;
+
+        r = std::min(r, 255);
+        g = std::min(g, 255);
+        b = std::min(b, 255);
+
+        return SDL_MapRGB(app->pixel_format, r, g, b);
+    }
+}
+
 App::App(int argc, char** argv) : frontend::sdl2::Sdl2Base(argc, argv)
 {
     if (!running)
@@ -65,17 +106,22 @@ App::App(int argc, char** argv) : frontend::sdl2::Sdl2Base(argc, argv)
 
     gameboy_advance.set_userdata(this);
     gameboy_advance.set_vblank_callback(on_vblank_callback);
-    // this is set in init_audio()
-    // gameboy_advance.set_audio_callback(on_audio_callback, sample_data);
+    gameboy_advance.set_colour_callback(on_colour_callback);
 
     // need a rom to run atm
     if (has_rom)
     {
+        if (gameboy_advance.is_gb())
+        {
+            // hack for loading palette for dmg games for now
+            loadrom(argv[1]);
+        }
+
         running = true;
 
         char buf[100];
-        gba::Header header{gameboy_advance.rom};
-        std::sprintf(buf, "%s - [%.*s]", "Notorious BEEG", 12, header.game_title);
+        const auto title = gameboy_advance.get_rom_name();
+        std::sprintf(buf, "%s - [%s]", "Notorious BEEG", title.str);
         SDL_SetWindowTitle(window, buf);
     }
     else
@@ -93,7 +139,15 @@ auto App::render() -> void
 
     if (has_rom)
     {
-        SDL_RenderCopy(renderer, texture, nullptr, &emu_rect);
+        SDL_Rect src = { .x = 0, .y = 0, .w = 240, .h = 160 };
+
+        if (gameboy_advance.is_gb() && gameboy_advance.stretch)
+        {
+            src.x = 40;
+            src.w = 160;
+        }
+
+        SDL_RenderCopy(renderer, texture, &src, &emu_rect);
     }
 
     SDL_RenderPresent(renderer);

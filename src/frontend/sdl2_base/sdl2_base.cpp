@@ -5,6 +5,7 @@
 #define STBI_ONLY_GIF
 #define STBI_NO_STDIO
 #include "stb_image.h"
+#include <gameboy/gb.hpp>
 #include <cstdio>
 #include <cstring>
 
@@ -40,6 +41,13 @@ Sdl2Base::Sdl2Base(int argc, char** argv) : frontend::Base{argc, argv}
         return;
     }
 
+    pixel_format_enum = SDL_GetWindowPixelFormat(window);
+    pixel_format = SDL_AllocFormat(pixel_format_enum);
+    if (!pixel_format)
+    {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", SDL_GetError(), nullptr);
+    }
+
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer)
     {
@@ -47,12 +55,17 @@ Sdl2Base::Sdl2Base(int argc, char** argv) : frontend::Base{argc, argv}
         return;
     }
 
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
+    texture = SDL_CreateTexture(renderer, pixel_format_enum, SDL_TEXTUREACCESS_STREAMING, width, height);
     if (!texture)
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", SDL_GetError(), nullptr);
         return;
     }
+
+    // setup the pixels
+    frontbuffer.resize(pixel_format->BytesPerPixel * width * height);
+    backbuffer.resize(pixel_format->BytesPerPixel * width * height);
+    gameboy_advance.set_pixels(frontbuffer.data(), width, pixel_format->BytesPerPixel);
 
     SDL_SetWindowMinimumSize(window, width, height);
 
@@ -124,6 +137,11 @@ auto Sdl2Base::init_audio(void* user, SDL_AudioCallback sdl2_cb, gba::AudioCallb
 
 Sdl2Base::~Sdl2Base()
 {
+    if (pixel_format)
+    {
+        SDL_FreeFormat(pixel_format);
+    }
+
     for (auto& tex : gif_textures)
     {
         SDL_DestroyTexture(tex);
@@ -332,6 +350,26 @@ auto Sdl2Base::run(double delta) -> void
     }
 
     std::scoped_lock lock{core_mutex};
+
+    if (gameboy_advance.is_gb())
+    {
+        if (gba::gb::has_rtc(gameboy_advance))
+        {
+            const auto the_time = time(nullptr);
+            const auto tm = localtime(&the_time);
+
+            if (tm)
+            {
+                gba::gb::Rtc rtc;
+                rtc.S = tm->tm_sec;
+                rtc.M = tm->tm_min;
+                rtc.H = tm->tm_hour;
+                rtc.DL = tm->tm_yday & 0xFF;
+                rtc.DH = tm->tm_yday > 0xFF;
+                gba::gb::set_rtc(gameboy_advance, rtc);
+            }
+        }
+    }
 
     // just in case something sends the main thread to sleep
     // ie, filedialog, then cap the max delta to something reasonable!
@@ -838,7 +876,7 @@ auto Sdl2Base::fill_stream_from_sample_data() -> void
     // or the callback code where we have way too many samples, specifically about
     // 3 frames worth. at that point, start discarding samples for a bit.
     // not the best solution at all, but it'll do for now
-    if (max_latency > SDL_AudioStreamAvailable(audio_stream))
+    if (!audio_paused && max_latency > SDL_AudioStreamAvailable(audio_stream))
     {
         SDL_AudioStreamPut(audio_stream, sample_data.data(), sample_data.size() * 2);
     }
@@ -851,7 +889,7 @@ auto Sdl2Base::update_pixels_from_gba() -> void
         // std::printf("[WARNING] dropping frame, vblank called before previous frame was displayed!\n");
         return;
     }
-    std::memcpy(pixels, gameboy_advance.ppu.pixels, sizeof(gameboy_advance.ppu.pixels));
+    std::memcpy(backbuffer.data(), frontbuffer.data(), backbuffer.size());
     has_new_frame = true;
 }
 
@@ -868,8 +906,8 @@ auto Sdl2Base::update_texture_from_pixels() -> void
         SDL_LockTexture(texture, nullptr, &texture_pixels, &pitch);
             SDL_ConvertPixels(
                 width, height,
-                SDL_PIXELFORMAT_BGR555, pixels, width * sizeof(std::uint16_t), // src
-                SDL_PIXELFORMAT_BGR555, texture_pixels, pitch // dst
+                pixel_format_enum, backbuffer.data(), width * pixel_format->BytesPerPixel, // src
+                pixel_format_enum, texture_pixels, pitch // dst
             );
         SDL_UnlockTexture(texture);
     }
@@ -883,6 +921,8 @@ auto Sdl2Base::update_audio_device_pause_status() -> void
         return;
     }
 
+    #if 0
+    const auto status = SDL_GetAudioDeviceStatus(audio_device);
     int pause_on = 0;
 
     if (!emu_run || !has_focus || !has_rom || !running || emu_audio_disabled)
@@ -890,7 +930,48 @@ auto Sdl2Base::update_audio_device_pause_status() -> void
         pause_on = 1;
     }
 
-    SDL_PauseAudioDevice(audio_device, pause_on);
+    if (pause_on && status == SDL_AUDIO_PLAYING)
+    {
+        SDL_PauseAudioDevice(audio_device, pause_on);
+    }
+    else if (!pause_on && status != SDL_AUDIO_PLAYING)
+    {
+        std::scoped_lock lock1{core_mutex};
+        std::scoped_lock lock2{audio_mutex};
+        SDL_AudioStreamClear(audio_stream);
+        std::memset(sample_data.data(), aspec_got.silence, sample_data.size());
+        SDL_AudioStreamPut(audio_stream, sample_data.data(), sample_data.size());
+        SDL_AudioStreamPut(audio_stream, sample_data.data(), sample_data.size());
+        SDL_AudioStreamPut(audio_stream, sample_data.data(), sample_data.size());
+        SDL_AudioStreamPut(audio_stream, sample_data.data(), sample_data.size());
+        SDL_PauseAudioDevice(audio_device, pause_on);
+    }
+    #else
+    auto new_paused = false;
+
+    if (!emu_run || !has_focus || !has_rom || !running || emu_audio_disabled)
+    {
+        new_paused = true;
+    }
+
+    if (new_paused && !audio_paused)
+    {
+        SDL_PauseAudioDevice(audio_device, 1);
+    }
+    else if (!new_paused && audio_paused)
+    {
+        std::scoped_lock lock1{core_mutex};
+        std::scoped_lock lock2{audio_mutex};
+        SDL_AudioStreamClear(audio_stream);
+        std::memset(sample_data.data(), aspec_got.silence, sample_data.size());
+        SDL_AudioStreamPut(audio_stream, sample_data.data(), sample_data.size());
+        SDL_AudioStreamPut(audio_stream, sample_data.data(), sample_data.size());
+        SDL_AudioStreamPut(audio_stream, sample_data.data(), sample_data.size());
+        SDL_AudioStreamPut(audio_stream, sample_data.data(), sample_data.size());
+        SDL_PauseAudioDevice(audio_device, 0);
+    }
+    audio_paused = new_paused;
+    #endif
 }
 
 auto Sdl2Base::load_gif(const char* path) -> bool

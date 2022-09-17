@@ -21,9 +21,6 @@ struct Ppu
     u32 period_cycles;
     u32 cycles;
     Period period;
-
-    // bgr555
-    u16 pixels[160][240];
 };
 
 // used for debugging

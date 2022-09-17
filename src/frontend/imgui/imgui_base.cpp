@@ -65,6 +65,7 @@ auto mem_viewer_entry(const char* name, std::span<T> data) -> void
 
 ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
 {
+    scale = 4;
     // gameboy_advance.set_hblank_callback(on_hblank_callback);
 
     IMGUI_CHECKVERSION();
@@ -80,6 +81,7 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
     io.Fonts->AddFontFromMemoryCompressedTTF(trim_font_compressed_data, trim_font_compressed_size, 20);
 
     gameboy_advance.set_hblank_callback(on_hblank_callback);
+    gameboy_advance.set_pixels(pixels, 240, 16);
 }
 
 ImguiBase::~ImguiBase()
@@ -112,7 +114,14 @@ auto ImguiBase::run_render() -> void
 
         if (viewer_io)
         {
-            debugger::io::render(gameboy_advance, &viewer_io);
+            if (gameboy_advance.is_gb())
+            {
+                debugger::io::render_gb(gameboy_advance, &viewer_io);
+            }
+            else
+            {
+                debugger::io::render_gba(gameboy_advance, &viewer_io);
+            }
         }
     }
 
@@ -163,7 +172,7 @@ auto ImguiBase::emu_update_texture() -> void
         return;
     }
 
-    update_texture(TextureID::emu, gameboy_advance.ppu.pixels);
+    update_texture(TextureID::emu, pixels);
 }
 
 auto ImguiBase::emu_render() -> void

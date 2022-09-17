@@ -1119,6 +1119,59 @@ auto get_bg_meta(Gba& gba, u8 bg_num) -> BgMeta
     std::unreachable();
 }
 
+auto write_scanline_to_frame(Gba& gba, const u16 scanline[160])
+{
+    if (!gba.pixels)
+    {
+        assert(!"no pixels found!");
+        return;
+    }
+
+    if (!gba.colour_callback)
+    {
+        if (gba.bpp == 2 || gba.bpp == 15 || gba.bpp == 16)
+        {
+            std::memcpy(&static_cast<u16*>(gba.pixels)[gba.stride * REG_VCOUNT], scanline, 240 * 2);
+        }
+        return;
+    }
+
+    const auto func = [&gba, &scanline](auto pixels) {
+        assert(240 <= gba.stride);
+
+        pixels = &pixels[gba.stride * REG_VCOUNT];
+
+        for (auto i = 0; i < 240; i++)
+        {
+            pixels[i] = gba.colour_callback(gba.userdata, Colour{scanline[i]});
+        }
+    };
+
+    switch (gba.bpp)
+    {
+        case 1:
+        case 8:
+            func(static_cast<u8*>(gba.pixels));
+            break;
+
+        case 2:
+        case 15:
+        case 16:
+            func(static_cast<u16*>(gba.pixels));
+            break;
+
+        case 4:
+        case 24:
+        case 32:
+            func(static_cast<u32*>(gba.pixels));
+            break;
+
+        default:
+            assert(!"bpp invalid option!");
+            break;
+    }
+}
+
 auto tile_render(Gba& gba, std::span<BgLine> bg_lines, const Layer layers = Layer::ALL, const bool apply_window = true, const bool apply_merge = true) -> void
 {
     // setup inital windowing (using win0 and win1)
@@ -1175,7 +1228,9 @@ auto tile_render(Gba& gba, std::span<BgLine> bg_lines, const Layer layers = Laye
     // merge all backgrounds and objects, applying blending if needed
     if (apply_merge)
     {
-        merge(gba, bounds, gba.ppu.pixels[REG_VCOUNT], bg_lines, obj_line);
+        u16 scanline[240];
+        merge(gba, bounds, scanline, bg_lines, obj_line);
+        write_scanline_to_frame(gba, scanline);
     }
 }
 
@@ -1213,6 +1268,30 @@ auto render_mode4(Gba& gba) -> void
     tile_render(gba, bg_lines);
 }
 
+constexpr auto bits_per_pixel_to_bytes_per_pixel(u8 bpp)
+{
+    switch (bpp)
+    {
+        case 1:
+        case 8:
+            return 1;
+
+        case 2:
+        case 15:
+        case 16:
+            return 2;
+
+        case 4:
+        case 24:
+        case 32:
+            return 4;
+
+        default:
+            assert(!"bpp invalid option!");
+            return 0;
+    }
+}
+
 } // namespace
 
 auto render(Gba& gba) -> void
@@ -1220,7 +1299,12 @@ auto render(Gba& gba) -> void
     // if forced blanking is enabled, the screen is black
     if (is_screen_blanked(gba)) [[unlikely]]
     {
-        std::ranges::fill(gba.ppu.pixels[REG_VCOUNT], 0);
+        if (gba.pixels && gba.stride && gba.bpp)
+        {
+            const auto bpp = bits_per_pixel_to_bytes_per_pixel(gba.bpp);
+            auto pixels = static_cast<u8*>(gba.pixels) + (gba.stride * REG_VCOUNT * bpp);
+            std::memset(pixels, 0, 240 * bpp);
+        }
         return;
     }
 
@@ -1236,7 +1320,10 @@ auto render(Gba& gba) -> void
         // case 5: render_mode5(gba); break;
 
         default:
+            #ifndef NDEBUG
+            assert(!"unhandled ppu mode!");
             std::printf("unhandled ppu mode: %u\n", mode);
+            #endif
             break;
     }
 }
@@ -1291,7 +1378,6 @@ auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
             func(bg_lines, true);
         } break;
     }
-
     return meta.cnt.Pr;
 }
 
