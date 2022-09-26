@@ -90,4 +90,9 @@ if (EMSCRIPTEN)
     set(FRONTEND ON)
 endif()
 
+if (TESTING)
+    include(CTest)
+    set(FRONTEND ON)
+endif()
+
 add_subdirectory(src)

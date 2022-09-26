@@ -13,10 +13,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdio>
-#include <algorithm>
 #include <cstring>
-#include <ranges>
-#include <span>
 
 namespace gba::ppu {
 namespace {

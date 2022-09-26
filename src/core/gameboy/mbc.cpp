@@ -113,19 +113,26 @@ constexpr auto mbc_get_info(u8 index) -> struct MbcInfo
 
 auto mbc_setup_empty_ram() -> struct MBC_RamBankInfo
 {
-    static const u8 MBC_NO_RAM = 0xFF;
+    static const u8 MBC_NO_RAM_READ = 0xFF;
+    static u8 MBC_NO_RAM_WRITE = 0x00;
+
     struct MBC_RamBankInfo info{};
-    info.r[0].ptr = &MBC_NO_RAM;
+
+    info.r[0].ptr = &MBC_NO_RAM_READ;
     info.r[0].mask = 0;
-    info.r[1].ptr = &MBC_NO_RAM;
+    info.r[1].ptr = &MBC_NO_RAM_READ;
     info.r[1].mask = 0;
+
+    info.w[0].ptr = &MBC_NO_RAM_WRITE;
+    info.w[0].mask = 0;
+    info.w[1].ptr = &MBC_NO_RAM_WRITE;
+    info.w[1].mask = 0;
 
     return info;
 }
 
-void mbc0_write(Gba& gba, u16 addr, u8 value)
+void mbc0_write([[maybe_unused]] Gba& gba, [[maybe_unused]] u16 addr, [[maybe_unused]] u8 value)
 {
-    UNUSED(gba); UNUSED(addr); UNUSED(value);
 }
 
 void mbc1_write(Gba& gba, u16 addr, u8 value)
@@ -178,6 +185,7 @@ void mbc1_write(Gba& gba, u16 addr, u8 value)
                 }
             }
             update_rom_banks(gba);
+            update_ram_banks(gba);
             break;
 
     // RAM BANK X
@@ -478,14 +486,22 @@ auto mbc_get_ram_bank(Gba& gba) -> struct MBC_RamBankInfo
         case MbcType_0:
             return mbc_setup_empty_ram();
 
+        // special handling is required for mbc2 as the values
+        // in ram are only 4bit.
+        // because of this, either writes or reads need to be
+        // handled in a special case.
+        // for now, i have opted for writes as it simplifies
+        // the main read() function in bus.cpp
+        // however, this can be problamatic if a bad save is loaded
+        // that was created by another emulator
         case MbcType_2:
             for (std::size_t i = 0; i < ARRAY_SIZE(info.r); ++i)
             {
                 info.r[i].ptr = ptr;
                 info.r[i].mask = 0x01FF;
 
-                info.w[i].ptr = ptr;
-                info.w[i].mask = 0x01FF;
+                info.w[i].ptr = nullptr;
+                info.w[i].mask = 0;
             }
             break;
 

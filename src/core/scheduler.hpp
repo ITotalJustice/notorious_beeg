@@ -64,6 +64,31 @@ struct Scheduler
     // try openlara menu and listen to the audio pop
     // auto tick(u32 cycle_amount) { this->cycles += cycle_amount; }
     auto tick(u32 cycle_amount) { this->elapsed += cycle_amount; }
+
+    [[nodiscard]] auto get_cycles() const
+    {
+        return cycles;
+    }
+
+    [[nodiscard]] auto get_event(Event e) -> Entry&
+    {
+        return entries[std::to_underlying(e)];
+    }
+
+    [[nodiscard]] auto is_event_enabled(Event e) const
+    {
+        return entries[std::to_underlying(e)].enabled;
+    }
+
+    [[nodiscard]] auto get_event_cycles(Event e) const
+    {
+        return entries[std::to_underlying(e)].cycles;
+    }
+
+    [[nodiscard]] auto get_event_delta(Event e) const
+    {
+        return entries[std::to_underlying(e)].delta;
+    }
 };
 
 auto on_loadstate(Gba& gba) -> void;

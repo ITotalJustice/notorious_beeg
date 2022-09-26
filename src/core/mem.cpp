@@ -16,9 +16,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iterator>
-#include <algorithm>
 #include <span>
-#include <ranges>
 #include <type_traits>
 #include <bit>
 
@@ -130,14 +128,6 @@ inline auto read_io16(Gba& gba, const u32 addr) -> u16
         case IO_BG2CNT:
         case IO_BG3CNT:
         case IO_SOUNDBIAS:
-        case IO_WAVE_RAM0_L:
-        case IO_WAVE_RAM0_H:
-        case IO_WAVE_RAM1_L:
-        case IO_WAVE_RAM1_H:
-        case IO_WAVE_RAM2_L:
-        case IO_WAVE_RAM2_H:
-        case IO_WAVE_RAM3_L:
-        case IO_WAVE_RAM3_H:
         case IO_TM0CNT:
         case IO_TM1CNT:
         case IO_TM2CNT:
@@ -150,6 +140,16 @@ inline auto read_io16(Gba& gba, const u32 addr) -> u16
         case IO_HALTCNT_L:
         case IO_HALTCNT_H:
             return gba.mem.io[(addr & IO_MASK) >> 1];
+
+        case IO_WAVE_RAM0_L:
+        case IO_WAVE_RAM0_H:
+        case IO_WAVE_RAM1_L:
+        case IO_WAVE_RAM1_H:
+        case IO_WAVE_RAM2_L:
+        case IO_WAVE_RAM2_H:
+        case IO_WAVE_RAM3_L:
+        case IO_WAVE_RAM3_H:
+            return (apu::read_WAVE(gba, addr + 0) << 8) | apu::read_WAVE(gba, addr + 1);
 
         case IO_TM0D:
             return timer::read_timer(gba, 0);
@@ -893,6 +893,14 @@ auto write_gpio(Gba& gba, const u32 addr, const T value)
     }
 }
 
+// "In bitmap modes reads and writes to 0x06018000 - 0x0601BFFF
+// do not work (writes are discarded; reads may always return 0?)."
+// SOURCE: https://github.com/nba-emu/hw-test/tree/master/ppu/vram-mirror
+inline auto is_vram_access_allowed(Gba& gba, const u32 addr) -> bool
+{
+    return !ppu::is_bitmap_mode(gba) || (addr & VRAM_MASK) > 0x1BFFF;
+}
+
 template<typename T> [[nodiscard]]
 auto read_vram_region(Gba& gba, u32 addr) -> T
 {
@@ -900,9 +908,9 @@ auto read_vram_region(Gba& gba, u32 addr) -> T
 
     if (addr > 0x17FFF)
     {
-        if (ppu::is_bitmap_mode(gba) && addr <= 0x1BFFF) [[unlikely]]
+        if (!is_vram_access_allowed(gba, addr)) [[unlikely]]
         {
-            return openbus<T>(gba, addr);
+            return 0x00;
         }
 
         addr -= 0x8000;
@@ -918,7 +926,7 @@ auto write_vram_region(Gba& gba, u32 addr, const T value) -> void
 
     if (addr > 0x17FFF)
     {
-        if (ppu::is_bitmap_mode(gba) && addr <= 0x1BFFF) [[unlikely]]
+        if (!is_vram_access_allowed(gba, addr)) [[unlikely]]
         {
             return;
         }
@@ -1011,7 +1019,7 @@ auto write_eeprom_region(Gba& gba, const u32 addr, const T value) -> void
 template<typename T> [[nodiscard]]
 auto read_sram_region(Gba& gba, const u32 addr) -> T
 {
-    if (addr > 0x0E00FFFF) [[unlikely]]
+    if ((addr & 0xFFFFFF) > 0x00FFFF) [[unlikely]]
     {
         return openbus<T>(gba, addr);
     }
@@ -1098,7 +1106,7 @@ inline auto read_internal(Gba& gba, u32 addr) -> T
         /*[0xC] =*/ openbus, // todo: add this
         /*[0xD] =*/ read_eeprom_region<T>,
         /*[0xE] =*/ read_sram_region<T>,
-        /*[0xF] =*/ openbus,
+        /*[0xF] =*/ read_sram_region<T>,
     };
 
     gba.scheduler.tick(get_memory_timing(sizeof(T) >> 1, addr));
@@ -1136,7 +1144,7 @@ inline auto write_internal(Gba& gba, u32 addr, T value)
         /*[0xC] =*/ empty_write,
         /*[0xD] =*/ write_eeprom_region<T>,
         /*[0xE] =*/ write_sram_region<T>,
-        /*[0xF] =*/ empty_write,
+        /*[0xF] =*/ write_sram_region<T>,
     };
 
     gba.scheduler.tick(get_memory_timing(sizeof(T) >> 1, addr));
@@ -1158,8 +1166,8 @@ inline auto write_internal(Gba& gba, u32 addr, T value)
 
 auto setup_tables(Gba& gba) -> void
 {
-    std::ranges::fill(gba.rmap, ReadArray{});
-    std::ranges::fill(gba.wmap, WriteArray{});
+    std::memset(gba.rmap, 0, sizeof(gba.rmap));
+    std::memset(gba.wmap, 0, sizeof(gba.wmap));
 
     // todo: check if its still worth having raw ptr / func tables
     gba.rmap[0x2] = {gba.mem.ewram, EWRAM_MASK, Access_ALL};

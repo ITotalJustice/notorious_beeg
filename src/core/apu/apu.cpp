@@ -66,6 +66,21 @@ constexpr auto is_next_frame_sequencer_step_vol(const Gba& gba) -> bool
     return APU.frame_sequencer.index == 7;
 }
 
+[[nodiscard]]
+constexpr auto get_frame_sequencer_cycles(const Gba& gba) -> u16
+{
+    if (gba.is_gb())
+    {
+        // return gb::CPU_CYCLES / 512; // 8229
+        return 8192;
+    }
+    else
+    {
+        // return 280896*60/512; // 32917
+        return 8192 * 4; // 32768
+    }
+}
+
 template<typename T> [[nodiscard]]
 constexpr auto get_channel_from_type(Gba& gba) -> auto&
 {
@@ -394,16 +409,8 @@ auto apu_on_enabled(Gba& gba) -> void
 
     // only add back scheduler event.
     // channels are only re-enabled on trigger
-    auto fs_freq = 0;
-    if (gba.is_gb())
-    {
-        fs_freq = gb::CPU_CYCLES / 512;
-    }
-    else
-    {
-        fs_freq = 280896*60/512;
-    }
-    scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, fs_freq);
+    const auto fs_cycles = get_frame_sequencer_cycles(gba);
+    scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, fs_cycles);
 }
 
 auto apu_on_disabled(Gba& gba) -> void
@@ -1195,7 +1202,31 @@ auto read_WAVE(Gba& gba, u8 addr) -> u8
     }
     else
     {
-        assert(!"not impl yet");
+        std::printf("[APU] WARNING, wave reads not properly implemented!\n");
+
+        if (APU.wave.bank_mode == 0)
+        {
+            const auto wave_addr = addr &= 0xF;
+
+            // writes happen to the opposite bank
+            const auto bank_select = APU.wave.bank_select ^ 1;
+            const auto offset = bank_select ? 0 : 16;
+            return APU.wave.ram[wave_addr + offset];
+        }
+        else
+        {
+            // todo: not sure if this is correct.
+            // im copying the behviour of the cgb apu
+            if (APU.wave.is_enabled(gba))
+            {
+                return APU.wave.ram[APU.wave.position_counter >> 1];
+            }
+            else
+            {
+                const auto wave_addr = addr &= 0x1F;
+                return APU.wave.ram[wave_addr];
+            }
+        }
     }
 }
 
@@ -1610,18 +1641,8 @@ auto on_frame_sequencer_event(Gba& gba) -> void
 {
     APU.frame_sequencer.clock(gba);
 
-    auto fs_freq = 0;
-
-    if (gba.is_gb())
-    {
-        fs_freq = gb::CPU_CYCLES / 512;
-    }
-    else
-    {
-        fs_freq = 280896*60/512;
-    }
-
-    scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, fs_freq);
+    const auto fs_cycles = get_frame_sequencer_cycles(gba);
+    scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, fs_cycles);
 }
 
 #undef APU

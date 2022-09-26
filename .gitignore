@@ -22,3 +22,11 @@ n64-emu
 
 # Local Netlify folder
 .netlify
+
+# test stuff that i want to ignore for now
+tonc/
+
+# want to include the roms themselves and the ouput.png
+!src/tests/roms_and_output/**/*.png
+!src/tests/roms_and_output/**/*.zip
+!src/tests/roms_and_output/mts/misc

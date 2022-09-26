@@ -151,7 +151,6 @@ STATIC void disable_interrupt(Gba& gba, enum Interrupts interrupt);
 // used internally
 STATIC_INLINE void cpu_run(Gba& gba);
 #if !USE_SCHED
-STATIC void timer_run(Gba& gba, u8 cycles);
 STATIC void ppu_run(Gba& gba, u8 cycles);
 #endif
 
@@ -160,10 +159,12 @@ STATIC auto is_win_enabled(const Gba& gba) -> bool;
 STATIC auto is_obj_enabled(const Gba& gba) -> bool;
 STATIC auto is_bg_enabled(const Gba& gba) -> bool;
 
+STATIC void on_timer_reload_event(Gba& gba);
 STATIC void on_timer_event(Gba& gba);
 STATIC void on_div_event(Gba& gba);
 
 STATIC void on_halt_event(Gba& gba);
 STATIC void on_interrupt_event(Gba& gba);
 STATIC void schedule_interrupt(Gba& gba, u8 cycles_delay = 0);
+
 } // namespace gba::gb

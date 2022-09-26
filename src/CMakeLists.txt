@@ -194,6 +194,10 @@ endif()
 
 add_subdirectory(core)
 
+if (TESTING)
+    add_subdirectory(tests)
+endif()
+
 if (FRONTEND)
     add_subdirectory(frontend)
 endif()

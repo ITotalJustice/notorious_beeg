@@ -12,6 +12,10 @@ namespace {
 
 constexpr u16 TAC_FREQ[4] = { 1024, 16, 64, 256 };
 
+// tima is actually incremented on the falling edge of certain
+// div bits based on the frequency of tac!
+constexpr u8 TAC_DIV_FALL_BIT[4] = { 9, 3, 5, 7 };
+
 // todo: proper timer impl
 // use: https://hacktixme.ga/GBEDG/timers/
 
@@ -20,32 +24,32 @@ inline auto is_timer_enabled(const Gba& gba) -> bool
     return bit::is_set<2>(IO_TAC);
 }
 
-inline auto check_div_clocks_fs(const Gba& gba, u8 old_div, u8 new_div) -> bool
-{
-    // either bit 4 or 5 falling edge is checked
-    const u8 bit = 1 << (4 + gba.gameboy.cpu.double_speed);
+} // namespace
 
-    return (old_div & bit) && !(new_div & bit);
-}
-
-// todo: check if div still drives fs on gba!
-inline void div_clock_fs(Gba& gba, u8 old_div, u8 new_div)
+void on_timer_reload_event(Gba& gba)
 {
-    if (check_div_clocks_fs(gba, old_div, new_div)) [[unlikely]]
+    if (gba.gameboy.timer.reloading)
     {
-        // step_frame_sequencer(gba);
+        gba.gameboy.timer.reloading = false;
+        IO_TIMA = IO_TMA;
+        enable_interrupt(gba, INTERRUPT_TIMER);
     }
 }
 
-} // namespace
-
 void on_timer_event(Gba& gba)
 {
-    #if USE_SCHED
+    if (gba.gameboy.timer.reloading)
+    {
+        on_timer_reload_event(gba);
+        scheduler::remove(gba, scheduler::Event::TIMER2);
+    }
+
     if (IO_TIMA == 0xFF) [[unlikely]]
     {
-        IO_TIMA = IO_TMA;
-        enable_interrupt(gba, INTERRUPT_TIMER);
+        IO_TIMA = 0x00;
+        gba.gameboy.timer.reloading = true;
+        scheduler::remove(gba, scheduler::Event::TIMER2);
+        scheduler::add(gba, scheduler::Event::TIMER2, on_timer_reload_event, 4 >> (gba.gameboy.cpu.double_speed));
     }
     else
     {
@@ -53,40 +57,53 @@ void on_timer_event(Gba& gba)
     }
 
     scheduler::add(gba, scheduler::Event::TIMER0, on_timer_event, TAC_FREQ[IO_TAC & 0x03] >> (gba.gameboy.cpu.double_speed));
-    #endif
 }
 
 void on_div_event(Gba& gba)
 {
-    #if USE_SCHED
     IO_DIV++;
     scheduler::add(gba, scheduler::Event::TIMER1, on_div_event, 256 >> (gba.gameboy.cpu.double_speed));
-    #endif
 }
 
-void div_write(Gba& gba, u8 value)
+void div_write(Gba& gba, [[maybe_unused]] u8 value)
 {
-    // writes to DIV resets it to zero
-    UNUSED(value);
-
-    if (check_div_clocks_fs(gba, IO_DIV, 0))
+    if (is_timer_enabled(gba))
     {
-        gb_log("div write caused early fs tick!\n");
+        const auto event_cycles = gba.scheduler.get_event_cycles(scheduler::Event::TIMER1);
+        const u8 diff = 0x100 - (event_cycles - gba.scheduler.cycles);
+
+        const auto bit_to_check = TAC_DIV_FALL_BIT[IO_TAC & 0x3];
+        const u16 div_16 = (IO_DIV << 8) | diff;
+
+        // "The timer uses the same internal counter as the DIV register, so resetting DIV also resets the timer."
+        // remove event in order to reset delta
+        scheduler::remove(gba, scheduler::Event::TIMER0);
+
+        // check if a falling edge will happen (1 -> 0)
+        if (bit::is_set(div_16, bit_to_check))
+        {
+            // tick tima, this will internally schedule an event
+            on_timer_event(gba);
+        }
+        else
+        {
+            // otherwise, re-schedule event
+            scheduler::add(gba, scheduler::Event::TIMER0, on_timer_event, TAC_FREQ[IO_TAC & 0x03] >> (gba.gameboy.cpu.double_speed));
+        }
     }
 
-    gb_log("div write!\n");
-
-    div_clock_fs(gba, IO_DIV, 0);
-
-    IO_DIV = IO_DIV_LOWER = 0;
-    #if USE_SCHED
+    // remove both timers as to reset the delta
+    scheduler::remove(gba, scheduler::Event::TIMER1);
     scheduler::add(gba, scheduler::Event::TIMER1, on_div_event, 256 >> (gba.gameboy.cpu.double_speed));
-    #endif
+
+    IO_DIV = 0;
 }
 
 void tima_write(Gba& gba, u8 value)
 {
+    // printf("tima write: 0x%02X tma: 0x%02X gba.gameboy.timer.reloading: %u cycles: %u\n", value, IO_TMA, gba.gameboy.timer.reloading, gba.gameboy.cycles);
     IO_TIMA = value;
+    gba.gameboy.timer.reloading = false;
 }
 
 void tma_write(Gba& gba, u8 value)
@@ -104,15 +121,36 @@ void tac_write(Gba& gba, u8 value)
     const auto now_enabled = bit::is_set<2>(IO_TAC);
     const auto new_freq = IO_TAC & 0x03;
 
-    #if USE_SCHED
     // check if the timer was just enabled
     if (now_enabled && !was_enabled)
     {
-        scheduler::add(gba, scheduler::Event::TIMER0, on_timer_event, TAC_FREQ[IO_TAC & 0x03] >> (gba.gameboy.cpu.double_speed));
+        if (gba.gameboy.timer.elapsed)
+        {
+            // check if the timer has already expired by this point
+            // NOTE: there is a bug(?) here if double speed was changed between
+            // enable / disabling of timers.
+            if (gba.gameboy.timer.elapsed <= TAC_FREQ[IO_TAC & 0x03])
+            {
+                // this internally adds the event to the scheduler
+                on_timer_event(gba);
+            }
+            else
+            {
+                scheduler::add(gba, scheduler::Event::TIMER0, on_timer_event, gba.gameboy.timer.elapsed);
+            }
+        }
+        else
+        {
+            scheduler::add(gba, scheduler::Event::TIMER0, on_timer_event, TAC_FREQ[IO_TAC & 0x03] >> (gba.gameboy.cpu.double_speed));
+        }
     }
     // check if the timer was just disabled
     else if (!now_enabled && was_enabled)
     {
+        // disabled timers keep track of their cuurent position
+        // SEE: mts rapid_toggle test
+        gba.gameboy.timer.elapsed = (gba.scheduler.get_event_cycles(scheduler::Event::TIMER0) - gba.scheduler.cycles);
+        // printf("elapsed: %u\n", gba.gameboy.timer.elapsed);
         // todo: it's possible that the timer could fire here.
         // eg, an instruction taking 8 cycles that does the write to
         // disable timer.
@@ -125,50 +163,8 @@ void tac_write(Gba& gba, u8 value)
         // does this only apply on reload?
         // todo: investigate this!
         printf("timer freq changed, old: %u new: %u\n", TAC_FREQ[old_freq], TAC_FREQ[new_freq]);
+        // assert(!"tima freq changed whilst enabled!");
     }
-    #endif
-}
-
-void timer_run(Gba& gba, u8 cycles)
-{
-    #if !USE_SCHED
-    // DIV is a 16-bit register
-    // reads return the upper byte, but the lower byte
-    // gets ticked every 4-T cycles (1M)
-
-    // check if we overflow
-    if (IO_DIV_LOWER + cycles > 0xFF) [[unlikely]]
-    {
-        div_clock_fs(gba, IO_DIV, IO_DIV + 1);
-
-        // increase the upper byte
-        ++IO_DIV;
-    }
-
-    // always add the cycles to lower byte
-    // this will wrap round if overflow
-    IO_DIV_LOWER = (IO_DIV_LOWER + cycles) & 0xFF;
-
-    if (is_timer_enabled(gba))
-    {
-        gba.gameboy.timer.next_cycles += cycles;
-
-        while ((gba.gameboy.timer.next_cycles) >= TAC_FREQ[IO_TAC & 0x03]) [[unlikely]]
-        {
-            gba.gameboy.timer.next_cycles -= TAC_FREQ[IO_TAC & 0x03];
-
-            if (IO_TIMA == 0xFF) [[unlikely]]
-            {
-                IO_TIMA = IO_TMA;
-                enable_interrupt(gba, INTERRUPT_TIMER);
-            }
-            else
-            {
-                ++IO_TIMA;
-            }
-        }
-    }
-    #endif
 }
 
 } // namespace gba::gb

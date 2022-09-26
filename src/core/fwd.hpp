@@ -20,29 +20,6 @@
 #endif
 
 #ifdef EMSCRIPTEN
-#include <ranges>
-
-namespace std::ranges {
-
-constexpr auto fill(auto& array, auto value) -> void
-{
-    for (auto& entry : array)
-    {
-        entry = value;
-    }
-}
-
-constexpr auto copy(const auto& src, auto dst) -> void
-{
-    std::size_t i = 0;
-
-    for (auto& entry : src)
-    {
-        dst[i++] = entry;
-    }
-}
-
-} // namespace std::ranges
 
 namespace std {
 
