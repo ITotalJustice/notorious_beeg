@@ -257,6 +257,14 @@ struct Ppu
     u8 window_line;
     bool stat_line;
 
+    // stat mode is seperate as on lcd enable, stat reports that the lcd is
+    // in mode0, when it is infact in mode2.
+    // stat will correct itself after ~80 cycles when it changes to mode3.
+    u8 mode;
+
+    // when the lcd is enabled, the first frame is not disabled.
+    bool first_frame_enabled;
+
     union
     {
         struct
@@ -333,12 +341,9 @@ struct Cart
 
 struct Timer
 {
-    #if USE_SCHED
-    u32 reserved;
-    #else
-    s16 next_cycles;
-    s16 reserved;
-    #endif
+    u16 elapsed;
+    u8 reserved[1];
+    bool reloading;
 };
 
 struct mem

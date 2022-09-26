@@ -11,11 +11,9 @@
 #include "scheduler.hpp"
 #include "bios.hpp"
 
-#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstring>
-#include <ranges>
 #include <numeric>
 
 namespace gba {
@@ -86,7 +84,11 @@ auto set_buttons_gba(Gba& gba, u16 buttons, bool down)
 
 auto loadsave_gb(Gba& gba, std::span<const u8> new_save) -> bool
 {
-    std::ranges::copy(new_save, gba.gameboy.ram);
+    if (new_save.size() > gb::SAVE_SIZE_MAX)
+    {
+        return false;
+    }
+    std::memcpy(gba.gameboy.ram, new_save.data(), new_save.size());
     return true;
 }
 
@@ -295,7 +297,7 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
     {
         gb::init(*this);
         // reset the sram
-        std::ranges::fill(mem.ewram, 0xFF);
+        std::memset(mem.ewram, 0xFF, sizeof(mem.ewram));
 
         if (gb::loadrom(*this, new_rom))
         {
@@ -340,7 +342,7 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
     // pre-calc the OOB rom read values, which is addr >> 1
     fill_rom_oob_values(this->rom, new_rom.size());
 
-    std::ranges::copy(new_rom, this->rom);
+    std::memcpy(this->rom, new_rom.data(), new_rom.size());
 
     this->reset();
 
@@ -355,7 +357,7 @@ auto Gba::loadbios(std::span<const u8> new_bios) -> bool
         return false;
     }
 
-    std::ranges::copy(new_bios, this->bios);
+    std::memcpy(this->bios, new_bios.data(), new_bios.size());
     this->has_bios = true;
 
     this->reset();

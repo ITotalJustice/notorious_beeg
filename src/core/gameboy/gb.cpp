@@ -14,8 +14,6 @@
 #include <cstdint>
 #include <cstring>
 #include <cassert>
-#include <algorithm>
-#include <ranges>
 #include <utility>
 
 #include "gba.hpp"
@@ -182,23 +180,14 @@ void reset(Gba& gba)
 {
     gba.system = System::GB;
 
-    std::ranges::fill(gba.mem.vram, 0xFF);
-    std::ranges::fill(gba.mem.iwram, 0xFF);
-    std::ranges::fill(gba.mem.oam, 0xFF);
-    std::ranges::fill(gba.mem.pram, 0xFF);
+    std::memset(&gba.gameboy.rmap, 0, sizeof(gba.gameboy.rmap));
+    std::memset(&gba.gameboy.wmap, 0, sizeof(gba.gameboy.wmap));
 
     gba.gameboy.vram[0] = gba.mem.vram + 0x0000;
-    gba.gameboy.vram[1] = gba.mem.vram + 0x2000;
     gba.gameboy.oam = gba.mem.oam;
 
     gba.gameboy.wram[0] = gba.mem.iwram + 0x0000;
     gba.gameboy.wram[1] = gba.mem.iwram + 0x1000;
-    gba.gameboy.wram[2] = gba.mem.iwram + 0x2000;
-    gba.gameboy.wram[3] = gba.mem.iwram + 0x3000;
-    gba.gameboy.wram[4] = gba.mem.iwram + 0x4000;
-    gba.gameboy.wram[5] = gba.mem.iwram + 0x5000;
-    gba.gameboy.wram[6] = gba.mem.iwram + 0x6000;
-    gba.gameboy.wram[7] = gba.mem.iwram + 0x7000;
 
     gba.gameboy.hram = gba.mem.pram + 0x00;
     gba.gameboy.io = gba.mem.pram + 0x80;
@@ -213,6 +202,13 @@ void reset(Gba& gba)
     std::memset(&gba.gameboy.joypad, 0, sizeof(gba.gameboy.joypad));
     std::memset(IO, 0xFF, 0xA0);
 
+    std::memset(gba.gameboy.vram[0], 0xFF, 0x2000);
+    std::memset(gba.gameboy.oam, 0xFF, 0xA0);
+    std::memset(gba.gameboy.wram[0], 0xFF, 0x1000);
+    std::memset(gba.gameboy.wram[1], 0xFF, 0x1000);
+    std::memset(gba.gameboy.hram, 0xFF, 0x80);
+    std::memset(gba.gameboy.io, 0xFF, 0xA0);
+
     scheduler::reset(gba);
     apu::reset(gba, true);
 
@@ -225,16 +221,7 @@ void reset(Gba& gba)
     gba.gameboy.mem.vbk = 0;
     gba.gameboy.mem.svbk = 1;
 
-    // CPU
-    cpu_set_register_pair(gba, CPU_REGISTER_PAIR_SP, 0xFFFE);
-    cpu_set_register_pair(gba, CPU_REGISTER_PAIR_PC, 0x0100);
-    cpu_set_register_pair(gba, CPU_REGISTER_PAIR_AF, 0x1180);
-    cpu_set_register_pair(gba, CPU_REGISTER_PAIR_BC, 0x0000);
-    cpu_set_register_pair(gba, CPU_REGISTER_PAIR_DE, 0xFF56);
-    cpu_set_register_pair(gba, CPU_REGISTER_PAIR_HL, 0x000D);
-    cpu_set_register(gba, CPU_REGISTER_B, 0x1);
-
-    // IO
+    IO_DIV = 0xAC;
     IO_TIMA = 0x00;
     IO_TMA = 0x00;
     IO_TAC = 0x00;
@@ -247,24 +234,79 @@ void reset(Gba& gba)
     IO_BGP = 0xFC;
     IO_WY = 0x00;
     IO_WX = 0x00;
-    GB_IO_IF = 0x00;
+    GB_IO_IF = 0x01;
     GB_IO_IE = 0x00;
     IO_SC = 0x00;
     IO_SB = 0x00;
     IO_DIV_LOWER = 0x00;
-    IO_DIV = 0x00;
-    IO_SVBK = 0x01;
-    IO_VBK = 0x00;
-    IO_BCPS = 0x00;
-    IO_OCPS = 0x00;
-    IO_OPRI = 0xFE;
-    IO_KEY1 = 0x7E;
-    IO_72 = 0x00;
-    IO_73 = 0x00;
-    IO_74 = 0x00;
-    IO_75 = 0x8F;
-    IO_76 = 0x00;
-    IO_77 = 0x00;
+
+    cpu_set_register_pair(gba, CPU_REGISTER_PAIR_SP, 0xFFFE);
+    cpu_set_register_pair(gba, CPU_REGISTER_PAIR_PC, 0x0100);
+    cpu_set_register_pair(gba, CPU_REGISTER_PAIR_AF, 0x1100);
+    cpu_set_register_pair(gba, CPU_REGISTER_PAIR_BC, 0x0100);
+
+    if (is_system_gbc(gba))
+    {
+        // map extra vram bank
+        gba.gameboy.vram[1] = gba.mem.vram + 0x2000;
+        // map extra wram banks
+        gba.gameboy.wram[2] = gba.mem.iwram + 0x2000;
+        gba.gameboy.wram[3] = gba.mem.iwram + 0x3000;
+        gba.gameboy.wram[4] = gba.mem.iwram + 0x4000;
+        gba.gameboy.wram[5] = gba.mem.iwram + 0x5000;
+        gba.gameboy.wram[6] = gba.mem.iwram + 0x6000;
+        gba.gameboy.wram[7] = gba.mem.iwram + 0x7000;
+
+        cpu_set_register_pair(gba, CPU_REGISTER_PAIR_DE, 0xFF56);
+        cpu_set_register_pair(gba, CPU_REGISTER_PAIR_HL, 0x000D);
+
+        IO_JYP = 0x0F;
+        IO_SC = 0x00;
+        IO_KEY1 = 0x00;
+        IO_VBK = 0x00;
+        IO_RP = 0x00;
+        IO_BCPS = 0x80;
+        IO_OCPS = 0x81;
+        IO_OCPD = 0x00;
+        IO_OPRI = 0x00;
+        IO_SVBK = 0x00;
+        IO_72 = 0x00;
+        IO_73 = 0x00;
+        IO_74 = 0x00;
+        IO_75 = 0x8F;
+        IO_76 = 0x00;
+        IO_77 = 0x00;
+
+        // gbc bios memsets vram bank1 so that all attributes are zero
+        std::memset(gba.gameboy.vram[1], 0x00, 0x2000);
+        // the gbc sets all the palettes to 0xFF (i think?)
+        std::memset(gba.gameboy.ppu.system.gbc.bg_palette, 0xFF, sizeof(gba.gameboy.ppu.system.gbc.bg_palette));
+        std::memset(gba.gameboy.ppu.system.gbc.obj_palette, 0xFF, sizeof(gba.gameboy.ppu.system.gbc.obj_palette));
+        //
+        std::memset(gba.gameboy.wram[2], 0xFF, 0x1000);
+        std::memset(gba.gameboy.wram[3], 0xFF, 0x1000);
+        std::memset(gba.gameboy.wram[4], 0xFF, 0x1000);
+        std::memset(gba.gameboy.wram[5], 0xFF, 0x1000);
+        std::memset(gba.gameboy.wram[6], 0xFF, 0x1000);
+        std::memset(gba.gameboy.wram[7], 0xFF, 0x1000);
+    }
+    else
+    {
+        cpu_set_register_pair(gba, CPU_REGISTER_PAIR_DE, 0x0008);
+        cpu_set_register_pair(gba, CPU_REGISTER_PAIR_HL, 0x007C);
+
+        IO_SC = 0x7E;
+        IO_VBK = 0xFE;
+        IO_BCPS = 0xC8;
+        IO_OCPS = 0xD0;
+        IO_OPRI = 0xFF;
+        IO_72 = 0x00;
+        IO_73 = 0x00;
+        IO_74 = 0xFF;
+        IO_75 = 0x8F;
+        IO_76 = 0x00;
+        IO_77 = 0x00;
+    }
 
     REG_SOUNDCNT_X = 0xF1;
     apu::write_NR52(gba, 0xF1); // do this first as to enable the apu
@@ -296,8 +338,8 @@ void reset(Gba& gba)
 
     #if USE_SCHED
     scheduler::add(gba, scheduler::Event::PPU, on_ppu_event, gba.gameboy.ppu.next_cycles);
-    scheduler::add(gba, scheduler::Event::TIMER1, on_div_event, 256);
     #endif
+    scheduler::add(gba, scheduler::Event::TIMER1, on_div_event, 256);
 }
 
 auto get_rom_header_from_data(const u8* data, struct CartHeader* header) -> bool
@@ -503,7 +545,7 @@ auto loadrom(Gba& gba, std::span<const u8> rom) -> bool
     }
 
     // todo: should add more checks before we get to this point!
-    std::ranges::copy(rom, gba.rom);
+    std::memcpy(gba.rom, rom.data(), rom.size());
 
     reset(gba);
     setup_mmap(gba);
@@ -729,8 +771,13 @@ void run(Gba& gba, u32 tcycles)
     for (u32 i = 0; i < tcycles; i += gba.gameboy.cycles >> gba.gameboy.cpu.double_speed)
     {
         cpu_run(gba);
-        timer_run(gba, gba.gameboy.cycles);
         ppu_run(gba, gba.gameboy.cycles >> gba.gameboy.cpu.double_speed);
+
+        gba.scheduler.cycles += gba.gameboy.cycles;// >> gba.gameboy.cpu.double_speed;
+        if (gba.scheduler.next_event_cycles <= gba.scheduler.cycles)
+        {
+            scheduler::fire(gba);
+        }
     }
     #endif
 }

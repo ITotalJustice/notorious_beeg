@@ -4,8 +4,7 @@
 #include "eeprom.hpp"
 #include "gba.hpp"
 #include <cassert>
-#include <algorithm>
-#include <ranges>
+#include <cstring>
 #include <utility>
 
 namespace gba::backup::eeprom {
@@ -26,20 +25,20 @@ auto Eeprom::init([[maybe_unused]] Gba& gba) -> void
     this->write_address = 0;
     this->read_address = 0;
     this->bit_read_counter = READ_COUNTER_RESET;
-    std::ranges::fill(this->data, 0xFF);
+    std::memset(this->data, 0xFF, sizeof(this->data));
 }
 
 auto Eeprom::load_data(std::span<const u8> new_data) -> bool
 {
     if (new_data.size() == 512)
     {
-        std::ranges::copy(new_data, this->data);
+        std::memcpy(this->data, new_data.data(), new_data.size());
         this->set_width(Width::small);
         return true;
     }
     else if (new_data.size() == 8 * 1024)
     {
-        std::ranges::copy(new_data, this->data);
+        std::memcpy(this->data, new_data.data(), new_data.size());
         this->set_width(Width::beeg);
         return true;
     }

@@ -11,8 +11,17 @@
 namespace gba::gb {
 namespace {
 
+enum ModeCycles
+{
+    MODE_CYCLES_HBLANK = 204,
+    MODE_CYCLES_VBLANK = 456,
+    MODE_CYCLES_SPRITE = 80,
+    MODE_CYCLES_TRANSFER = 172,
+};
+
 void stat_interrupt_update(Gba& gba)
 {
+    assert(is_lcd_enabled(gba));
     const auto mode = get_status_mode(gba);
 
     // SOURCE: https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
@@ -27,11 +36,10 @@ void stat_interrupt_update(Gba& gba)
         // SEE: https://github.com/ITotalJustice/TotalGB/issues/50
         if (!gba.gameboy.ppu.stat_line)
         {
+            // line goes high
+            gba.gameboy.ppu.stat_line = true;
             enable_interrupt(gba, INTERRUPT_LCD_STAT);
         }
-
-        // line goes high (or remains high) after.
-        gba.gameboy.ppu.stat_line = true;
     }
     else
     {
@@ -43,6 +51,7 @@ void stat_interrupt_update(Gba& gba)
 void change_status_mode(Gba& gba, const u8 new_mode)
 {
     set_status_mode(gba, new_mode);
+    gba.gameboy.ppu.mode = new_mode;
 
     // this happens on every mode switch because going to transfer
     // mode will set the stat_line=0 (unless LY==LYC)
@@ -53,7 +62,7 @@ void change_status_mode(Gba& gba, const u8 new_mode)
     switch (new_mode)
     {
         case STATUS_MODE_HBLANK:
-            gba.gameboy.ppu.next_cycles = 204;
+            gba.gameboy.ppu.next_cycles = MODE_CYCLES_HBLANK;
             draw_scanline(gba);
 
             if (gba.hblank_callback != nullptr)
@@ -64,51 +73,53 @@ void change_status_mode(Gba& gba, const u8 new_mode)
 
         case STATUS_MODE_VBLANK:
             enable_interrupt(gba, INTERRUPT_VBLANK);
-            gba.gameboy.ppu.next_cycles = 456;
+            gba.gameboy.ppu.next_cycles = MODE_CYCLES_VBLANK;
 
             if (gba.vblank_callback != nullptr)
             {
                 gba.vblank_callback(gba.userdata);
             }
+            gba.gameboy.ppu.first_frame_enabled = false;
             break;
 
         case STATUS_MODE_SPRITE:
-            gba.gameboy.ppu.next_cycles = 80;
+            gba.gameboy.ppu.next_cycles = MODE_CYCLES_SPRITE;
             break;
 
         case STATUS_MODE_TRANSFER:
-            gba.gameboy.ppu.next_cycles = 172;
+            gba.gameboy.ppu.next_cycles = MODE_CYCLES_TRANSFER;
             break;
     }
     #else
     switch (new_mode)
     {
         case STATUS_MODE_HBLANK:
-            gba.gameboy.ppu.next_cycles += 204;
+            gba.gameboy.ppu.next_cycles += MODE_CYCLES_HBLANK;
             draw_scanline(gba);
 
-            if (gba.gameboy.callback.hblank != nullptr)
+            if (gba.hblank_callback != nullptr)
             {
-                gba.gameboy.callback.hblank(gba.gameboy.callback.user_hblank);
+                gba.hblank_callback(gba.userdata, IO_LY);
             }
             break;
 
         case STATUS_MODE_VBLANK:
             enable_interrupt(gba, INTERRUPT_VBLANK);
-            gba.gameboy.ppu.next_cycles += 456;
+            gba.gameboy.ppu.next_cycles += MODE_CYCLES_VBLANK;
 
-            if (gba.gameboy.callback.vblank != nullptr)
+            if (gba.vblank_callback != nullptr)
             {
-                gba.gameboy.callback.vblank(gba.gameboy.callback.user_vblank);
+                gba.vblank_callback(gba.userdata);
             }
+            gba.gameboy.ppu.first_frame_enabled = false;
             break;
 
         case STATUS_MODE_SPRITE:
-            gba.gameboy.ppu.next_cycles += 80;
+            gba.gameboy.ppu.next_cycles += MODE_CYCLES_SPRITE;
             break;
 
         case STATUS_MODE_TRANSFER:
-            gba.gameboy.ppu.next_cycles += 172;
+            gba.gameboy.ppu.next_cycles += MODE_CYCLES_TRANSFER;
             break;
     }
     #endif
@@ -116,6 +127,8 @@ void change_status_mode(Gba& gba, const u8 new_mode)
 
 void on_lcd_disable(Gba& gba)
 {
+    printf("disabling ppu...\n");
+
     // this *should* only happen in vblank!
     if (get_status_mode(gba) != STATUS_MODE_VBLANK)
     {
@@ -129,27 +142,37 @@ void on_lcd_disable(Gba& gba)
         IO_HDMA5 = 0xFF;
     }
 
+    // reads as zero and we start from scanline zero on enable
     IO_LY = 0;
+    // unset mode bits as they read as zero
     IO_STAT &= ~(0x3);
-    gba.gameboy.ppu.stat_line = false;
+    gba.gameboy.ppu.mode = 0;
+    // TODO: verify this. TCAGBD says it goes low when off, but doing
+    // so breaks stat_lyc_onoff test
+    // gba.gameboy.ppu.stat_line = false;
 
     #if USE_SCHED
     scheduler::remove(gba, scheduler::Event::PPU);
     #endif
-
-    gb_log("disabling ppu...\n");
 }
 
 void on_lcd_enable(Gba& gba)
 {
-    gb_log("enabling ppu!\n");
+    printf("enabling ppu!\n");
 
-    gba.gameboy.ppu.next_cycles = 0;
-    gba.gameboy.ppu.stat_line = false;
-    set_status_mode(gba, STATUS_MODE_TRANSFER);
+    // first frame is skipped as no vblank signal is sent to lcd
+    gba.gameboy.ppu.first_frame_enabled = true;
+    // timing based off oam_bug/1-lcd_sync, basically 1 scanline of cycles-4
+    // i am almost certain the -4 is time taken to read from LY
+    // but as i do not have subinstruction timing, the -4 is handled here
+    // a more correct-ish approach would be to apply the cycles before
+    // executing an instructio and then checking the cycles elapsed on
+    // lcd_enable and subtract them from MODE_CYCLES_VBLANK.
+    // gba.gameboy.ppu.next_cycles = MODE_CYCLES_VBLANK - 4;
+    gba.gameboy.ppu.next_cycles = MODE_CYCLES_SPRITE - 4;
+    gba.gameboy.ppu.mode = STATUS_MODE_SPRITE;
     compare_LYC(gba);
     #if USE_SCHED
-    // scheduler::add(gba, scheduler::Event::PPU, on_ppu_event, gba.gameboy.ppu.next_cycles);
     scheduler::add(gba, scheduler::Event::PPU, on_ppu_event, gba.gameboy.ppu.next_cycles);
     #endif
 }
@@ -215,7 +238,7 @@ void on_ppu_event(Gba& gba)
             }
             else
             {
-                gba.gameboy.ppu.next_cycles = 456;
+                gba.gameboy.ppu.next_cycles = MODE_CYCLES_VBLANK;
                 compare_LYC(gba);
             }
             break;
@@ -242,7 +265,6 @@ void write_scanline_to_frame(void* _pixels, u32 stride, u8 bpp, int x, int y, co
     }
 
     const auto func = [&scanline, x, y](auto pixels) {
-        // pixels = &pixels[(stride * (8 + IO_LY)) + 40];
         pixels = &pixels[y + x];
 
         for (auto i = 0; i < SCREEN_WIDTH; i++)
@@ -326,7 +348,7 @@ auto get_sprite_size(const Gba& gba) -> u8
 
 void update_all_colours_gb(Gba& gba)
 {
-    for (auto i = 0; i < 8; ++i)
+    for (auto i = 0; i < 8; i++)
     {
         gba.gameboy.ppu.dirty_bg[i] = true;
         gba.gameboy.ppu.dirty_obj[i] = true;
@@ -341,12 +363,16 @@ void set_coincidence_flag(Gba& gba, const bool n)
 void set_status_mode(Gba& gba, u8 mode)
 {
     IO_STAT &= ~0x3;
-    IO_STAT |= mode;
+    IO_STAT |= mode & 0x3;
 }
 
+// this returns the internal mode, which, in almost all cases will be
+// the same mode as reported in stat, only excpetion is when the lcd
+// is enabled as stat will report mode0 for ~MODE_CYCLES_SPRITE cycles whilst the internal
+// mode is actually mode2.
 auto get_status_mode(const Gba& gba) -> u8
 {
-    return bit::get_range<0, 1>(IO_STAT);
+    return gba.gameboy.ppu.mode;
 }
 
 auto is_lcd_enabled(const Gba& gba) -> bool
@@ -371,16 +397,22 @@ auto is_bg_enabled(const Gba& gba) -> bool
 
 void compare_LYC(Gba& gba)
 {
-    if (IO_LY == IO_LYC) [[unlikely]]
+    if (is_lcd_enabled(gba))
     {
-        set_coincidence_flag(gba, true);
-    }
-    else
-    {
-        set_coincidence_flag(gba, false);
-    }
+        const auto was_equal = bit::is_set<2>(IO_STAT);
+        const auto now_equal = IO_LY == IO_LYC;
 
-    stat_interrupt_update(gba);
+        if (!was_equal && now_equal)
+        {
+            set_coincidence_flag(gba, true);
+            stat_interrupt_update(gba);
+        }
+        else if (was_equal && !now_equal)
+        {
+            set_coincidence_flag(gba, false);
+            stat_interrupt_update(gba);
+        }
+    }
 }
 
 void on_stat_write(Gba& gba, u8 value)
@@ -388,30 +420,31 @@ void on_stat_write(Gba& gba, u8 value)
     // keep the read-only bits!
     IO_STAT = (IO_STAT & 0x7) | (value & 0x78);
 
-    // interrupt for our current mode
     if (is_lcd_enabled(gba))
     {
-        // stat_interrupt_update(gba);
-        // this will internally call stat_interrupt_update!!!
         compare_LYC(gba);
+        stat_interrupt_update(gba);
     }
 }
 
 void on_lcdc_write(Gba& gba, const u8 value)
 {
+    const auto was_enabled = bit::is_set<7>(IO_LCDC);
+    const auto now_enabled = bit::is_set<7>(value);
+
+    IO_LCDC = value;
+
     // check if the game wants to disable the ppu
-    if (is_lcd_enabled(gba) && (value & 0x80) == 0)
+    if (was_enabled && !now_enabled)
     {
         on_lcd_disable(gba);
     }
 
     // check if the game wants to re-enable the lcd
-    else if (!is_lcd_enabled(gba) && (value & 0x80))
+    else if (!was_enabled && now_enabled)
     {
         on_lcd_enable(gba);
     }
-
-    IO_LCDC = value;
 }
 
 #if !USE_SCHED
@@ -474,7 +507,7 @@ void ppu_run(Gba& gba, u8 cycles)
             }
             else
             {
-                gba.gameboy.ppu.next_cycles += 456;
+                gba.gameboy.ppu.next_cycles += MODE_CYCLES_VBLANK;
                 compare_LYC(gba);
             }
             break;
@@ -500,17 +533,18 @@ void DMA(Gba& gba)
     // if it is, then just std::memset the entire area
     // else, a normal copy happens.
     const auto& entry = gba.gameboy.rmap[IO_DMA >> 4];
+    assert(entry.ptr);
 
+    // note: dma is not instant.
+    // on gbc,agb the cpu cannot access the src area
+    // mts/acceptance/oam_dma/sources-GS relies on this behaviour
     if (entry.mask == 0)
     {
-        // std::memset(gba.gameboy.oam, entry.ptr[0], sizeof(gba.gameboy.oam));
         std::memset(gba.gameboy.oam, entry.ptr[0], 0xA0);
     }
     else
     {
-        // TODO: check the math to see if this can go OOB for
-        // mbc2-ram!!!
-        // memcpy(gba.gameboy.oam, entry.ptr + ((IO_DMA & 0xF) << 8), sizeof(gba.gameboy.oam));
+        // TODO: check the math to see if this can go OOB for mbc2-ram!
         constexpr auto max_range = 0xF << 8;
         assert(entry.mask >= max_range);
         memcpy(gba.gameboy.oam, entry.ptr + ((IO_DMA & 0xF) << 8), 0xA0);
@@ -519,6 +553,16 @@ void DMA(Gba& gba)
 
 void draw_scanline(Gba& gba)
 {
+    // first frame after the lcd is enabled is not displayed!
+    if (gba.gameboy.ppu.first_frame_enabled) [[unlikely]]
+    {
+        u32 scanline[160]{};
+        const auto x = 40;
+        const auto y = gba.stride * (8 + IO_LY);
+        write_scanline_to_frame(gba.pixels, gba.stride, gba.bpp, x, y, scanline);
+        return;
+    }
+
     // check if the user has set any pixels, if not, skip rendering!
     if (!gba.pixels || !gba.stride || !gba.bpp)
     {

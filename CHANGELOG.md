@@ -48,6 +48,30 @@
 - add rewind support.
 - added web port.
 - fixed emulator being little endian based, now works on big endian.
+- add dmg/gbc support
+- fix gb tima reload being delayed by 4 cycles
+- fix gb tima not being clocked on div write when wanted bit is falling edge
+- fix apu frame sequencer timing
+- fix gba vram mirroring read value when reading whilst in bitmap mode
+- fix gba sram not being mirrored to 0xF region
+- fix gb stat_line being incorrectly reset on lcd_disable
+- fix gb lyc incorrectly being compared whilst lcd is disabled
+- fix gb mbc2 ram r/w when using raw pointer tables
+- fix gb mbc1 missing call to update_ram_banks() after updating the modes
+- fix gb building in non sched mode
+- fix gbc wram bank1 not being memset to 0 (which is what the bios does)
+- fix gb startup io reg values
+- fix gb startup cpu reg values
+- fix gb dma not returning the last written value
+- fix gb ppu mode on lcd enable. stat reads mode as 0 until the mode is update (~80 cycles).
+- fix gb ppu not skipping the first frame of the lcd being enabled.
+- fix gbc palette data register being accessible during mode3, access is only allowed in mode0,1,2
+- fix gba halt skipping to only set scheduler cycles to event cycles if event cycles is >= than scheduler cycles
+- fix gba wave ram reads.
+- add back halt bug in gb cpu (still need to test if this occurs on agb).
+- add r/w function tables to gb to replace switch. this is how i handle it in gba code as well
+- add ctest support along with automated testing via github
+- remove std::ranges from core
 
 ---
 

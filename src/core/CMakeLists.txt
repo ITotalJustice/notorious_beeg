@@ -91,9 +91,7 @@ target_precompile_headers(GBA PRIVATE
     <cstdio>
     <cstring>
     <iterator>
-    <algorithm>
     <span>
-    <ranges>
     <type_traits>
     <bit>
     <utility>

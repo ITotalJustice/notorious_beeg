@@ -1,0 +1,38 @@
+name: ctest
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      # dont want to fail early if one of the tests breaks
+      fail-fast: false
+      matrix:
+        # os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install gcc-12 (ubuntu)
+      if: ${{ matrix.os == 'ubuntu-22.04' }}
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/ppa -y
+        sudo apt-get update
+        sudo apt upgrade -y
+        sudo apt install gcc-12 g++-12 cmake libminizip-dev -y
+
+        sudo unlink /usr/bin/gcc
+        sudo unlink /usr/bin/g++
+        sudo ln -s /usr/bin/gcc-12 /usr/bin/gcc
+        sudo ln -s /usr/bin/g++-12 /usr/bin/g++
+
+    - name: Configure CMake
+      run: cmake --preset testing
+
+    - name: Build
+      run: cmake --build --preset testing --parallel 3
+
+    - name: Test
+      run: ctest --test-dir build/testing --parallel 3

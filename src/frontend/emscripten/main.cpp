@@ -1155,8 +1155,8 @@ auto App::on_user_event(SDL_UserEvent& e) -> void
             std::sprintf(buf, "%s - [%s]", "Notorious BEEG", title.str);
             SDL_SetWindowTitle(window, buf);
 
-            std::ranges::fill(frontbuffer, 0);
-            std::ranges::fill(backbuffer, 0);
+            std::memset(frontbuffer.data(), 0, frontbuffer.size());
+            std::memset(backbuffer.data(), 0, backbuffer.size());
 
             emscripten_console_logf("[EM] loaded rom! name: %s len: %zu\n", data->name, data->len);
         }

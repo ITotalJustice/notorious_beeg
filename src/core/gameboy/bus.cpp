@@ -5,7 +5,9 @@
 #include "gba.hpp"
 #include "mem.hpp"
 #include "ppu/ppu.hpp"
+#include "scheduler.hpp"
 
+#include <array>
 #include <cassert>
 #include <cstdio>
 
@@ -20,7 +22,7 @@ constexpr u8 IO_UNUSED_BIT_TABLE[0x80] =
 {
     /*[0x00] =*/ 0xC0, // JOYP
     /*[0x01] =*/ 0x00, // SB
-    /*[0x02] =*/ 0x7E, // SC
+    /*[0x02] =*/ 0x7C, // SC
     /*[0x03] =*/ 0xFF, // DIV LOWER
     /*[0x04] =*/ 0x00, // DIV UPPER
     /*[0x05] =*/ 0x00, // TIMA
@@ -94,7 +96,7 @@ constexpr u8 IO_UNUSED_BIT_TABLE[0x80] =
     /*[0x43] =*/ 0x00, // SCX
     /*[0x44] =*/ 0x00, // LY
     /*[0x45] =*/ 0x00, // LYC
-    /*[0x46] =*/ 0xFF, // DMA
+    /*[0x46] =*/ 0x00, // DMA
     /*[0x47] =*/ 0x00, // BGP
     /*[0x48] =*/ 0x00, // OPB0
     /*[0x49] =*/ 0x00, // OPB1
@@ -157,11 +159,80 @@ constexpr u8 IO_UNUSED_BIT_TABLE[0x80] =
     /*[0x7F] =*/ 0xFF,
 };
 
-inline void iowrite_gbc(Gba& gba, u16 addr, u8 value)
+inline auto is_vram_writeable(const Gba& gba) -> bool
+{
+    // vram cannot be written to during mode 3
+    return get_status_mode(gba) != STATUS_MODE_TRANSFER;
+}
+
+inline auto is_oam_writeable(const Gba& gba) -> bool
+{
+    // oam cannot be written to during mode 2 and 3
+    const auto mode = get_status_mode(gba);
+    return mode != STATUS_MODE_SPRITE && mode != STATUS_MODE_TRANSFER;
+}
+
+inline auto read_unusable([[maybe_unused]] Gba& gba, [[maybe_unused]] u16 addr) -> u8
+{
+    return 0xFF;
+}
+
+inline auto read_vram(Gba& gba, u16 addr) -> u8
+{
+    return gba.gameboy.vram[gba.gameboy.mem.vbk][addr & 0x1FFF];
+}
+
+inline auto read_oam(Gba& gba, u16 addr) -> u8
+{
+    return gba.gameboy.oam[addr & 0xFF];
+}
+
+inline auto read_hram(Gba& gba, u16 addr) -> u8
+{
+    return gba.gameboy.hram[addr & 0x7F];
+}
+
+inline void write_unusable([[maybe_unused]] Gba& gba, [[maybe_unused]] u16 addr, [[maybe_unused]] u8 value)
+{
+}
+
+inline void write_vram(Gba& gba, u16 addr, u8 value)
+{
+    if (is_vram_writeable(gba)) [[likely]]
+    {
+        gba.gameboy.vram[gba.gameboy.mem.vbk][addr & 0x1FFF] = value;
+    }
+}
+
+inline void write_oam(Gba& gba, u16 addr, u8 value)
+{
+    if (is_oam_writeable(gba)) [[likely]]
+    {
+        gba.gameboy.oam[addr & 0xFF] = value;
+    }
+    else
+    {
+        printf("not allowed write: 0x%02X\n", value);
+    }
+}
+
+inline void write_hram(Gba& gba, u16 addr, u8 value)
+{
+    addr &= 0x7F;
+    gba.gameboy.hram[addr] = value;
+
+    if (addr == 0x7F) // writing to IE
+    {
+        schedule_interrupt(gba);
+    }
+}
+
+inline void write_io_gbc(Gba& gba, u16 addr, u8 value)
 {
     assert(is_system_gbc(gba) == true);
+    addr &= 0x7F;
 
-    switch (addr & 0x7F)
+    switch (addr)
     {
         case 0x4D:
             IO_KEY1 |= value & 0x1;
@@ -208,7 +279,10 @@ inline void iowrite_gbc(Gba& gba, u16 addr, u8 value)
             break;
 
         case 0x69: // BCPD
-            bcpd_write(gba, value);
+            if (is_vram_writeable(gba)) [[likely]]
+            {
+                bcpd_write(gba, value);
+            }
             break;
 
         case 0x6A: // OCPS
@@ -217,7 +291,10 @@ inline void iowrite_gbc(Gba& gba, u16 addr, u8 value)
             break;
 
         case 0x6B: // OCPD
-            ocpd_write(gba, value);
+            if (is_vram_writeable(gba)) [[likely]]
+            {
+                ocpd_write(gba, value);
+            }
             break;
 
         case 0x6C: // OPRI
@@ -226,35 +303,20 @@ inline void iowrite_gbc(Gba& gba, u16 addr, u8 value)
             break;
 
         case 0x70: // (SVBK) always set between 1-7
-            gba.gameboy.mem.svbk = (value & 0x07) + ((value & 0x07) == 0x00);
-            IO_SVBK = gba.gameboy.mem.svbk;
+            gba.gameboy.mem.svbk = value;
+            if (!gba.gameboy.mem.svbk)
+            {
+                gba.gameboy.mem.svbk = 1;
+            }
+            IO_SVBK = value & ~0x1;
             update_wram_banks(gba);
-            break;
-
-        case 0x72:
-            IO_72 = value;
-            break;
-
-        case 0x73:
-            IO_73 = value;
-            break;
-
-        case 0x74:
-            IO_74 = value;
-            break;
-
-        case 0x75:
-            IO_75 = value;
             break;
     }
 }
 
-inline auto ioread(Gba& gba, u16 addr) -> u8
+inline auto read_io(Gba& gba, u16 addr) -> u8
 {
     addr &= 0x7F;
-    #if 0
-    return IO[addr] | IO_UNUSED_BIT_TABLE[addr];
-    #else
     u8 result;
 
     switch (addr)
@@ -295,12 +357,13 @@ inline auto ioread(Gba& gba, u16 addr) -> u8
     }
 
     return result | IO_UNUSED_BIT_TABLE[addr];
-    #endif
 }
 
-inline void iowrite(Gba& gba, u16 addr, u8 value)
+inline void write_io(Gba& gba, u16 addr, u8 value)
 {
-    switch (addr & 0x7F)
+    addr &= 0x7F;
+
+    switch (addr)
     {
         case 0x00: // joypad
             joypad_write(gba, value);
@@ -411,26 +474,90 @@ inline void iowrite(Gba& gba, u16 addr, u8 value)
         case 0x50: // unused (bootrom?)
             break;
 
+        // these registers are r/w always on cgb/agb
+        case 0x72:
+            IO_72 = value;
+            break;
+
+        case 0x73:
+            IO_73 = value;
+            break;
+
+        case 0x75:
+            IO_75 = value;
+            break;
+
         default:
             if (is_system_gbc(gba))
             {
-                iowrite_gbc(gba, addr, value);
+                write_io_gbc(gba, addr, value);
             }
             break;
     }
 }
 
-inline auto is_vram_writeable(const Gba& gba) -> bool
+using ReadFunction = u8(*)(Gba& gba, u16 addr);
+using WriteFunction = void(*)(Gba& gba, u16 addr, u8 value);
+
+// either 0xE or 0xF, so even / odd.
+// the next important value is the upper nibble or low byte.
+// because of this, we can (>> 4), then mask 0xF.
+// we can also mask 0x10 to see if its even / odd
+constexpr auto get_table_index(u16 addr)
 {
-    // vram cannot be written to during mode 3
-    return get_status_mode(gba) != STATUS_MODE_TRANSFER;
+    return (addr >> 4) & 0x1F;
 }
 
-inline auto is_oam_writeable(const Gba& gba) -> bool
+consteval auto setup_read_function_table()
 {
-    // oam cannot be written to during mode 2 and 3
-    return get_status_mode(gba) != STATUS_MODE_SPRITE && get_status_mode(gba) != STATUS_MODE_TRANSFER;
+    std::array<ReadFunction, 0x20> table{};
+    table.fill(read_unusable);
+
+    for (auto i = 0; i < 0x20; i++)
+    {
+        if (i >= 0x00 && i <= 0x09)
+        {
+            table[i] = read_oam;
+        }
+        else if (i >= 0x10 && i <= 0x17)
+        {
+            table[i] = read_io;
+        }
+        else if (i >= 0x18 && i <= 0x1F)
+        {
+            table[i] = read_hram;
+        }
+    }
+
+    return table;
 }
+
+consteval auto setup_write_function_table()
+{
+    std::array<WriteFunction, 0x20> table{};
+    table.fill(write_unusable);
+
+    for (auto i = 0; i < 0x20; i++)
+    {
+        if (i >= 0x00 && i <= 0x09)
+        {
+            table[i] = write_oam;
+        }
+        else if (i >= 0x10 && i <= 0x17)
+        {
+            table[i] = write_io;
+        }
+        else if (i >= 0x18 && i <= 0x1F)
+        {
+            table[i] = write_hram;
+        }
+    }
+
+    return table;
+}
+
+constexpr auto READ_FUNCTION = setup_read_function_table();
+constexpr auto WRITE_FUNCTION = setup_write_function_table();
 
 } // namespace
 
@@ -438,11 +565,11 @@ auto ffread8(Gba& gba, u8 addr) -> u8
 {
     if (addr <= 0x7F)
     {
-        return ioread(gba, addr);
+        return read_io(gba, addr);
     }
     else
     {
-        return gba.gameboy.hram[addr & 0x7F];
+        return read_hram(gba, addr);
     }
 }
 
@@ -450,15 +577,11 @@ void ffwrite8(Gba& gba, u8 addr, u8 value)
 {
     if (addr <= 0x7F)
     {
-        iowrite(gba, addr, value);
+        write_io(gba, addr, value);
     }
     else
     {
-        gba.gameboy.hram[addr & 0x7F] = value;
-        if (addr == 0x7F)
-        {
-            schedule_interrupt(gba);
-        }
+        write_hram(gba, addr, value);
     }
 }
 
@@ -467,30 +590,12 @@ auto read8(Gba& gba, const u16 addr) -> u8
     if (addr < 0xFE00) [[likely]]
     {
         const auto& entry = gba.gameboy.rmap[addr >> 12];
+        assert(entry.ptr);
         return entry.ptr[addr & entry.mask];
     }
     else
     {
-        // either 0xE or 0xF, so even / odd.
-        // the next important value is the upper nibble or low byte.
-        // because of this, we can (>> 4), then mask 0xF.
-        // we can also mask 0x10 to see if its even / odd
-        switch ((addr >> 4) & 0x1F)
-        {
-            case 0x00: case 0x01: case 0x02: case 0x03: case 0x04:
-            case 0x05: case 0x06: case 0x07: case 0x08: case 0x09:
-                return gba.gameboy.oam[addr & 0xFF];
-
-            case 0x10: case 0x11: case 0x12: case 0x13:
-            case 0x14: case 0x15: case 0x16: case 0x17:
-                return ioread(gba, addr);
-
-            case 0x18: case 0x19: case 0x1A: case 0x1B:
-            case 0x1C: case 0x1D: case 0x1E: case 0x1F:
-                return gba.gameboy.hram[addr & 0x7F];
-
-            default: return 0xFF; // unusable, [0x0A - 0x0F]
-        }
+        return READ_FUNCTION[get_table_index(addr)](gba, addr);
     }
 }
 
@@ -498,14 +603,17 @@ void write8(Gba& gba, u16 addr, u8 value)
 {
     if (addr < 0xFE00) [[likely]]
     {
+        // currently, this will break vram writes when ppu is in mode 3
+        // as writes to vram whilst in mode3 are not allowed
         #if 0
         const auto& entry = gba.gameboy.wmap[addr >> 12];
-        if (entry.ptr)
+        if (entry.ptr) [[likely]]
         {
             entry.ptr[addr & entry.mask] = value;
         }
         else
         {
+            assert(((addr >> 12) & 0xF) >= 0x0 && ((addr >> 12) & 0xF) <= 0xB);
             mbc_write(gba, addr, value);
         }
         #else
@@ -517,10 +625,7 @@ void write8(Gba& gba, u16 addr, u8 value)
                 break;
 
             case 0x8: case 0x9:
-                if (is_vram_writeable(gba)) [[likely]]
-                {
-                    gba.gameboy.vram[gba.gameboy.mem.vbk][addr & 0x1FFF] = value;
-                }
+                write_vram(gba, addr, value);
                 break;
 
             case 0xC: case 0xE:
@@ -535,30 +640,7 @@ void write8(Gba& gba, u16 addr, u8 value)
     }
     else
     {
-        switch ((addr >> 4) & 0x1F)
-        {
-            case 0x00: case 0x01: case 0x02: case 0x03: case 0x04:
-            case 0x05: case 0x06: case 0x07: case 0x08: case 0x09:
-                if (is_oam_writeable(gba)) [[likely]]
-                {
-                    gba.gameboy.oam[addr & 0xFF] = value;
-                }
-                break;
-
-            case 0x10: case 0x11: case 0x12: case 0x13:
-            case 0x14: case 0x15: case 0x16: case 0x17:
-                iowrite(gba, addr, value);
-                break;
-
-            case 0x18: case 0x19: case 0x1A: case 0x1B:
-            case 0x1C: case 0x1D: case 0x1E: case 0x1F:
-                gba.gameboy.hram[addr & 0x7F] = value;
-                if (addr == 0x7F)
-                {
-                    schedule_interrupt(gba);
-                }
-                break;
-        }
+        WRITE_FUNCTION[get_table_index(addr)](gba, addr, value);
     }
 }
 

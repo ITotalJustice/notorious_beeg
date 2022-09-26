@@ -553,8 +553,13 @@ auto on_halt_event(Gba& gba) -> void
 
     while (CPU.halted && !gba.scheduler.frame_end)
     {
-        assert(gba.scheduler.next_event_cycles >= gba.scheduler.cycles && "unsigned underflow happens!");
-        gba.scheduler.cycles = gba.scheduler.next_event_cycles;
+        // only want to advance the scheduler if the new timer is later
+        // than the current time
+        if (gba.scheduler.next_event_cycles >= gba.scheduler.cycles) [[likely]]
+        {
+            gba.scheduler.cycles = gba.scheduler.next_event_cycles;
+        }
+
         gba.scheduler.elapsed = 0;
         scheduler::fire(gba);
     }

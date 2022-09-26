@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "gba.hpp"
-#include <ranges>
-#include <algorithm>
+#include <cstring>
 
 namespace gba::bios {
 namespace {
@@ -1382,7 +1381,7 @@ constexpr u8 normmatt_bios[] =
 
 auto load_normmatt_bios(Gba& gba) -> void
 {
-    std::ranges::copy(normmatt_bios, gba.bios);
+    std::memcpy(gba.bios, normmatt_bios, sizeof(normmatt_bios));
 }
 
 } // namespace gba::bios

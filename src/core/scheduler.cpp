@@ -180,7 +180,7 @@ auto on_loadstate(Gba& gba) -> void
                     case Event::APU_SAMPLE: /* handled below */ break;
                     case Event::TIMER0: entry.cb = gb::on_timer_event; break;
                     case Event::TIMER1: entry.cb = gb::on_div_event; break;
-                    case Event::TIMER2: assert(!"invalid"); break;
+                    case Event::TIMER2: entry.cb = gb::on_timer_reload_event; break;
                     case Event::TIMER3: assert(!"invalid"); break;
                     case Event::DMA: assert(!"invalid"); break;
                     case Event::INTERRUPT: entry.cb = gb::on_interrupt_event; break;

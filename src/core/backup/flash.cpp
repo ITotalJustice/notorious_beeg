@@ -6,8 +6,6 @@
 #include "gba.hpp"
 #include "mem.hpp"
 #include <utility>
-#include <algorithm>
-#include <ranges>
 #include <cassert>
 
 namespace gba::backup::flash {
@@ -22,20 +20,20 @@ auto Flash::init([[maybe_unused]] Gba& gba, Type new_type) -> void
     this->state = State::READY;
 
     // unit memory is set to 0xFF
-    std::ranges::fill(this->data, 0xFF);
+    std::memset(this->data, 0xFF, sizeof(this->data));
 }
 
 auto Flash::load_data(std::span<const u8> new_data) -> bool
 {
     if (new_data.size() == std::to_underlying(Type::Flash64))
     {
-        std::ranges::copy(new_data, this->data);
+        std::memcpy(this->data, new_data.data(), new_data.size());
         this->type = Type::Flash64;
         return true;
     }
     else if (new_data.size() == std::to_underlying(Type::Flash128))
     {
-        std::ranges::copy(new_data, this->data);
+        std::memcpy(this->data, new_data.data(), new_data.size());
         this->type = Type::Flash128;
         return true;
     }
@@ -163,7 +161,7 @@ auto Flash::write(Gba& gba, u32 addr, u8 value) -> void
                     case SetMemoryBank: break;
 
                     case EraseAll:
-                        std::ranges::fill(this->data, 0xFF);
+                        std::memset(this->data, 0xFF, sizeof(this->data));
                         gba.backup.dirty_ram = true;
                         break;
 

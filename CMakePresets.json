@@ -35,7 +35,9 @@
         {
             "name": "core-table",
             "displayName": "core-table",
-            "inherits": ["core"],
+            "inherits": [
+                "core"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_TABLE"
             }
@@ -43,7 +45,9 @@
         {
             "name": "core-switch",
             "displayName": "core-switch",
-            "inherits": ["core"],
+            "inherits": [
+                "core"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_SWITCH"
             }
@@ -51,7 +55,9 @@
         {
             "name": "core-goto",
             "displayName": "core-goto",
-            "inherits": ["core"],
+            "inherits": [
+                "core"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_GOTO"
             }
@@ -59,7 +65,9 @@
         {
             "name": "imgui",
             "displayName": "imgui",
-            "inherits": ["core"],
+            "inherits": [
+                "core"
+            ],
             "cacheVariables": {
                 "IMGUI": true
             }
@@ -67,15 +75,20 @@
         {
             "name": "imgui-dev",
             "displayName": "imgui-dev",
-            "inherits": ["core-dev"],
+            "inherits": [
+                "core-dev"
+            ],
             "cacheVariables": {
-                "IMGUI": true
+                "IMGUI": true,
+                "TESTING": true
             }
         },
         {
             "name": "vcpkg",
             "displayName": "vcpkg",
-            "inherits": ["imgui"],
+            "inherits": [
+                "imgui"
+            ],
             "cacheVariables": {
                 "VCPKG": true
             }
@@ -83,15 +96,20 @@
         {
             "name": "vcpkg-dev",
             "displayName": "vcpkg-dev",
-            "inherits": ["imgui-dev"],
+            "inherits": [
+                "imgui-dev"
+            ],
             "cacheVariables": {
-                "VCPKG": true
+                "VCPKG": true,
+                "TESTING": true
             }
         },
         {
             "name": "sdl2",
             "displayName": "sdl2",
-            "inherits": ["core"],
+            "inherits": [
+                "core"
+            ],
             "cacheVariables": {
                 "SDL2": true
             }
@@ -99,27 +117,36 @@
         {
             "name": "sdl2-dev",
             "displayName": "sdl2-dev",
-            "inherits": ["core-dev"],
+            "inherits": [
+                "core-dev"
+            ],
             "cacheVariables": {
-                "SDL2": true
+                "SDL2": true,
+                "TESTING": true
             }
         },
         {
             "name": "vcpkg-sdl2",
             "displayName": "vcpkg-sdl2",
-            "inherits": ["sdl2"],
+            "inherits": [
+                "sdl2"
+            ],
             "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
         },
         {
             "name": "vcpkg-sdl2-dev",
             "displayName": "vcpkg-sdl2-dev",
-            "inherits": ["sdl2-dev"],
+            "inherits": [
+                "sdl2-dev"
+            ],
             "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
         },
         {
             "name": "emsdk",
             "displayName": "emsdk",
-            "inherits": ["core"],
+            "inherits": [
+                "core"
+            ],
             "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_TABLE",
@@ -129,17 +156,22 @@
         {
             "name": "emsdk-dev",
             "displayName": "emsdk-dev",
-            "inherits": ["core-dev"],
+            "inherits": [
+                "core-dev"
+            ],
             "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
             "cacheVariables": {
                 "EMRUN": true,
-                "INTERPRETER": "INTERPRETER_TABLE"
+                "INTERPRETER": "INTERPRETER_TABLE",
+                "TESTING": true
             }
         },
         {
             "name": "benchmark",
             "displayName": "benchmark",
-            "inherits": ["core"],
+            "inherits": [
+                "core"
+            ],
             "cacheVariables": {
                 "BENCHMARK": true,
                 "NATIVE": true
@@ -148,16 +180,21 @@
         {
             "name": "benchmark-dev",
             "displayName": "benchmark-dev",
-            "inherits": ["core-dev"],
+            "inherits": [
+                "core-dev"
+            ],
             "cacheVariables": {
                 "BENCHMARK": true,
-                "NATIVE": true
+                "NATIVE": true,
+                "TESTING": true
             }
         },
         {
             "name": "sdl2-table",
             "displayName": "sdl2-table",
-            "inherits": ["sdl2"],
+            "inherits": [
+                "sdl2"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_TABLE",
                 "NATIVE": true
@@ -166,7 +203,10 @@
         {
             "name": "sdl2-switch",
             "displayName": "sdl2-switch",
-            "inherits": ["sdl2", "clang"],
+            "inherits": [
+                "sdl2",
+                "clang"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_SWITCH",
                 "NATIVE": true
@@ -175,7 +215,9 @@
         {
             "name": "sdl2-goto",
             "displayName": "sdl2-goto",
-            "inherits": ["sdl2"],
+            "inherits": [
+                "sdl2"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_GOTO",
                 "NATIVE": true
@@ -184,7 +226,9 @@
         {
             "name": "benchmark-table",
             "displayName": "benchmark-table",
-            "inherits": ["benchmark"],
+            "inherits": [
+                "benchmark"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_TABLE",
                 "LTO": false
@@ -193,7 +237,9 @@
         {
             "name": "benchmark-switch",
             "displayName": "benchmark-switch",
-            "inherits": ["benchmark"],
+            "inherits": [
+                "benchmark"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_SWITCH",
                 "LTO": false
@@ -202,7 +248,9 @@
         {
             "name": "benchmark-goto",
             "displayName": "benchmark-goto",
-            "inherits": ["benchmark"],
+            "inherits": [
+                "benchmark"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_GOTO",
                 "LTO": false
@@ -211,7 +259,9 @@
         {
             "name": "benchmark-table-lto",
             "displayName": "benchmark-table-lto",
-            "inherits": ["benchmark"],
+            "inherits": [
+                "benchmark"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_TABLE",
                 "LTO": true
@@ -220,7 +270,9 @@
         {
             "name": "benchmark-switch-lto",
             "displayName": "benchmark-switch-lto",
-            "inherits": ["benchmark"],
+            "inherits": [
+                "benchmark"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_SWITCH",
                 "LTO": true
@@ -229,7 +281,9 @@
         {
             "name": "benchmark-goto-lto",
             "displayName": "benchmark-goto-lto",
-            "inherits": ["benchmark"],
+            "inherits": [
+                "benchmark"
+            ],
             "cacheVariables": {
                 "INTERPRETER": "INTERPRETER_GOTO",
                 "LTO": true
@@ -238,32 +292,60 @@
         {
             "name": "benchmark-clang-table",
             "displayName": "benchmark-clang-table",
-            "inherits": ["benchmark-table", "clang"]
+            "inherits": [
+                "benchmark-table",
+                "clang"
+            ]
         },
         {
             "name": "benchmark-clang-switch",
             "displayName": "benchmark-clang-switch",
-            "inherits": ["benchmark-switch", "clang"]
+            "inherits": [
+                "benchmark-switch",
+                "clang"
+            ]
         },
         {
             "name": "benchmark-clang-goto",
             "displayName": "benchmark-clang-goto",
-            "inherits": ["benchmark-goto", "clang"]
+            "inherits": [
+                "benchmark-goto",
+                "clang"
+            ]
         },
         {
             "name": "benchmark-clang-table-lto",
             "displayName": "benchmark-clang-table-lto",
-            "inherits": ["benchmark-table-lto", "clang"]
+            "inherits": [
+                "benchmark-table-lto",
+                "clang"
+            ]
         },
         {
             "name": "benchmark-clang-switch-lto",
             "displayName": "benchmark-clang-switch-lto",
-            "inherits": ["benchmark-switch-lto", "clang"]
+            "inherits": [
+                "benchmark-switch-lto",
+                "clang"
+            ]
         },
         {
             "name": "benchmark-clang-goto-lto",
             "displayName": "benchmark-clang-goto-lto",
-            "inherits": ["benchmark-goto-lto", "clang"]
+            "inherits": [
+                "benchmark-goto-lto",
+                "clang"
+            ]
+        },
+        {
+            "name": "testing",
+            "displayName": "testing",
+            "inherits": [
+                "core"
+            ],
+            "cacheVariables": {
+                "TESTING": true
+            }
         }
     ],
     "buildPresets": [
@@ -394,6 +476,20 @@
         {
             "name": "benchmark-clang-goto-lto",
             "configurePreset": "benchmark-clang-goto-lto"
+        },
+        {
+            "name": "testing",
+            "configurePreset": "testing"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "testing",
+            "configurePreset": "testing",
+            "description": "runs all tests and compares output",
+            "execution": {
+                "jobs": 16
+            }
         }
     ]
 }

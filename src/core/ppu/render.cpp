@@ -20,9 +20,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdio>
-#include <algorithm>
 #include <cstring>
-#include <ranges>
 #include <span>
 #include <utility>
 #include <bit>
@@ -135,7 +133,7 @@ struct ObjLine
 {
     ObjLine()
     {
-        std::ranges::fill(priority, 0xFF);
+        std::memset(priority, 0xFF, sizeof(priority));
     }
 
     u16 pixels[240];
@@ -263,12 +261,8 @@ struct WindowBounds
 {
     WindowBounds()
     {
-        for (auto&a : inside)
-        {
-            std::ranges::fill(a, true);
-        }
-
-        std::ranges::fill(priority, 0xFF);
+        std::memset(inside, true, sizeof(inside));
+        std::memset(priority, 0xFF, sizeof(priority));
     }
 
     // builds the obj window, call this rendering obj (and bg)
@@ -975,9 +969,14 @@ auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, std::spa
     {
         constexpr Layers(u16 backdrop_colour)
         {
-            std::ranges::fill(pixel, backdrop_colour);
-            std::ranges::fill(prio, PRIORITY_BACKDROP);
-            std::ranges::fill(num, BACKDROP_NUM);
+            for (auto& p : pixel)
+            {
+                p = backdrop_colour;
+            }
+
+            // std::memset(pixel, backdrop_colour, sizeof(pixel));
+            std::memset(prio, PRIORITY_BACKDROP, sizeof(prio));
+            std::memset(num, BACKDROP_NUM, sizeof(num));
         }
 
         constexpr auto add(u16 new_pixel, u8 new_prio, u8 new_num, bool new_is_alpha)
@@ -1342,13 +1341,13 @@ auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
         {
             for (auto& a : lines)
             {
-                std::ranges::fill(a.pixels, 0);
+                std::memset(a.pixels, 0, sizeof(a.pixels));
             }
 
             const auto index = bitmap_mode ? 0 : layer;
 
             tile_render(gba, lines, static_cast<Layer>(1 << layer), false, false);
-            std::ranges::copy(lines[index].pixels, pixels.begin());
+            std::memcpy(pixels.data(), lines[index].pixels, sizeof(lines[index].pixels));
         }
     };
 
