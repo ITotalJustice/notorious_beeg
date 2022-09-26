@@ -14,7 +14,7 @@ FetchContent_Declare(stb
 FetchContent_MakeAvailable(stb)
 
 add_library(stb_image INTERFACE)
-target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
+target_include_directories(stb_image INTERFACE ${stb_SOURCE_DIR})
 
 add_library(sdl2_base sdl2_base.cpp)
 
