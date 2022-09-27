@@ -210,10 +210,6 @@ inline void write_oam(Gba& gba, u16 addr, u8 value)
     {
         gba.gameboy.oam[addr & 0xFF] = value;
     }
-    else
-    {
-        printf("not allowed write: 0x%02X\n", value);
-    }
 }
 
 inline void write_hram(Gba& gba, u16 addr, u8 value)
@@ -303,12 +299,8 @@ inline void write_io_gbc(Gba& gba, u16 addr, u8 value)
             break;
 
         case 0x70: // (SVBK) always set between 1-7
-            gba.gameboy.mem.svbk = value;
-            if (!gba.gameboy.mem.svbk)
-            {
-                gba.gameboy.mem.svbk = 1;
-            }
-            IO_SVBK = value & ~0x1;
+            gba.gameboy.mem.svbk = (value & 0x07) + ((value & 0x07) == 0x00);
+            IO_SVBK = gba.gameboy.mem.svbk;
             update_wram_banks(gba);
             break;
     }

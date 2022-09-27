@@ -183,29 +183,23 @@ void reset(Gba& gba)
     std::memset(&gba.gameboy.rmap, 0, sizeof(gba.gameboy.rmap));
     std::memset(&gba.gameboy.wmap, 0, sizeof(gba.gameboy.wmap));
 
-    gba.gameboy.vram[0] = gba.mem.vram + 0x0000;
-    gba.gameboy.oam = gba.mem.oam;
-
-    gba.gameboy.wram[0] = gba.mem.iwram + 0x0000;
-    gba.gameboy.wram[1] = gba.mem.iwram + 0x1000;
-
-    gba.gameboy.hram = gba.mem.pram + 0x00;
-    gba.gameboy.io = gba.mem.pram + 0x80;
-
-    gba.gameboy.ram = gba.mem.ewram;
-    gba.gameboy.ram_size = sizeof(gba.mem.ewram);
-
     std::memset(&gba.gameboy.mem, 0, sizeof(gba.gameboy.mem));
     std::memset(&gba.gameboy.cpu, 0, sizeof(gba.gameboy.cpu));
     std::memset(&gba.gameboy.ppu, 0, sizeof(gba.gameboy.ppu));
     std::memset(&gba.gameboy.timer, 0, sizeof(gba.gameboy.timer));
     std::memset(&gba.gameboy.joypad, 0, sizeof(gba.gameboy.joypad));
-    std::memset(IO, 0xFF, 0xA0);
 
     std::memset(gba.gameboy.vram[0], 0xFF, 0x2000);
+    std::memset(gba.gameboy.vram[1], 0x00, 0x2000);
     std::memset(gba.gameboy.oam, 0xFF, 0xA0);
     std::memset(gba.gameboy.wram[0], 0xFF, 0x1000);
     std::memset(gba.gameboy.wram[1], 0xFF, 0x1000);
+    std::memset(gba.gameboy.wram[2], 0xFF, 0x1000);
+    std::memset(gba.gameboy.wram[3], 0xFF, 0x1000);
+    std::memset(gba.gameboy.wram[4], 0xFF, 0x1000);
+    std::memset(gba.gameboy.wram[5], 0xFF, 0x1000);
+    std::memset(gba.gameboy.wram[6], 0xFF, 0x1000);
+    std::memset(gba.gameboy.wram[7], 0xFF, 0x1000);
     std::memset(gba.gameboy.hram, 0xFF, 0x80);
     std::memset(gba.gameboy.io, 0xFF, 0xA0);
 
@@ -247,16 +241,6 @@ void reset(Gba& gba)
 
     if (is_system_gbc(gba))
     {
-        // map extra vram bank
-        gba.gameboy.vram[1] = gba.mem.vram + 0x2000;
-        // map extra wram banks
-        gba.gameboy.wram[2] = gba.mem.iwram + 0x2000;
-        gba.gameboy.wram[3] = gba.mem.iwram + 0x3000;
-        gba.gameboy.wram[4] = gba.mem.iwram + 0x4000;
-        gba.gameboy.wram[5] = gba.mem.iwram + 0x5000;
-        gba.gameboy.wram[6] = gba.mem.iwram + 0x6000;
-        gba.gameboy.wram[7] = gba.mem.iwram + 0x7000;
-
         cpu_set_register_pair(gba, CPU_REGISTER_PAIR_DE, 0xFF56);
         cpu_set_register_pair(gba, CPU_REGISTER_PAIR_HL, 0x000D);
 
@@ -277,18 +261,9 @@ void reset(Gba& gba)
         IO_76 = 0x00;
         IO_77 = 0x00;
 
-        // gbc bios memsets vram bank1 so that all attributes are zero
-        std::memset(gba.gameboy.vram[1], 0x00, 0x2000);
         // the gbc sets all the palettes to 0xFF (i think?)
         std::memset(gba.gameboy.ppu.system.gbc.bg_palette, 0xFF, sizeof(gba.gameboy.ppu.system.gbc.bg_palette));
         std::memset(gba.gameboy.ppu.system.gbc.obj_palette, 0xFF, sizeof(gba.gameboy.ppu.system.gbc.obj_palette));
-        //
-        std::memset(gba.gameboy.wram[2], 0xFF, 0x1000);
-        std::memset(gba.gameboy.wram[3], 0xFF, 0x1000);
-        std::memset(gba.gameboy.wram[4], 0xFF, 0x1000);
-        std::memset(gba.gameboy.wram[5], 0xFF, 0x1000);
-        std::memset(gba.gameboy.wram[6], 0xFF, 0x1000);
-        std::memset(gba.gameboy.wram[7], 0xFF, 0x1000);
     }
     else
     {
