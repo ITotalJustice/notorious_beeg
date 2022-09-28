@@ -1197,38 +1197,37 @@ auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, std::spa
             }
         }
 
-        if (bounds.can_blend(x))
+        // if obj has alpha bit set, it always does alpha blend as long
+        // as the bottom layer (dst) is enabled in bldmod
+        if (layers.is_obj_alpha())
         {
-            // if obj has alpha bit set, it always does alpha blend as long
-            // as the bottom layer (dst) is enabled in bldmod
-            if (layers.is_obj_alpha())
+            if (bldmod.is_alpha_bottom(layers.num[1]))
             {
-                if (bldmod.is_alpha_bottom(layers.num[1]))
-                {
-                    layers.pixel[0] = blend_alpha(layers.pixel[0], layers.pixel[1], coeff_src, coeff_dst);
-                }
+                layers.pixel[0] = blend_alpha(layers.pixel[0], layers.pixel[1], coeff_src, coeff_dst);
             }
-            else
+        }
+        // check if we can blend within or outside the window and if the top
+        // layer is a src and bottom layer is a dst of bldmod.
+        else if (bounds.can_blend(x))
+        {
+            if (bldmod.is_alpha(layers.num[0], layers.num[1]))
             {
-                if (bldmod.is_alpha(layers.num[0], layers.num[1]))
+                switch (blend_mode)
                 {
-                    switch (blend_mode)
-                    {
-                        case Blend::None:
-                            break;
+                    case Blend::None:
+                        break;
 
-                        case Blend::Alpha:
-                            layers.pixel[0] = blend_alpha(layers.pixel[0], layers.pixel[1], coeff_src, coeff_dst);
-                            break;
+                    case Blend::Alpha:
+                        layers.pixel[0] = blend_alpha(layers.pixel[0], layers.pixel[1], coeff_src, coeff_dst);
+                        break;
 
-                        case Blend::White:
-                            layers.pixel[0] = blend_white(layers.pixel[0], coeff_wb);
-                            break;
+                    case Blend::White:
+                        layers.pixel[0] = blend_white(layers.pixel[0], coeff_wb);
+                        break;
 
-                        case Blend::Black:
-                            layers.pixel[0] = blend_black(layers.pixel[0], coeff_wb);
-                            break;
-                    }
+                    case Blend::Black:
+                        layers.pixel[0] = blend_black(layers.pixel[0], coeff_wb);
+                        break;
                 }
             }
         }
