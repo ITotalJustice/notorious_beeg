@@ -678,45 +678,61 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                 // fine_x
                 const auto xMod = mosX % 8;
 
-                assert(obj.attr0.is_4bpp());
-
-                // thank you Kellen for the below code, i wouldn't have firgured it out otherwise.
-                auto tileRowAddress = obj.attr2.TID * 32;
-                tileRowAddress += (((mosY / 8 * row_mult)) + mosX / 8) * 32;
-                tileRowAddress += yMod * 4;
-
-                // if the adddress is out of bounds, break early
-                if (tileRowAddress >= CHARBLOCK_SIZE * 2) [[unlikely]]
-                {
-                    break;
-                }
-
-                // in bitmap mode, only the last charblock can be used for sprites.
-                if (is_bitmap_mode(gba) && tileRowAddress < CHARBLOCK_SIZE) [[unlikely]]
-                {
-                    continue;
-                }
-
                 auto pram_addr = 0;
                 auto pixel = 0;
 
                 if (obj.attr0.is_4bpp())
                 {
-                    pixel = ovram[tileRowAddress + xMod/2];
+                    // thank you Kellen for the below code, i wouldn't have firgured it out otherwise.
+                    auto tileRowAddress = obj.attr2.TID * 32;
+                    tileRowAddress += (((mosY / 8 * row_mult)) + mosX / 8) * 32;
+                    tileRowAddress += yMod * 4;
+                    tileRowAddress += xMod / 2;
+
+                    // if the adddress is out of bounds, break early
+                    if (tileRowAddress >= CHARBLOCK_SIZE * 2) [[unlikely]]
+                    {
+                        break;
+                    }
+
+                    // in bitmap mode, only the last charblock can be used for sprites.
+                    if (is_bitmap_mode(gba) && tileRowAddress < CHARBLOCK_SIZE) [[unlikely]]
+                    {
+                        continue;
+                    }
+
+                    pixel = ovram[tileRowAddress];
 
                     if (xMod & 1) // odd/even (lo/hi nibble)
                     {
                         pixel >>= 4;
                     }
+
                     pixel &= 0xF;
                     pram_addr = pixel * 2;
                     pram_addr += obj.attr2.PB * 32;
                 }
                 else
                 {
-                    pixel = ovram[tileRowAddress + xMod];
+                    auto tileRowAddress = obj.attr2.TID * 32;
+                    tileRowAddress += (((mosY / 8 * row_mult)) + mosX / 8) * 64;
+                    tileRowAddress += yMod * 8;
+                    tileRowAddress += xMod;
+
+                    // if the adddress is out of bounds, break early
+                    if (tileRowAddress >= CHARBLOCK_SIZE * 2) [[unlikely]]
+                    {
+                        break;
+                    }
+
+                    // in bitmap mode, only the last charblock can be used for sprites.
+                    if (is_bitmap_mode(gba) && tileRowAddress < CHARBLOCK_SIZE) [[unlikely]]
+                    {
+                        continue;
+                    }
+
+                    pixel = ovram[tileRowAddress];
                     pram_addr = pixel * 2;
-                    pram_addr += obj.attr2.PB * 32;
                 }
 
                 // don't render transparent pixels
@@ -742,13 +758,16 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
 
 auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
 {
+    const auto charblock_offset = meta.cnt.CBB * CHARBLOCK_SIZE;
+    const auto charblock_size = 4 * CHARBLOCK_SIZE - charblock_offset;
+
     const auto vcount = REG_VCOUNT;
     //
     const auto y = (meta.yscroll + vcount) % 256;
     // pal_mem
     const auto pram = std::span{gba.mem.pram};
     // tile_mem (where the tiles/tilesets are)
-    const auto charblock = std::span{gba.mem.vram}.subspan(meta.cnt.CBB * CHARBLOCK_SIZE);
+    const auto charblock = std::span{gba.mem.vram}.subspan(charblock_offset);
     // se_mem (where the tilemaps are)
     const auto screenblock = std::span{gba.mem.vram}.subspan((meta.cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(meta.cnt, meta.yscroll + vcount) + ((y / 8) * 64));
 
@@ -775,19 +794,32 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
         // todo: don't allow access to blocks 4,5
         if (meta.cnt.CM == BG_4BPP)
         {
-            pixel = charblock[(se.tile_index * 32) + tile_offset/2];
+            const auto tileRowAddress = (se.tile_index * 32) + tile_offset / 2;
+            if (tileRowAddress >= charblock_size) [[unlikely]]
+            {
+                continue;
+            }
+
+            pixel = charblock[tileRowAddress];
 
             if (tile_x & 1) // hi or lo nibble
             {
                 pixel >>= 4;
             }
+
             pixel &= 0xF; // 4bpp remember
             pram_addr = 2 * pixel;
             pram_addr += se.palette_bank * 32;
         }
         else // BG_8BPP
         {
-            pixel = charblock[(se.tile_index * 64) + tile_offset];
+            const auto tileRowAddress = (se.tile_index * 64) + tile_offset;
+            if (tileRowAddress >= charblock_size) [[unlikely]]
+            {
+                continue;
+            }
+
+            pixel = charblock[tileRowAddress];
             pram_addr = 2 * pixel;
         }
 

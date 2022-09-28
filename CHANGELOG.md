@@ -72,6 +72,7 @@
 - add r/w function tables to gb to replace switch. this is how i handle it in gba code as well
 - add ctest support along with automated testing via github
 - remove std::ranges from core
+- add obj 8bpp rendering
 
 ---
 
