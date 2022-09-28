@@ -73,6 +73,9 @@
 - add ctest support along with automated testing via github
 - remove std::ranges from core
 - add obj 8bpp rendering
+- add bg affine
+- add bitmap affine
+- add mode2 rendering
 
 ---
 

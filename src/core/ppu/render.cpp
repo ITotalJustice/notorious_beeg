@@ -4,7 +4,6 @@
 // things left
 // - obj in obj window
 // - obj not in obj window
-// - bg affine
 // - obj affine
 // - obj mosaic
 // - window wrapping
@@ -16,6 +15,7 @@
 #include "render.hpp"
 #include "gba.hpp"
 #include "bit.hpp"
+#include "mem.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -149,7 +149,7 @@ enum class RenderType
     Affine,
     Bitmap3,
     Bitmap4,
-    // Bitmap5,
+    Bitmap5,
 };
 
 struct BgLine
@@ -189,9 +189,14 @@ struct BGxCNT
 // contains control and scroll values
 struct BgMeta
 {
-    BGxCNT cnt;
     u16 xscroll;
     u16 yscroll;
+};
+
+struct BgAffineMeta
+{
+    s16 pa, pb, pc, pd;
+    s32 dx, dy;
 };
 
 // todo: optimise the WIN IN/OUT arrays into bitfield
@@ -451,6 +456,21 @@ struct OBJ_Affine
     s16 pd; // dmy
 };
 
+constexpr auto get_bg_affine_xy(const BGxCNT& cnt, const BgAffineMeta& meta, u32 x, u32 width, u32 height) -> std::pair<u32, u32>
+{
+    u32 tx = (meta.dx + meta.pa * x) >> 8;
+    u32 ty = (meta.dy + meta.pc * x) >> 8;
+
+    // apply wrapping if enabled
+    if (cnt.Wr)
+    {
+        tx %= width;
+        ty %= height;
+    }
+
+    return { tx, ty };
+}
+
 // psudo-ish code for affine
 auto render_obj_affine(Gba& gba, const OBJ_Attr& obj, const WindowBounds& bounds, ObjLine& line) -> void
 {
@@ -477,7 +497,7 @@ auto render_obj_affine(Gba& gba, const OBJ_Attr& obj, const WindowBounds& bounds
     // NOTE: not sure what to do from here...
 }
 
-enum class Index : bool
+enum Index : bool
 {
     X = false,
     Y = true
@@ -500,33 +520,16 @@ auto get_bg_offset(const BGxCNT cnt, const auto x) -> u16
         { 0x800, 0x800, 0x800, 0x800*2 }, // Y=1, Sz=3: this is a 2d array, so if we are on the next slot, then we need to move down 2*SCREENBLOCK_SIZE
     };
 
-    constexpr auto i = std::to_underlying(index);
-
     // move to the next block if out of range
-    const auto next_block = (x % mod[i][cnt.Sz]) > PIXEL_MAP_SIZE;
+    const auto next_block = (x % mod[index][cnt.Sz]) > PIXEL_MAP_SIZE;
 
-    return result[i][cnt.Sz] * next_block;
-}
-
-template<bool Y> [[nodiscard]] // 0=Y, 1=X
-auto get_bg_offset_affine(const BGxCNT cnt, const auto x) -> u16
-{
-    constexpr auto PIXEL_MAP_SIZE = 255;
-    static constexpr u16 mod[4] = { 128, 256, 512, 1024 };
-    static constexpr u16 result[2][4] = // [0] = Y, [1] = X
-    {
-        { 0x800, 0x800, 0x800, 0x800 },
-        { 0x800, 0x800, 0x800, 0x800*2 }, // Y=1, Sz=3: this is a 2d array, so if we are on the next slot, then we need to move down 2*SCREENBLOCK_SIZE
-    };
-
-    // move to the next block if out of range
-    const auto next_block = (x % mod[cnt.Sz]) > PIXEL_MAP_SIZE;
-
-    return result[Y][cnt.Sz] * next_block;
+    return result[index][cnt.Sz] * next_block;
 }
 
 struct Bgr
 {
+    constexpr Bgr() = default;
+
     constexpr Bgr(const u16 col) :
         r{static_cast<u8>(bit::get_range<0, 4>(col))},
         g{static_cast<u8>(bit::get_range<5, 9>(col))},
@@ -537,9 +540,7 @@ struct Bgr
         return (std::min<u8>(31, b) << 10) | (std::min<u8>(31, g) << 5) | (std::min<u8>(31, r));
     }
 
-    u8 r;
-    u8 g;
-    u8 b;
+    u8 r, g, b;
 };
 
 // the blending *formular* took way longer than it should've
@@ -553,7 +554,7 @@ constexpr auto blend_alpha(const u16 src, const u16 dst, const u8 coeff_src, con
 
     const Bgr src_col{src};
     const Bgr dst_col{dst};
-    Bgr fin_col{0};
+    Bgr fin_col;
 
     fin_col.r = ((src_col.r * coeff_src) + (dst_col.r * coeff_dst)) / 16;
     fin_col.g = ((src_col.g * coeff_src) + (dst_col.g * coeff_dst)) / 16;
@@ -567,7 +568,7 @@ constexpr auto blend_white(const u16 col, const u8 coeff) -> u16
     assert(coeff <= 16);
 
     const Bgr src_col{col};
-    Bgr fin_col{0};
+    Bgr fin_col;
 
     // eg (((31 - 0) * 16) / 16) = max white
     // eg (((31 - 0) * 32) / 16) = max white (masked by bitfield)
@@ -582,7 +583,7 @@ constexpr auto blend_black(const u16 col, const u8 coeff) -> u16
     assert(coeff <= 16);
 
     const Bgr src_col{col};
-    Bgr fin_col{0};
+    Bgr fin_col;
 
     // eg (16 - ((16 * 0) / 16)) = max black
     fin_col.r = src_col.r - ((src_col.r * coeff) / 16);
@@ -626,31 +627,31 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
 
             case ObjMode::Affine:
             case ObjMode::Affine2X:
-                // render_obj_affine(gba, obj, bounds, line);
-                // continue;
-                break;
+                render_obj_affine(gba, obj, bounds, line);
+                continue;
+                // break;
 
             case ObjMode::Hide:
                 continue;
         }
 
         // fetch the x/y size of the sprite
-        const auto xSize = OBJ_SIZE_X[obj.attr0.Sh][obj.attr1.Sz];
-        const auto ySize = OBJ_SIZE_Y[obj.attr0.Sh][obj.attr1.Sz];
+        const auto width = OBJ_SIZE_X[obj.attr0.Sh][obj.attr1.Sz];
+        const auto height = OBJ_SIZE_Y[obj.attr0.Sh][obj.attr1.Sz];
         // see here for wrapping: https://www.coranac.com/tonc/text/affobj.htm#ssec-wrap
-        const auto sprite_y = obj.attr0.Y + ySize > 256 ? obj.attr0.Y - 256 : obj.attr0.Y;
+        const auto sprite_y = obj.attr0.Y + height > 256 ? obj.attr0.Y - 256 : obj.attr0.Y;
         // calculate the y_index, handling flipping
-        const auto mosY = obj.is_yflip() ? (ySize - 1) - (vcount - sprite_y) : vcount - sprite_y;
+        const auto mosY = obj.is_yflip() ? (height - 1) - (vcount - sprite_y) : vcount - sprite_y;
         // fine_y
         const auto yMod = mosY % 8;
         // for which row the obj will be on (based on layout)
-        const auto row_mult = is_1D_layout ? xSize / 8 : 32;
+        const auto row_mult = is_1D_layout ? width / 8 : 32;
 
         // check if the sprite is to be drawn on this ;ine
-        if (vcount >= sprite_y && vcount < sprite_y + ySize)
+        if (vcount >= sprite_y && vcount < sprite_y + height)
         {
             // for each pixel of the sprite
-            for (auto x = 0; x < xSize; x++)
+            for (auto x = 0; x < width; x++)
             {
                 // this is the index into the pixel array
                 const auto pixel_x = obj.attr1.X + x;
@@ -674,7 +675,7 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                 }
 
                 // x_index, handling flipping
-                const auto mosX = obj.is_xflip() ? xSize - 1 - x : x;
+                const auto mosX = obj.is_xflip() ? width - 1 - x : x;
                 // fine_x
                 const auto xMod = mosX % 8;
 
@@ -684,24 +685,24 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                 if (obj.attr0.is_4bpp())
                 {
                     // thank you Kellen for the below code, i wouldn't have firgured it out otherwise.
-                    auto tileRowAddress = obj.attr2.TID * 32;
-                    tileRowAddress += (((mosY / 8 * row_mult)) + mosX / 8) * 32;
-                    tileRowAddress += yMod * 4;
-                    tileRowAddress += xMod / 2;
+                    auto charblock_addr = obj.attr2.TID * 32;
+                    charblock_addr += (((mosY / 8 * row_mult)) + mosX / 8) * 32;
+                    charblock_addr += yMod * 4;
+                    charblock_addr += xMod / 2;
 
                     // if the adddress is out of bounds, break early
-                    if (tileRowAddress >= CHARBLOCK_SIZE * 2) [[unlikely]]
+                    if (charblock_addr >= CHARBLOCK_SIZE * 2) [[unlikely]]
                     {
                         break;
                     }
 
                     // in bitmap mode, only the last charblock can be used for sprites.
-                    if (is_bitmap_mode(gba) && tileRowAddress < CHARBLOCK_SIZE) [[unlikely]]
+                    if (is_bitmap_mode(gba) && charblock_addr < CHARBLOCK_SIZE) [[unlikely]]
                     {
                         continue;
                     }
 
-                    pixel = ovram[tileRowAddress];
+                    pixel = ovram[charblock_addr];
 
                     if (xMod & 1) // odd/even (lo/hi nibble)
                     {
@@ -714,24 +715,24 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                 }
                 else
                 {
-                    auto tileRowAddress = obj.attr2.TID * 32;
-                    tileRowAddress += (((mosY / 8 * row_mult)) + mosX / 8) * 64;
-                    tileRowAddress += yMod * 8;
-                    tileRowAddress += xMod;
+                    auto charblock_addr = obj.attr2.TID * 32;
+                    charblock_addr += (((mosY / 8 * row_mult)) + mosX / 8) * 64;
+                    charblock_addr += yMod * 8;
+                    charblock_addr += xMod;
 
                     // if the adddress is out of bounds, break early
-                    if (tileRowAddress >= CHARBLOCK_SIZE * 2) [[unlikely]]
+                    if (charblock_addr >= CHARBLOCK_SIZE * 2) [[unlikely]]
                     {
                         break;
                     }
 
                     // in bitmap mode, only the last charblock can be used for sprites.
-                    if (is_bitmap_mode(gba) && tileRowAddress < CHARBLOCK_SIZE) [[unlikely]]
+                    if (is_bitmap_mode(gba) && charblock_addr < CHARBLOCK_SIZE) [[unlikely]]
                     {
                         continue;
                     }
 
-                    pixel = ovram[tileRowAddress];
+                    pixel = ovram[charblock_addr];
                     pram_addr = pixel * 2;
                 }
 
@@ -756,9 +757,9 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
     }
 }
 
-auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BgMeta& meta)
+auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BGxCNT cnt, const BgMeta meta)
 {
-    const auto charblock_offset = meta.cnt.CBB * CHARBLOCK_SIZE;
+    const auto charblock_offset = cnt.CBB * CHARBLOCK_SIZE;
     const auto charblock_size = 4 * CHARBLOCK_SIZE - charblock_offset;
 
     const auto vcount = REG_VCOUNT;
@@ -769,7 +770,7 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
     // tile_mem (where the tiles/tilesets are)
     const auto charblock = std::span{gba.mem.vram}.subspan(charblock_offset);
     // se_mem (where the tilemaps are)
-    const auto screenblock = std::span{gba.mem.vram}.subspan((meta.cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(meta.cnt, meta.yscroll + vcount) + ((y / 8) * 64));
+    const auto screenblock = std::span{gba.mem.vram}.subspan((cnt.SBB * SCREENBLOCK_SIZE) + get_bg_offset<Index::Y>(cnt, meta.yscroll + vcount) + ((y / 8) * 64));
 
     for (auto x = 0; x < 240; x++)
     {
@@ -780,7 +781,7 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
         }
 
         const auto tx = (x + meta.xscroll) % 256;
-        const auto se_number = (tx / 8) + (get_bg_offset<Index::X>(meta.cnt, x + meta.xscroll) / 2); // SE-number n = tx+ty·tw,
+        const auto se_number = (tx / 8) + (get_bg_offset<Index::X>(cnt, x + meta.xscroll) / 2); // SE-number n = tx+ty·tw,
         const ScreenEntry se = read_array_no_mask<u16>(screenblock, se_number * 2);
 
         const auto tile_x = se.hflip ? 7 - (tx & 7) : tx & 7;
@@ -791,16 +792,16 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
         auto pram_addr = 0;
         auto pixel = 0;
 
-        // todo: don't allow access to blocks 4,5
-        if (meta.cnt.CM == BG_4BPP)
+        if (cnt.CM == BG_4BPP)
         {
-            const auto tileRowAddress = (se.tile_index * 32) + tile_offset / 2;
-            if (tileRowAddress >= charblock_size) [[unlikely]]
+            const auto charblock_addr = (se.tile_index * 32) + tile_offset / 2;
+            // don't allow access to blocks 4,5
+            if (charblock_addr >= charblock_size) [[unlikely]]
             {
                 continue;
             }
 
-            pixel = charblock[tileRowAddress];
+            pixel = charblock[charblock_addr];
 
             if (tile_x & 1) // hi or lo nibble
             {
@@ -813,13 +814,14 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
         }
         else // BG_8BPP
         {
-            const auto tileRowAddress = (se.tile_index * 64) + tile_offset;
-            if (tileRowAddress >= charblock_size) [[unlikely]]
+            const auto charblock_addr = (se.tile_index * 64) + tile_offset;
+            // don't allow access to blocks 4,5
+            if (charblock_addr >= charblock_size) [[unlikely]]
             {
                 continue;
             }
 
-            pixel = charblock[tileRowAddress];
+            pixel = charblock[charblock_addr];
             pram_addr = 2 * pixel;
         }
 
@@ -831,9 +833,25 @@ auto render_tile_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, con
     }
 }
 
-auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
+// affine bg is 1D layout, aka, 8bpp
+auto render_affine_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BGxCNT cnt, const BgAffineMeta meta)
 {
-    const auto vram = std::span{gba.mem.vram}.subspan(240 * REG_VCOUNT * 2);
+    // width/height sizes are the same
+    constexpr u16 sizes[4] = { 128, 256, 512, 1024 };
+
+    const auto width = sizes[cnt.Sz];
+    const auto height = sizes[cnt.Sz];
+    const auto tw = width / 8;
+
+    const auto charblock_offset = cnt.CBB * CHARBLOCK_SIZE;
+    const auto charblock_size = 4 * CHARBLOCK_SIZE - charblock_offset;
+
+    // pal_mem
+    const auto pram = std::span{gba.mem.pram};
+    // tile_mem (where the tiles/tilesets are)
+    const auto charblock = std::span{gba.mem.vram}.subspan(cnt.CBB * CHARBLOCK_SIZE);
+    // se_mem (where the tilemaps are)
+    const auto screenblock = std::span{gba.mem.vram}.subspan((cnt.SBB * SCREENBLOCK_SIZE));
 
     for (auto x = 0; x < 240; x++)
     {
@@ -843,20 +861,76 @@ auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, 
             continue;
         }
 
-        // i don't think mode3 can have transparent tiles?
-        const auto pixel = read_array_no_mask<u16>(vram, x * 2);
+        const auto [tx, ty] = get_bg_affine_xy(cnt, meta, x, width, height);
+
+        if (tx >= width || ty >= height)
+        {
+            continue;
+        }
+
+        const auto se_number = (tx / 8) + (ty / 8) * tw; // SE-number n = tx+ty·tw,
+
+        const auto tile_index = read_array_no_mask<u8>(screenblock, se_number);
+
+        const auto tile_x = tx & 7;
+        const auto tile_y = ty & 7;
+
+        const auto tile_offset = tile_x + (tile_y * 8);
+        const auto charblock_addr = (tile_index * 64) + tile_offset;
+
+        // don't allow access to blocks 4,5
+        if (charblock_addr >= charblock_size) [[unlikely]]
+        {
+            continue;
+        }
+
+        const auto pixel = charblock[(tile_index * 64) + tile_offset];
+        const auto pram_addr = 2 * pixel;
+
+        if (pixel != 0) // don't render transparent pixel
+        {
+            line.is_opaque[x] = true;
+            line.pixels[x] = read_array_no_mask<u16>(pram, pram_addr);
+        }
+    }
+}
+
+auto render_bitmap3_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BGxCNT cnt, const BgAffineMeta meta)
+{
+    constexpr auto width = 240;
+    constexpr auto height = 160;
+    const auto vram = std::span{gba.mem.vram};
+
+    for (auto x = 0; x < width; x++)
+    {
+        // check if we are allowed inside
+        if (!bounds.in_bounds(line.num, x))
+        {
+            continue;
+        }
+
+        const auto [tx, ty] = get_bg_affine_xy(cnt, meta, x, width, height);
+
+        if (tx >= width || ty >= height)
+        {
+            continue;
+        }
+
+        const auto pixel = read_array_no_mask<u16>(vram, (ty * width * 2) + (tx * 2));
         line.is_opaque[x] = true;
         line.pixels[x] = pixel;
     }
 }
 
-auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, [[maybe_unused]] const BgMeta& meta)
+auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BGxCNT cnt, const BgAffineMeta meta)
 {
+    constexpr auto width = 240;
+    constexpr auto height = 160;
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
     const auto pram = std::span{gba.mem.pram};
-    const auto vram = std::span{gba.mem.vram}.subspan(page + (240 * REG_VCOUNT));
+    const auto vram = std::span{gba.mem.vram}.subspan(page);
 
-    for (auto x = 0; x < 240; x++)
+    for (auto x = 0; x < width; x++)
     {
         // check if we are allowed inside
         if (!bounds.in_bounds(line.num, x))
@@ -864,13 +938,48 @@ auto render_bitmap4_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, 
             continue;
         }
 
-        const auto pixel = vram[x];
+        const auto [tx, ty] = get_bg_affine_xy(cnt, meta, x, width, height);
+
+        if (tx >= width || ty >= height)
+        {
+            continue;
+        }
+
+        const auto pixel = vram[(width * ty) + tx];
 
         if (pixel != 0) // don't render transparent pixel
         {
             line.is_opaque[x] = true;
             line.pixels[x] = read_array_no_mask<u16>(pram, pixel * 2);
         }
+    }
+}
+
+auto render_bitmap5_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, const BGxCNT cnt, const BgAffineMeta meta)
+{
+    constexpr auto width = 160;
+    constexpr auto height = 128;
+    const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
+    const auto vram = std::span{gba.mem.vram}.subspan(page);
+
+    for (auto x = 0; x < width; x++)
+    {
+        // check if we are allowed inside
+        if (!bounds.in_bounds(line.num, x))
+        {
+            continue;
+        }
+
+        const auto [tx, ty] = get_bg_affine_xy(cnt, meta, x, width, height);
+
+        if (tx >= width || ty >= height)
+        {
+            continue;
+        }
+
+        const auto pixel = read_array_no_mask<u16>(vram, (ty * width * 2) + (tx * 2));
+        line.is_opaque[x] = true;
+        line.pixels[x] = pixel;
     }
 }
 
@@ -1135,16 +1244,59 @@ auto is_bg_enabled(Gba& gba, u8 bg_num)
     return bit::is_set(REG_DISPCNT, 8 + bg_num);
 }
 
+auto get_bg_cnt(Gba& gba, u8 bg_num) -> BGxCNT
+{
+    assert(bg_num <= 3);
+
+    switch (bg_num)
+    {
+        case 0: return { REG_BG0CNT };
+        case 1: return { REG_BG1CNT };
+        case 2: return { REG_BG2CNT };
+        case 3: return { REG_BG3CNT };
+    }
+
+    std::unreachable();
+}
+
 auto get_bg_meta(Gba& gba, u8 bg_num) -> BgMeta
 {
     assert(bg_num <= 3);
 
     switch (bg_num)
     {
-        case 0: return { REG_BG0CNT, REG_BG0HOFS, REG_BG0VOFS };
-        case 1: return { REG_BG1CNT, REG_BG1HOFS, REG_BG1VOFS };
-        case 2: return { REG_BG2CNT, REG_BG2HOFS, REG_BG2VOFS };
-        case 3: return { REG_BG3CNT, REG_BG3HOFS, REG_BG3VOFS };
+        case 0: return { .xscroll = REG_BG0HOFS, .yscroll = REG_BG0VOFS };
+        case 1: return { .xscroll = REG_BG1HOFS, .yscroll = REG_BG1VOFS };
+        case 2: return { .xscroll = REG_BG2HOFS, .yscroll = REG_BG2VOFS };
+        case 3: return { .xscroll = REG_BG3HOFS, .yscroll = REG_BG3VOFS };
+    }
+
+    std::unreachable();
+}
+
+auto get_bg_affine_meta(Gba& gba, u8 bg_num) -> BgAffineMeta
+{
+    assert(bg_num >= 2 && bg_num <= 3);
+
+    switch (bg_num)
+    {
+        case 2: return {
+            .pa = static_cast<s16>(REG_BG2PA),
+            .pb = static_cast<s16>(REG_BG2PB),
+            .pc = static_cast<s16>(REG_BG2PC),
+            .pd = static_cast<s16>(REG_BG2PD),
+            .dx = gba.ppu.bg2x,
+            .dy = gba.ppu.bg2y
+        };
+
+        case 3: return {
+            .pa = static_cast<s16>(REG_BG3PA),
+            .pb = static_cast<s16>(REG_BG3PB),
+            .pc = static_cast<s16>(REG_BG3PC),
+            .pd = static_cast<s16>(REG_BG3PD),
+            .dx = gba.ppu.bg3x,
+            .dy = gba.ppu.bg3y
+        };
     }
 
     std::unreachable();
@@ -1232,26 +1384,35 @@ auto tile_render(Gba& gba, std::span<BgLine> bg_lines, const Layer layers = Laye
         // only render bg if enabled
         if (is_bg_enabled(gba, line.num) && bit::is_set<u8>(layers, line.num))
         {
-            const auto meta = get_bg_meta(gba, line.num);
-            line.priority = meta.cnt.Pr;
+            const auto cnt = get_bg_cnt(gba, line.num);
+            line.priority = cnt.Pr;
 
             switch (line.render_type)
             {
-                case RenderType::Reg:
-                    render_tile_line_bg(gba, line, bounds, meta);
-                    break;
+                case RenderType::Reg: {
+                    const auto meta = get_bg_meta(gba, line.num);
+                    render_tile_line_bg(gba, line, bounds, cnt, meta);
+                }   break;
 
-                case RenderType::Affine:
-                    // todo:
-                    break;
+                case RenderType::Affine: {
+                    const auto meta = get_bg_affine_meta(gba, line.num);
+                    render_affine_line_bg(gba, line, bounds, cnt, meta);
+                }   break;
 
-                case RenderType::Bitmap3:
-                    render_bitmap3_line_bg(gba, line, bounds, meta);
-                    break;
+                case RenderType::Bitmap3: {
+                    const auto meta = get_bg_affine_meta(gba, line.num);
+                    render_bitmap3_line_bg(gba, line, bounds, cnt, meta);
+                }   break;
 
-                case RenderType::Bitmap4:
-                    render_bitmap4_line_bg(gba, line, bounds, meta);
-                    break;
+                case RenderType::Bitmap4: {
+                    const auto meta = get_bg_affine_meta(gba, line.num);
+                    render_bitmap4_line_bg(gba, line, bounds, cnt, meta);
+                }   break;
+
+                case RenderType::Bitmap5: {
+                    const auto meta = get_bg_affine_meta(gba, line.num);
+                    render_bitmap5_line_bg(gba, line, bounds, cnt, meta);
+                }   break;
             }
         }
     }
@@ -1279,13 +1440,12 @@ auto render_mode1(Gba& gba) -> void
     tile_render(gba, bg_lines);
 }
 
-// 4 affine
-// auto render_mode2(Gba& gba) -> void
-// {
-//     BgLine bg_lines[4]{ {0, RenderType::Affine}, {1, RenderType::Affine}, {2, RenderType::Affine}, {3, RenderType::Affine} };
-//     tile_render(gba, bg_lines);
-//     assert(!"unsupported mode");
-// }
+// 2 affine
+auto render_mode2(Gba& gba) -> void
+{
+    BgLine bg_lines[2]{ {2, RenderType::Affine}, {3, RenderType::Affine} };
+    tile_render(gba, bg_lines);
+}
 
 auto render_mode3(Gba& gba) -> void
 {
@@ -1296,6 +1456,12 @@ auto render_mode3(Gba& gba) -> void
 auto render_mode4(Gba& gba) -> void
 {
     BgLine bg_lines[1]{ {2, RenderType::Bitmap4} };
+    tile_render(gba, bg_lines);
+}
+
+auto render_mode5(Gba& gba) -> void
+{
+    BgLine bg_lines[1]{ {2, RenderType::Bitmap5} };
     tile_render(gba, bg_lines);
 }
 
@@ -1345,10 +1511,10 @@ auto render(Gba& gba) -> void
     {
         case 0: render_mode0(gba); break;
         case 1: render_mode1(gba); break;
-        // case 2: render_mode2(gba); break;
+        case 2: render_mode2(gba); break;
         case 3: render_mode3(gba); break;
         case 4: render_mode4(gba); break;
-        // case 5: render_mode5(gba); break;
+        case 5: render_mode5(gba); break;
 
         default:
             #ifndef NDEBUG
@@ -1363,7 +1529,7 @@ auto render(Gba& gba) -> void
 // shown in the front end.
 auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
 {
-    const auto meta = get_bg_meta(gba, layer);
+    const auto cnt = get_bg_cnt(gba, layer);
     // for now, ignore the mode the frontend wants
     mode = get_mode(gba);
 
@@ -1396,7 +1562,8 @@ auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
         } break;
 
         case 2: {
-
+            BgLine bg_lines[2]{ {2, RenderType::Affine}, {3, RenderType::Affine} };
+            func(bg_lines, false);
         } break;
 
         case 3: {
@@ -1409,7 +1576,8 @@ auto render_bg_mode(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
             func(bg_lines, true);
         } break;
     }
-    return meta.cnt.Pr;
+
+    return cnt.Pr;
 }
 
 } // namespace gba::ppu

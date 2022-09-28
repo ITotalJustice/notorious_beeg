@@ -18,9 +18,14 @@ enum class Period : u8
 
 struct Ppu
 {
-    u32 period_cycles;
-    u32 cycles;
     Period period;
+
+    // these are incremented every hblank
+    // and reloaded on vblank
+    s32 bg2x;
+    s32 bg2y;
+    s32 bg3x;
+    s32 bg3y;
 };
 
 // used for debugging
@@ -36,5 +41,10 @@ STATIC auto is_screen_visible(Gba& gba) -> bool;
 
 STATIC auto on_event(Gba& gba) -> void;
 STATIC auto reset(Gba& gba, bool skip_bios) -> void;
+
+STATIC auto write_BG2X(Gba& gba, u32 addr, u16 value) -> void;
+STATIC auto write_BG2Y(Gba& gba, u32 addr, u16 value) -> void;
+STATIC auto write_BG3X(Gba& gba, u32 addr, u16 value) -> void;
+STATIC auto write_BG3Y(Gba& gba, u32 addr, u16 value) -> void;
 
 } // namespace gba::ppu

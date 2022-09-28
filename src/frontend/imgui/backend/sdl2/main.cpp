@@ -382,6 +382,7 @@ auto App::on_key_event(const SDL_KeyboardEvent& e) -> void
                     loadstate(rom_path);
                     break;
 
+                case SDL_SCANCODE_EQUALS:
                 case SDL_SCANCODE_KP_PLUS:
                     scale++;
                     set_window_size({width * scale, height * scale});

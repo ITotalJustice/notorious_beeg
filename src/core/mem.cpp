@@ -443,18 +443,10 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
         case IO_BG2PB:
         case IO_BG2PC:
         case IO_BG2PD:
-        case IO_BG2X:
-        case IO_BG2Y:
         case IO_BG3PA:
         case IO_BG3PB:
         case IO_BG3PC:
         case IO_BG3PD:
-        case IO_BG3X:
-        case IO_BG3Y:
-        case IO_BG2X_HI:
-        case IO_BG2Y_HI:
-        case IO_BG3X_HI:
-        case IO_BG3Y_HI:
         case IO_WIN0H:
         case IO_WIN1H:
         case IO_WIN0V:
@@ -466,14 +458,14 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
         case IO_COLEV:
         case IO_COLEY:
         case IO_SOUNDBIAS:
-        case IO_DMA0SAD:
-        case IO_DMA1SAD:
-        case IO_DMA2SAD:
-        case IO_DMA3SAD:
-        case IO_DMA0DAD:
-        case IO_DMA1DAD:
-        case IO_DMA2DAD:
-        case IO_DMA3DAD:
+        case IO_DMA0SAD_LO:
+        case IO_DMA1SAD_LO:
+        case IO_DMA2SAD_LO:
+        case IO_DMA3SAD_LO:
+        case IO_DMA0DAD_LO:
+        case IO_DMA1DAD_LO:
+        case IO_DMA2DAD_LO:
+        case IO_DMA3DAD_LO:
         case IO_DMA0SAD_HI:
         case IO_DMA1SAD_HI:
         case IO_DMA2SAD_HI:
@@ -488,6 +480,30 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
         case IO_DMA3CNT_L:
         case IO_RCNT:
             gba.mem.io[(addr & IO_MASK) >> 1] = value;
+            break;
+
+        case IO_BG2X_LO:
+        case IO_BG2X_HI:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
+            ppu::write_BG2X(gba, addr, value);
+            break;
+
+        case IO_BG2Y_LO:
+        case IO_BG2Y_HI:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
+            ppu::write_BG2Y(gba, addr, value);
+            break;
+
+        case IO_BG3X_LO:
+        case IO_BG3X_HI:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
+            ppu::write_BG3X(gba, addr, value);
+            break;
+
+        case IO_BG3Y_LO:
+        case IO_BG3Y_HI:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
+            ppu::write_BG3Y(gba, addr, value);
             break;
 
         case IO_SOUND1CNT_L:
@@ -545,6 +561,7 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
         case IO_WAVE_RAM2_H:
         case IO_WAVE_RAM3_L:
         case IO_WAVE_RAM3_H:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
             apu::write_WAVE(gba, addr + 0, value >> 0);
             apu::write_WAVE(gba, addr + 1, value >> 8);
             break;
@@ -706,6 +723,16 @@ inline auto write_io8(Gba& gba, const u32 addr, const u8 value) -> void
         case IO_WAVE_RAM3_L + 1:
         case IO_WAVE_RAM3_H + 0:
         case IO_WAVE_RAM3_H + 1:
+            if (addr & 1)
+            {
+                gba.mem.io[(addr & 0x3FF) >> 1] &= 0x00FF;
+                gba.mem.io[(addr & 0x3FF) >> 1] |= value << 8;
+            }
+            else
+            {
+                gba.mem.io[(addr & 0x3FF) >> 1] &= 0xFF00;
+                gba.mem.io[(addr & 0x3FF) >> 1] |= value;
+            }
             apu::write_WAVE(gba, addr, value);
             break;
 

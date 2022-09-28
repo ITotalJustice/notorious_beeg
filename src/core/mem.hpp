@@ -277,15 +277,19 @@ enum IOAddr
 #define REG_BG2PB gba.mem.io[(gba::mem::IO_BG2PB & 0x3FF) >> 1]
 #define REG_BG2PC gba.mem.io[(gba::mem::IO_BG2PC & 0x3FF) >> 1]
 #define REG_BG2PD gba.mem.io[(gba::mem::IO_BG2PD & 0x3FF) >> 1]
-// #define REG_BG2X *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_BG2X & 0x3FF))
-// #define REG_BG2Y *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_BG2Y & 0x3FF))
+#define REG_BG2X_LO gba.mem.io[(gba::mem::IO_BG2X_LO & 0x3FF) >> 1]
+#define REG_BG2X_HI gba.mem.io[(gba::mem::IO_BG2X_HI & 0x3FF) >> 1]
+#define REG_BG2Y_LO gba.mem.io[(gba::mem::IO_BG2Y_LO & 0x3FF) >> 1]
+#define REG_BG2Y_HI gba.mem.io[(gba::mem::IO_BG2Y_HI & 0x3FF) >> 1]
 
 #define REG_BG3PA gba.mem.io[(gba::mem::IO_BG3PA & 0x3FF) >> 1]
 #define REG_BG3PB gba.mem.io[(gba::mem::IO_BG3PB & 0x3FF) >> 1]
 #define REG_BG3PC gba.mem.io[(gba::mem::IO_BG3PC & 0x3FF) >> 1]
 #define REG_BG3PD gba.mem.io[(gba::mem::IO_BG3PD & 0x3FF) >> 1]
-// #define REG_BG3X *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_BG3X & 0x3FF))
-// #define REG_BG3Y *reinterpret_cast<std::uint32_t*>(gba.mem.io + (gba::mem::IO_BG3Y & 0x3FF))
+#define REG_BG3X_LO gba.mem.io[(gba::mem::IO_BG3X_LO & 0x3FF) >> 1]
+#define REG_BG3X_HI gba.mem.io[(gba::mem::IO_BG3X_HI & 0x3FF) >> 1]
+#define REG_BG3Y_LO gba.mem.io[(gba::mem::IO_BG3Y_LO & 0x3FF) >> 1]
+#define REG_BG3Y_HI gba.mem.io[(gba::mem::IO_BG3Y_HI & 0x3FF) >> 1]
 
 #define REG_WIN0H gba.mem.io[(gba::mem::IO_WIN0H & 0x3FF) >> 1]
 #define REG_WIN1H gba.mem.io[(gba::mem::IO_WIN1H & 0x3FF) >> 1]
@@ -305,17 +309,32 @@ enum IOAddr
 #define REG_SOUND1CNT_L gba.mem.io[(gba::mem::IO_SOUND1CNT_L & 0x3FF) >> 1] /* Sound 1 Sweep control */
 #define REG_SOUND1CNT_H gba.mem.io[(gba::mem::IO_SOUND1CNT_H & 0x3FF) >> 1] /* Sound 1 Lenght, wave duty and envelope control */
 #define REG_SOUND1CNT_X gba.mem.io[(gba::mem::IO_SOUND1CNT_X & 0x3FF) >> 1] /* Sound 1 Frequency, reset and loop control */
+
 #define REG_SOUND2CNT_L gba.mem.io[(gba::mem::IO_SOUND2CNT_L & 0x3FF) >> 1] /* Sound 2 Lenght, wave duty and envelope control */
 #define REG_SOUND2CNT_H gba.mem.io[(gba::mem::IO_SOUND2CNT_H & 0x3FF) >> 1] /* Sound 2 Frequency, reset and loop control */
+
 #define REG_SOUND3CNT_L gba.mem.io[(gba::mem::IO_SOUND3CNT_L & 0x3FF) >> 1] /* Sound 3 Enable and wave ram bank control */
 #define REG_SOUND3CNT_H gba.mem.io[(gba::mem::IO_SOUND3CNT_H & 0x3FF) >> 1] /* Sound 3 Sound lenght and output level control */
 #define REG_SOUND3CNT_X gba.mem.io[(gba::mem::IO_SOUND3CNT_X & 0x3FF) >> 1] /* Sound 3 Frequency, reset and loop control */
+
 #define REG_SOUND4CNT_L gba.mem.io[(gba::mem::IO_SOUND4CNT_L & 0x3FF) >> 1] /* Sound 4 Lenght, output level and envelope control */
 #define REG_SOUND4CNT_H gba.mem.io[(gba::mem::IO_SOUND4CNT_H & 0x3FF) >> 1] /* Sound 4 Noise parameters, reset and loop control */
+
 #define REG_SOUNDCNT_L  gba.mem.io[(gba::mem::IO_SOUNDCNT_L & 0x3FF) >> 1] /* Sound 1-4 Output level and Stereo control */
 #define REG_SOUNDCNT_H  gba.mem.io[(gba::mem::IO_SOUNDCNT_H & 0x3FF) >> 1] /* Direct Sound control and Sound 1-4 output ratio */
 #define REG_SOUNDCNT_X  gba.mem.io[(gba::mem::IO_SOUNDCNT_X & 0x3FF) >> 1] /* Master sound enable and Sound 1-4 play status */
+
 #define REG_SOUNDBIAS   gba.mem.io[(gba::mem::IO_SOUNDBIAS & 0x3FF) >> 1] /* Sound bias and Amplitude resolution control */
+
+#define REG_WAVE_RAM0_L gba.mem.io[(gba::mem::IO_WAVE_RAM0_L & 0x3FF) >> 1] /* Sound bias and Amplitude resolution control */
+#define REG_WAVE_RAM0_H gba.mem.io[(gba::mem::IO_WAVE_RAM0_H & 0x3FF) >> 1] /* Sound bias and Amplitude resolution control */
+#define REG_WAVE_RAM1_L gba.mem.io[(gba::mem::IO_WAVE_RAM1_L & 0x3FF) >> 1] /* Sound bias and Amplitude resolution control */
+#define REG_WAVE_RAM1_H gba.mem.io[(gba::mem::IO_WAVE_RAM1_H & 0x3FF) >> 1] /* Sound bias and Amplitude resolution control */
+#define REG_WAVE_RAM2_L gba.mem.io[(gba::mem::IO_WAVE_RAM2_L & 0x3FF) >> 1] /* Sound bias and Amplitude resolution control */
+#define REG_WAVE_RAM2_H gba.mem.io[(gba::mem::IO_WAVE_RAM2_H & 0x3FF) >> 1] /* Sound bias and Amplitude resolution control */
+#define REG_WAVE_RAM3_L gba.mem.io[(gba::mem::IO_WAVE_RAM3_L & 0x3FF) >> 1] /* Sound bias and Amplitude resolution control */
+#define REG_WAVE_RAM3_H gba.mem.io[(gba::mem::IO_WAVE_RAM3_H & 0x3FF) >> 1] /* Sound bias and Amplitude resolution control */
+
 #define REG_FIFO_A_L    gba.mem.io[(gba::mem::IO_FIFO_A_L & 0x3FF) >> 1] /* Direct Sound channel A samples 0-1 */
 #define REG_FIFO_A_H    gba.mem.io[(gba::mem::IO_FIFO_A_H & 0x3FF) >> 1] /* Direct Sound channel A samples 2-3 */
 #define REG_FIFO_B_L    gba.mem.io[(gba::mem::IO_FIFO_B_L & 0x3FF) >> 1] /* Direct Sound channel B samples 0-1 */
@@ -339,29 +358,37 @@ enum IOAddr
 
 #define REG_DMA0SAD_LO gba.mem.io[(gba::mem::IO_DMA0SAD_LO & 0x3FF) >> 1]
 #define REG_DMA0SAD_HI gba.mem.io[(gba::mem::IO_DMA0SAD_HI & 0x3FF) >> 1]
+
 #define REG_DMA1SAD_LO gba.mem.io[(gba::mem::IO_DMA1SAD_LO & 0x3FF) >> 1]
 #define REG_DMA1SAD_HI gba.mem.io[(gba::mem::IO_DMA1SAD_HI & 0x3FF) >> 1]
+
 #define REG_DMA2SAD_LO gba.mem.io[(gba::mem::IO_DMA2SAD_LO & 0x3FF) >> 1]
 #define REG_DMA2SAD_HI gba.mem.io[(gba::mem::IO_DMA2SAD_HI & 0x3FF) >> 1]
+
 #define REG_DMA3SAD_LO gba.mem.io[(gba::mem::IO_DMA3SAD_LO & 0x3FF) >> 1]
 #define REG_DMA3SAD_HI gba.mem.io[(gba::mem::IO_DMA3SAD_HI & 0x3FF) >> 1]
 
 #define REG_DMA0DAD_LO gba.mem.io[(gba::mem::IO_DMA0DAD_LO & 0x3FF) >> 1]
 #define REG_DMA0DAD_HI gba.mem.io[(gba::mem::IO_DMA0DAD_HI & 0x3FF) >> 1]
+
 #define REG_DMA1DAD_LO gba.mem.io[(gba::mem::IO_DMA1DAD_LO & 0x3FF) >> 1]
 #define REG_DMA1DAD_HI gba.mem.io[(gba::mem::IO_DMA1DAD_HI & 0x3FF) >> 1]
+
 #define REG_DMA2DAD_LO gba.mem.io[(gba::mem::IO_DMA2DAD_LO & 0x3FF) >> 1]
 #define REG_DMA2DAD_HI gba.mem.io[(gba::mem::IO_DMA2DAD_HI & 0x3FF) >> 1]
+
 #define REG_DMA3DAD_LO gba.mem.io[(gba::mem::IO_DMA3DAD_LO & 0x3FF) >> 1]
 #define REG_DMA3DAD_HI gba.mem.io[(gba::mem::IO_DMA3DAD_HI & 0x3FF) >> 1]
 
 #define REG_DMA0CNT_L gba.mem.io[(gba::mem::IO_DMA0CNT_L & 0x3FF) >> 1]
 #define REG_DMA1CNT_L gba.mem.io[(gba::mem::IO_DMA1CNT_L & 0x3FF) >> 1]
+
 #define REG_DMA2CNT_L gba.mem.io[(gba::mem::IO_DMA2CNT_L & 0x3FF) >> 1]
 #define REG_DMA3CNT_L gba.mem.io[(gba::mem::IO_DMA3CNT_L & 0x3FF) >> 1]
 
 #define REG_DMA0CNT_H gba.mem.io[(gba::mem::IO_DMA0CNT_H & 0x3FF) >> 1]
 #define REG_DMA1CNT_H gba.mem.io[(gba::mem::IO_DMA1CNT_H & 0x3FF) >> 1]
+
 #define REG_DMA2CNT_H gba.mem.io[(gba::mem::IO_DMA2CNT_H & 0x3FF) >> 1]
 #define REG_DMA3CNT_H gba.mem.io[(gba::mem::IO_DMA3CNT_H & 0x3FF) >> 1]
 

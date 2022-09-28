@@ -212,6 +212,7 @@ auto io_vcount(gba::Gba& gba) -> void
 auto io_bgXcnt(auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
+    // io_button<0x0, 0xF>(reg, "idk");
 
     io_button<0, 1>(reg, "Priority");
     ImGui::Separator();
@@ -257,12 +258,12 @@ auto io_bg1cnt(gba::Gba& gba) -> void
 
 auto io_bg2cnt(gba::Gba& gba) -> void
 {
-    io_bgXcnt(gba::mem::IO_BG2CNT, REG_BG0CNT);
+    io_bgXcnt(gba::mem::IO_BG2CNT, REG_BG2CNT);
 }
 
 auto io_bg3cnt(gba::Gba& gba) -> void
 {
-    io_bgXcnt(gba::mem::IO_BG3CNT, REG_BG0CNT);
+    io_bgXcnt(gba::mem::IO_BG3CNT, REG_BG3CNT);
 }
 
 auto io_bgXHVofs(auto addr, auto& reg) -> void
@@ -319,12 +320,16 @@ auto io_bg23pabcd(auto addr, auto& reg) -> void
     io_int<0x8, 0xF, true>(reg, "Integer"); ImGui::Separator();
 }
 
-auto io_bg23xy(auto addr, auto& reg) -> void
+auto io_bg23xy(auto addr, auto& hi, auto& lo) -> void
 {
+    std::uint32_t reg = (hi << 16) | lo;
     io_title(addr, reg);
 
     io_int<0x0, 0x7>(reg, "Fraction"); ImGui::Separator();
     io_int<0x8, 27, true>(reg, "Integer"); ImGui::Separator();
+
+    lo = reg & 0xFFFF;
+    hi = (reg >> 16) & 0xFFFF;
 }
 
 auto IO_BG2PA(gba::Gba& gba) -> void
@@ -347,15 +352,15 @@ auto IO_BG2PD(gba::Gba& gba) -> void
     io_bg23pabcd(gba::mem::IO_BG2PD, REG_BG2PD);
 }
 
-// auto IO_BG2X(gba::Gba& gba) -> void
-// {
-//     io_bg23xy(gba::mem::IO_BG2X, REG_BG2X);
-// }
+auto IO_BG2X(gba::Gba& gba) -> void
+{
+    io_bg23xy(gba::mem::IO_BG2X, REG_BG2X_HI, REG_BG2X_LO);
+}
 
-// auto IO_BG2Y(gba::Gba& gba) -> void
-// {
-//     io_bg23xy(gba::mem::IO_BG2Y, REG_BG2Y);
-// }
+auto IO_BG2Y(gba::Gba& gba) -> void
+{
+    io_bg23xy(gba::mem::IO_BG2Y, REG_BG2Y_HI, REG_BG2Y_LO);
+}
 
 auto IO_BG3PA(gba::Gba& gba) -> void
 {
@@ -377,15 +382,15 @@ auto IO_BG3PD(gba::Gba& gba) -> void
     io_bg23pabcd(gba::mem::IO_BG3PD, REG_BG3PD);
 }
 
-// auto IO_BG3X(gba::Gba& gba) -> void
-// {
-//     io_bg23xy(gba::mem::IO_BG3X, REG_BG3X);
-// }
+auto IO_BG3X(gba::Gba& gba) -> void
+{
+    io_bg23xy(gba::mem::IO_BG3X, REG_BG3X_HI, REG_BG3X_LO);
+}
 
-// auto IO_BG3Y(gba::Gba& gba) -> void
-// {
-//     io_bg23xy(gba::mem::IO_BG3Y, REG_BG3Y);
-// }
+auto IO_BG3Y(gba::Gba& gba) -> void
+{
+    io_bg23xy(gba::mem::IO_BG3Y, REG_BG3Y_HI, REG_BG3Y_LO);
+}
 
 auto io_winXh(auto addr, auto& reg) -> void
 {
@@ -686,53 +691,106 @@ auto io_SOUNDBIAS(gba::Gba& gba) -> void
     io_list<0xE, 0xF>(REG_SOUNDBIAS, "Resample Mode", resample_list);
 }
 
-// auto IO_DMA0SAD(gba::Gba& gba) -> void
-// {
-//     io_title(gba::mem::IO_DMA0SAD, REG_DMA0SAD);
-//     io_int<0x0, 26>(REG_DMA0SAD, "27-bit source address");
-// }
+auto io_WAVE_RAMX(auto addr, auto& reg) -> void
+{
+    io_title(addr, reg);
+    io_int<0x0, 0x3>(reg, "sample 0");
+    io_int<0x4, 0x7>(reg, "sample 1");
+    io_int<0x8, 0xB>(reg, "sample 2");
+    io_int<0xC, 0xF>(reg, "sample 3");
+}
 
-// auto IO_DMA1SAD(gba::Gba& gba) -> void
-// {
-//     io_title(gba::mem::IO_DMA1SAD, REG_DMA1SAD);
-//     io_int<0x0, 27>(REG_DMA1SAD, "28-bit source address");
-// }
+auto io_WAVE_RAM0_L(gba::Gba& gba) -> void
+{
+    io_WAVE_RAMX(gba::mem::IO_WAVE_RAM0_L, REG_WAVE_RAM0_L);
+}
 
-// auto IO_DMA2SAD(gba::Gba& gba) -> void
-// {
-//     io_title(gba::mem::IO_DMA2SAD, REG_DMA2SAD);
-//     io_int<0x0, 27>(REG_DMA2SAD, "28-bit source address");
-// }
+auto io_WAVE_RAM0_H(gba::Gba& gba) -> void
+{
+    io_WAVE_RAMX(gba::mem::IO_WAVE_RAM0_H, REG_WAVE_RAM0_H);
+}
 
-// auto IO_DMA3SAD(gba::Gba& gba) -> void
-// {
-//     io_title(gba::mem::IO_DMA3SAD, REG_DMA3SAD);
-//     io_int<0x0, 27>(REG_DMA3SAD, "28-bit source address");
-// }
+auto io_WAVE_RAM1_L(gba::Gba& gba) -> void
+{
+    io_WAVE_RAMX(gba::mem::IO_WAVE_RAM1_L, REG_WAVE_RAM1_L);
+}
 
-// auto IO_DMA0DAD(gba::Gba& gba) -> void
-// {
-//     io_title(gba::mem::IO_DMA0DAD, REG_DMA0DAD);
-//     io_int<0x0, 26>(REG_DMA0DAD, "27-bit source address");
-// }
+auto io_WAVE_RAM1_H(gba::Gba& gba) -> void
+{
+    io_WAVE_RAMX(gba::mem::IO_WAVE_RAM1_H, REG_WAVE_RAM1_H);
+}
 
-// auto IO_DMA1DAD(gba::Gba& gba) -> void
-// {
-//     io_title(gba::mem::IO_DMA1DAD, REG_DMA1DAD);
-//     io_int<0x0, 26>(REG_DMA1DAD, "27-bit source address");
-// }
+auto io_WAVE_RAM2_L(gba::Gba& gba) -> void
+{
+    io_WAVE_RAMX(gba::mem::IO_WAVE_RAM2_L, REG_WAVE_RAM2_L);
+}
 
-// auto IO_DMA2DAD(gba::Gba& gba) -> void
-// {
-//     io_title(gba::mem::IO_DMA2DAD, REG_DMA2DAD);
-//     io_int<0x0, 26>(REG_DMA2DAD, "27-bit source address");
-// }
+auto io_WAVE_RAM2_H(gba::Gba& gba) -> void
+{
+    io_WAVE_RAMX(gba::mem::IO_WAVE_RAM2_H, REG_WAVE_RAM2_H);
+}
 
-// auto IO_DMA3DAD(gba::Gba& gba) -> void
-// {
-//     io_title(gba::mem::IO_DMA3DAD, REG_DMA3DAD);
-//     io_int<0x0, 27>(REG_DMA3DAD, "27-bit source address");
-// }
+auto io_WAVE_RAM3_L(gba::Gba& gba) -> void
+{
+    io_WAVE_RAMX(gba::mem::IO_WAVE_RAM3_L, REG_WAVE_RAM3_L);
+}
+
+auto io_WAVE_RAM3_H(gba::Gba& gba) -> void
+{
+    io_WAVE_RAMX(gba::mem::IO_WAVE_RAM3_H, REG_WAVE_RAM3_H);
+}
+
+template<int width>
+auto io_DMAXXAD(auto addr, auto& hi, auto& lo, const char* txt)
+{
+    std::uint32_t reg = (hi << 16) | (lo);
+
+    io_title(addr, reg);
+    io_int<0x0, width>(reg, txt);
+
+    lo = reg & 0xFFFF;
+    hi = (reg >> 16) & 0xFFFF;
+}
+
+auto IO_DMA0SAD(gba::Gba& gba) -> void
+{
+    io_DMAXXAD<26>(gba::mem::IO_DMA0SAD, REG_DMA0SAD_HI, REG_DMA0SAD_LO, "27-bit source address");
+}
+
+auto IO_DMA1SAD(gba::Gba& gba) -> void
+{
+    io_DMAXXAD<27>(gba::mem::IO_DMA1SAD, REG_DMA1SAD_HI, REG_DMA1SAD_LO, "28-bit source address");
+}
+
+auto IO_DMA2SAD(gba::Gba& gba) -> void
+{
+    io_DMAXXAD<27>(gba::mem::IO_DMA2SAD, REG_DMA2SAD_HI, REG_DMA2SAD_LO, "28-bit source address");
+}
+
+auto IO_DMA3SAD(gba::Gba& gba) -> void
+{
+    io_DMAXXAD<27>(gba::mem::IO_DMA3SAD, REG_DMA3SAD_HI, REG_DMA3SAD_LO, "28-bit source address");
+}
+
+auto IO_DMA0DAD(gba::Gba& gba) -> void
+{
+    io_DMAXXAD<26>(gba::mem::IO_DMA0DAD, REG_DMA0DAD_HI, REG_DMA0DAD_LO, "27-bit destition address");
+}
+
+auto IO_DMA1DAD(gba::Gba& gba) -> void
+{
+    io_DMAXXAD<26>(gba::mem::IO_DMA1DAD, REG_DMA1DAD_HI, REG_DMA1DAD_LO, "27-bit destition address");
+}
+
+auto IO_DMA2DAD(gba::Gba& gba) -> void
+{
+    io_DMAXXAD<26>(gba::mem::IO_DMA2DAD, REG_DMA2DAD_HI, REG_DMA2DAD_LO, "27-bit destition address");
+}
+
+auto IO_DMA3DAD(gba::Gba& gba) -> void
+{
+    io_DMAXXAD<27>(gba::mem::IO_DMA3DAD, REG_DMA3DAD_HI, REG_DMA3DAD_LO, "28-bit destition address");
+}
 
 auto IO_DMAXCNT(auto addr, auto& reg) -> void
 {
@@ -908,7 +966,7 @@ auto unimpl_io_view(gba::Gba& gba) -> void
     ImGui::Text("Unimplemented");
 }
 
-const std::array IO_NAMES =
+constexpr std::array IO_NAMES =
 {
     IoRegEntry{ "DISPCNT", io_dispcnt },
     IoRegEntry{ "DISPSTAT", io_dispstat },
@@ -929,14 +987,14 @@ const std::array IO_NAMES =
     IoRegEntry{ "BG2PB", IO_BG2PB },
     IoRegEntry{ "BG2PC", IO_BG2PC },
     IoRegEntry{ "BG2PD", IO_BG2PD },
-    IoRegEntry{ "BG2X", unimpl_io_view },//IO_BG2X },
-    IoRegEntry{ "BG2Y", unimpl_io_view },//IO_BG2Y },
+    IoRegEntry{ "BG2X", IO_BG2X },
+    IoRegEntry{ "BG2Y", IO_BG2Y },
     IoRegEntry{ "BG3PA", IO_BG3PA },
     IoRegEntry{ "BG3PB", IO_BG3PB },
     IoRegEntry{ "BG3PC", IO_BG3PC },
     IoRegEntry{ "BG3PD", IO_BG3PD },
-    IoRegEntry{ "BG3X", unimpl_io_view }, //IO_BG3X },
-    IoRegEntry{ "BG3Y", unimpl_io_view }, //IO_BG3Y },
+    IoRegEntry{ "BG3X", IO_BG3X },
+    IoRegEntry{ "BG3Y", IO_BG3Y },
     IoRegEntry{ "WIN0H", io_win0h },
     IoRegEntry{ "WIN1H", io_win1h },
     IoRegEntry{ "WIN0V", io_win0v },
@@ -961,30 +1019,26 @@ const std::array IO_NAMES =
     IoRegEntry{ "SOUNDCNT_H", io_SOUNDCNT_H },
     IoRegEntry{ "SOUNDCNT_X", io_SOUNDCNT_X },
     IoRegEntry{ "SOUNDBIAS", io_SOUNDBIAS },
-    IoRegEntry{ "WAVE_RAM0_L", unimpl_io_view },
-    IoRegEntry{ "WAVE_RAM0_H", unimpl_io_view },
-    IoRegEntry{ "WAVE_RAM1_L", unimpl_io_view },
-    IoRegEntry{ "WAVE_RAM1_H", unimpl_io_view },
-    IoRegEntry{ "WAVE_RAM2_L", unimpl_io_view },
-    IoRegEntry{ "WAVE_RAM2_H", unimpl_io_view },
-    IoRegEntry{ "WAVE_RAM3_L", unimpl_io_view },
-    IoRegEntry{ "WAVE_RAM3_H", unimpl_io_view },
+    IoRegEntry{ "WAVE_RAM0_L", io_WAVE_RAM0_L },
+    IoRegEntry{ "WAVE_RAM0_H", io_WAVE_RAM0_H },
+    IoRegEntry{ "WAVE_RAM1_L", io_WAVE_RAM1_L },
+    IoRegEntry{ "WAVE_RAM1_H", io_WAVE_RAM1_H },
+    IoRegEntry{ "WAVE_RAM2_L", io_WAVE_RAM2_L },
+    IoRegEntry{ "WAVE_RAM2_H", io_WAVE_RAM2_H },
+    IoRegEntry{ "WAVE_RAM3_L", io_WAVE_RAM3_L },
+    IoRegEntry{ "WAVE_RAM3_H", io_WAVE_RAM3_H },
     IoRegEntry{ "FIFO_A_L", unimpl_io_view },
     IoRegEntry{ "FIFO_A_H", unimpl_io_view },
     IoRegEntry{ "FIFO_B_L", unimpl_io_view },
     IoRegEntry{ "FIFO_B_H", unimpl_io_view },
-    IoRegEntry{ "DMA0SAD", unimpl_io_view }, //IO_DMA0SAD },
-    IoRegEntry{ "DMA1SAD", unimpl_io_view }, //IO_DMA1SAD },
-    IoRegEntry{ "DMA2SAD", unimpl_io_view }, //IO_DMA2SAD },
-    IoRegEntry{ "DMA3SAD", unimpl_io_view }, //IO_DMA3SAD },
-    IoRegEntry{ "DMA0DAD", unimpl_io_view }, //IO_DMA0DAD },
-    IoRegEntry{ "DMA1DAD", unimpl_io_view }, //IO_DMA1DAD },
-    IoRegEntry{ "DMA2DAD", unimpl_io_view }, //IO_DMA2DAD },
-    IoRegEntry{ "DMA3DAD", unimpl_io_view }, //IO_DMA3DAD },
-    IoRegEntry{ "DMA0CNT_L", unimpl_io_view },
-    IoRegEntry{ "DMA1CNT_L", unimpl_io_view },
-    IoRegEntry{ "DMA2CNT_L", unimpl_io_view },
-    IoRegEntry{ "DMA3CNT_L", unimpl_io_view },
+    IoRegEntry{ "DMA0SAD",  IO_DMA0SAD },
+    IoRegEntry{ "DMA1SAD",  IO_DMA1SAD },
+    IoRegEntry{ "DMA2SAD",  IO_DMA2SAD },
+    IoRegEntry{ "DMA3SAD",  IO_DMA3SAD },
+    IoRegEntry{ "DMA0DAD",  IO_DMA0DAD },
+    IoRegEntry{ "DMA1DAD",  IO_DMA1DAD },
+    IoRegEntry{ "DMA2DAD",  IO_DMA2DAD },
+    IoRegEntry{ "DMA3DAD",  IO_DMA3DAD },
     IoRegEntry{ "DMA0CNT_H", IO_DMA0CNT_H },
     IoRegEntry{ "DMA1CNT_H", IO_DMA1CNT_H },
     IoRegEntry{ "DMA2CNT_H", IO_DMA2CNT_H },

@@ -14,27 +14,30 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 namespace gba::ppu {
 namespace {
 
-auto add_event(Gba& gba)
+auto add_event(Gba& gba, u16 cycles)
 {
-    scheduler::add(gba, scheduler::Event::PPU, on_event, gba.ppu.period_cycles);
+    scheduler::add(gba, scheduler::Event::PPU, on_event, cycles);
 }
 
 #define PPU gba.ppu
 
-auto update_period_cycles(Gba& gba) -> void
+auto update_period_cycles(Gba& gba) -> u16
 {
     switch (PPU.period)
     {
-        case Period::hdraw: PPU.period_cycles = 960; break;
-        case Period::hblank: PPU.period_cycles = 272; break;
-        case Period::vdraw: PPU.period_cycles = 960; break;
-        case Period::vblank: PPU.period_cycles = 272; break;
+        case Period::hdraw: return 960;
+        case Period::hblank: return 272;
+        case Period::vdraw: return 960;
+        case Period::vblank: return 272;
     }
-};
+
+    std::unreachable();
+}
 
 // called during hblank from lines 0-227
 // this means that this is called during vblank as well
@@ -63,10 +66,12 @@ auto on_hblank(Gba& gba)
 auto on_vblank(Gba& gba)
 {
     REG_DISPSTAT = bit::set<0>(REG_DISPSTAT);
+
     if (bit::is_set<3>(REG_DISPSTAT))
     {
         arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::VBlank);
     }
+
     dma::on_vblank(gba);
 
     if (gba.vblank_callback != nullptr)
@@ -113,6 +118,14 @@ auto change_period(Gba& gba)
                 PPU.period = Period::vdraw;
                 on_vblank(gba);
             }
+            else
+            {
+                // incremented at the end of every visible scanline
+                PPU.bg2x = bit::sign_extend<27>(PPU.bg2x + static_cast<s16>(REG_BG2PB));
+                PPU.bg2y = bit::sign_extend<27>(PPU.bg2y + static_cast<s16>(REG_BG2PD));
+                PPU.bg3x = bit::sign_extend<27>(PPU.bg3x + static_cast<s16>(REG_BG3PB));
+                PPU.bg3y = bit::sign_extend<27>(PPU.bg3y + static_cast<s16>(REG_BG3PD));
+            }
             break;
 
         case Period::vdraw:
@@ -129,13 +142,34 @@ auto change_period(Gba& gba)
             }
             if (REG_VCOUNT == 228)
             {
+                // reload the affine regs at the end of vblank
+                PPU.bg2x = bit::sign_extend<27>((REG_BG2X_HI << 16) | REG_BG2X_LO);
+                PPU.bg2y = bit::sign_extend<27>((REG_BG2Y_HI << 16) | REG_BG2Y_LO);
+                PPU.bg3x = bit::sign_extend<27>((REG_BG3X_HI << 16) | REG_BG3X_LO);
+                PPU.bg3y = bit::sign_extend<27>((REG_BG3Y_HI << 16) | REG_BG3Y_LO);
+
                 on_vcount_update(gba, 0);
                 PPU.period = Period::hdraw;
             }
             break;
     }
+}
 
-    update_period_cycles(gba);
+// NOTE: tonc says this happens outside of vblank, but it doesn't
+// matter really because when in vblank, rendering isn't happening
+// and a reload happens at the end of vblank so writes can always be allowed.
+auto write_BGX(s32& bgx_shadow, u16 value, bool upper_half)
+{
+    if (upper_half)
+    {
+        bgx_shadow &= 0x0000FFFF;
+        bgx_shadow |= value << 16;
+    }
+    else
+    {
+        bgx_shadow &= 0xFFFF0000;
+        bgx_shadow |= value;
+    }
 }
 
 } // namespace
@@ -166,8 +200,8 @@ auto reset(Gba& gba, bool skip_bios) -> void
     gba.ppu = {};
 
     PPU.period = Period::hdraw;
-    update_period_cycles(gba);
-    add_event(gba);
+    const auto cycles = update_period_cycles(gba);
+    add_event(gba, cycles);
 
     if (skip_bios)
     {
@@ -182,12 +216,33 @@ auto reset(Gba& gba, bool skip_bios) -> void
     }
 }
 
+auto write_BG2X(Gba& gba, u32 addr, u16 value) -> void
+{
+    write_BGX(gba.ppu.bg2x, value, addr & 2);
+}
+
+auto write_BG2Y(Gba& gba, u32 addr, u16 value) -> void
+{
+    write_BGX(gba.ppu.bg2y, value, addr & 2);
+}
+
+auto write_BG3X(Gba& gba, u32 addr, u16 value) -> void
+{
+    write_BGX(gba.ppu.bg3x, value, addr & 2);
+}
+
+auto write_BG3Y(Gba& gba, u32 addr, u16 value) -> void
+{
+    write_BGX(gba.ppu.bg3y, value, addr & 2);
+}
+
 #undef PPU
 
 auto on_event(Gba& gba) -> void
 {
     change_period(gba);
-    add_event(gba);
+    const auto cycles = update_period_cycles(gba);
+    add_event(gba, cycles);
 }
 
 } // namespace gba::ppu

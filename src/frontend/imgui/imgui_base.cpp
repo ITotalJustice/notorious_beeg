@@ -182,20 +182,24 @@ auto ImguiBase::emu_render() -> void
     ImGui::SetNextWindowSize(ImVec2(emu_rect.w, emu_rect.h));
     ImGui::SetNextWindowSizeConstraints({0, 0}, ImVec2(emu_rect.w, emu_rect.h));
 
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0F);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0F);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0F);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0,0));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(0,0));
+    ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 0.0F);
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0,0));
+    ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 0.0F);
+
     ImGui::Begin("emu window", nullptr, flags);
     {
         inside_emu_window = ImGui::IsWindowFocused();
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0F);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0F);
-
-        ImGui::SetCursorPos(ImVec2(0, 0));
 
         ImVec2 p = ImGui::GetCursorScreenPos();
         ImGui::Image(get_texture(TextureID::emu), ImVec2(emu_rect.w, emu_rect.h));
-        ImGui::PopStyleVar(5);
 
         if (show_grid)
         {
@@ -204,6 +208,8 @@ auto ImguiBase::emu_render() -> void
         }
     }
     ImGui::End();
+
+    ImGui::PopStyleVar(11);
 }
 
 auto ImguiBase::menubar_tab_file() -> void
