@@ -181,7 +181,7 @@ App::App(int argc, char** argv) : ImguiBase{argc, argv}
     ImGui_ImplSDLRenderer_Init(renderer);
 
     // need a rom to run atm
-    if (has_rom)
+    //if (has_rom)
     {
         running = true;
     }
@@ -316,7 +316,7 @@ auto App::poll_events() -> void
 
 auto App::run() -> void
 {
-    if (emu_run)
+    if (emu_run && has_rom)
     {
         gameboy_advance.run();
     }
@@ -363,6 +363,13 @@ auto App::on_key_event(const SDL_KeyboardEvent& e) -> void
         {
             switch (e.keysym.scancode)
             {
+                case SDL_SCANCODE_O:
+                    if (auto path = filepicker(); !path.empty())
+                    {
+                        loadrom(path);
+                    }
+                    break;
+
                 case SDL_SCANCODE_P:
                     emu_run ^= 1;
                     break;

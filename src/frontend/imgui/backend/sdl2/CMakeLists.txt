@@ -11,7 +11,7 @@ add_executable(notorious_beeg_IMGUI_SDL2
 find_package(SDL2 CONFIG REQUIRED)
 
 target_link_libraries(notorious_beeg_IMGUI_SDL2 PRIVATE imgui_base)
-target_link_libraries(notorious_beeg_IMGUI_SDL2 PRIVATE SDL2::SDL2)
+target_link_libraries(notorious_beeg_IMGUI_SDL2 PRIVATE SDL2::SDL2 SDL2::SDL2main)
 
 set_target_properties(notorious_beeg_IMGUI_SDL2 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"

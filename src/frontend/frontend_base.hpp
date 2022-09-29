@@ -34,6 +34,8 @@ public:
     static auto create_save_path(const std::string& path) -> std::string;
     static auto create_state_path(const std::string& path, int slot = 0) -> std::string;
 
+    static auto filepicker() -> std::string;
+
 protected:
     virtual auto loadrom(const std::string& path) -> bool;
     virtual auto loadrom_mem(const std::string& path, std::span<const std::uint8_t> data) -> bool;

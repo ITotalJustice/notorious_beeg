@@ -25,8 +25,11 @@ if (VCPKG)
     # if this was already set, then we need to chainload the toolchain file
     # vcpkg offers support for this, which basically does include(toolchain)
     # need to make sure that we don't chainload our own toolchain file!
+    # NOTE: this is broken on windows as the path is converted to C:\path\to from c:/path/to
+    # which fails the strequal, so, disabling for now
     if (CMAKE_TOOLCHAIN_FILE AND NOT ${CMAKE_TOOLCHAIN_FILE} STREQUAL ${vcpkg_toolchain_file})
-        set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE ${CMAKE_TOOLCHAIN_FILE})
+        message(WARNING "CMAKE_TOOLCHAIN_FILE file set and does not match toolchain file. cmake: ${CMAKE_TOOLCHAIN_FILE} vcpkg: ${vcpkg_toolchain_file}")
+        # set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE ${CMAKE_TOOLCHAIN_FILE})
     endif()
 
     set(CMAKE_TOOLCHAIN_FILE ${vcpkg_toolchain_file})

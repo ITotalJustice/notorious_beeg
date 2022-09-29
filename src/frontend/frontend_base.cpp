@@ -17,6 +17,14 @@
 #include <minizip/unzip.h>
 #include <minizip/zip.h>
 
+#if defined(_WIN32)
+#include <windows.h>
+#include <shobjidl.h>
+// what are you doing m$ come on now mate
+#undef min
+#undef max
+#endif
+
 namespace frontend {
 namespace {
 
@@ -424,6 +432,79 @@ auto Base::create_state_path(const std::string& path, int slot) -> std::string
 {
     return replace_extension(path, ".state" + std::to_string(slot));
 }
+
+#if defined(_WIN32)
+// copy and paste: https://learn.microsoft.com/en-us/windows/win32/learnwin32/example--the-open-dialog-box
+auto Base::filepicker() -> std::string
+{
+    std::string output;
+
+    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED |
+        COINIT_DISABLE_OLE1DDE);
+    if (SUCCEEDED(hr))
+    {
+        IFileOpenDialog* pFileOpen;
+
+        // Create the FileOpenDialog object.
+        hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
+            IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
+
+        if (SUCCEEDED(hr))
+        {
+            // Show the Open dialog box.
+            hr = pFileOpen->Show(NULL);
+
+            // Get the file name from the dialog box.
+            if (SUCCEEDED(hr))
+            {
+                IShellItem* pItem;
+                hr = pFileOpen->GetResult(&pItem);
+                if (SUCCEEDED(hr))
+                {
+                    PWSTR pszFilePath;
+                    hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+
+                    // Display the file name to the user.
+                    if (SUCCEEDED(hr))
+                    {
+                        // convert the widechar to normal, seems to work
+                        const auto wide_str_len = wcslen(pszFilePath);
+
+                        const auto output_len = WideCharToMultiByte(CP_UTF8, 0,
+                            pszFilePath, wide_str_len,
+                            nullptr, 0,
+                            nullptr, nullptr); // these have to be null
+
+                        if (output_len > 0)
+                        {
+                            output.resize(output_len + 1);
+
+                            WideCharToMultiByte(CP_UTF8, 0,
+                                pszFilePath, wide_str_len,
+                                output.data(), output.size(),
+                                nullptr, nullptr);
+                        }
+
+                        //MessageBoxW(NULL, pszFilePath, L"File Path", MB_OK);
+                        CoTaskMemFree(pszFilePath);
+                    }
+                    pItem->Release();
+                }
+            }
+            pFileOpen->Release();
+        }
+        CoUninitialize();
+    }
+
+    return output;
+}
+#else // #if defined(_WIN32)
+auto Base::filepicker() -> std::string
+{
+    std::printf("todo: implement filepicker for target OS\n");
+    return {};
+}
+#endif
 
 auto Base::closerom() -> void
 {

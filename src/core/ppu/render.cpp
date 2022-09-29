@@ -1108,7 +1108,7 @@ auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, std::spa
 {
     struct Layers
     {
-        constexpr Layers(u16 backdrop_colour)
+        Layers(u16 backdrop_colour)
         {
             for (auto& p : pixel)
             {

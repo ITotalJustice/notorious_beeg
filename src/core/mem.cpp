@@ -358,7 +358,7 @@ inline auto read_io16(Gba& gba, const u32 addr) -> u16
 }
 
 [[nodiscard]]
-constexpr auto read_io8(Gba& gba, const u32 addr) -> u8
+inline auto read_io8(Gba& gba, const u32 addr) -> u8
 {
     const auto value = read_io16(gba, addr & ~0x1);
 

@@ -67,7 +67,7 @@ constexpr auto is_next_frame_sequencer_step_vol(const Gba& gba) -> bool
 }
 
 [[nodiscard]]
-constexpr auto get_frame_sequencer_cycles(const Gba& gba) -> u16
+auto get_frame_sequencer_cycles(const Gba& gba) -> u16
 {
     if (gba.is_gb())
     {

@@ -216,7 +216,10 @@ auto ImguiBase::menubar_tab_file() -> void
 {
     if (ImGui::MenuItem("Open", "Ctrl+O"))
     {
-        std::printf("todo: open file picker\n");
+        if (auto path = filepicker(); !path.empty())
+        {
+            loadrom(path);
+        }
     }
     if (ImGui::BeginMenu("Open Recent"))
     {

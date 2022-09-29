@@ -131,7 +131,9 @@
             "inherits": [
                 "sdl2"
             ],
-            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+            "cacheVariables": {
+                "VCPKG": true
+            }
         },
         {
             "name": "vcpkg-sdl2-dev",
@@ -139,7 +141,9 @@
             "inherits": [
                 "sdl2-dev"
             ],
-            "toolchainFile": "$env{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
+            "cacheVariables": {
+                "VCPKG": true
+            }
         },
         {
             "name": "emsdk",
