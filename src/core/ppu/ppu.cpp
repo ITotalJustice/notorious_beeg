@@ -52,8 +52,8 @@ auto on_hblank(Gba& gba)
 
     if (PPU.period == Period::hblank)
     {
-        dma::on_hblank(gba);
         render(gba);
+        dma::on_hblank(gba);
     }
 
     if (gba.hblank_callback != nullptr)
