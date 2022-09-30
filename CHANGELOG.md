@@ -76,6 +76,7 @@
 - add bg affine
 - add bitmap affine
 - add mode2 rendering
+- add obj in/out obj window support
 
 ---
 

@@ -2,16 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 // things left
-// - obj in obj window
-// - obj not in obj window
 // - obj affine
 // - obj mosaic
 // - window wrapping
 
 // todo:
-// split obj rendering into 2 functions
-// - oam parse
-// - obj render
+// - cache oam entries
+// - cache screen entries
 #include "render.hpp"
 #include "gba.hpp"
 #include "bit.hpp"
@@ -597,13 +594,12 @@ auto get_backdrop_colour(const Gba& gba) -> u16
     return read_array_no_mask<u16>(gba.mem.pram, 0);
 }
 
-auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
+auto parse_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
 {
     // ovram is the last 2 entries of the charblock in vram.
     // in tile modes, this allows for 1024 tiles in total.
     // in bitmap modes, this allows for 512 tiles in total.
     const auto ovram = std::span{gba.mem.vram}.subspan(4 * CHARBLOCK_SIZE);
-    const auto pram = std::span{gba.mem.pram}.subspan(512);
     const auto oam = std::span{gba.mem.oam};
     const auto vcount = REG_VCOUNT;
     const auto is_1D_layout = bit::is_set<6>(REG_DISPCNT);
@@ -627,9 +623,12 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
 
             case ObjMode::Affine:
             case ObjMode::Affine2X:
+                #if 0
                 render_obj_affine(gba, obj, bounds, line);
                 continue;
-                // break;
+                #else
+                break;
+                #endif
 
             case ObjMode::Hide:
                 continue;
@@ -663,6 +662,8 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                 }
 
                 // check if we are allowed inside
+                // NOTE: cowbite states that win0/1 has higher prio than obj
+                // window, i need to test this!
                 if (!bounds.in_bounds(OBJ_NUM, pixel_x))
                 {
                     continue;
@@ -749,9 +750,33 @@ auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                         line.is_opaque[pixel_x] = true;
                         line.priority[pixel_x] = obj.attr2.Pr;
                         line.is_alpha[pixel_x] = obj.attr0.GM == 0b01;
-                        line.pixels[pixel_x] = read_array_no_mask<u16>(pram, pram_addr);
+                        line.pixels[pixel_x] = pram_addr;
                     }
                 }
+            }
+        }
+    }
+}
+
+auto render_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
+{
+    const auto pram = std::span{gba.mem.pram}.subspan(512);
+
+    // 1024 entries in oam, each entry is 64bytes, 1024/64=128
+    for (auto x = 0; x < 240; x++)
+    {
+        // don't render transparent pixels
+        if (line.is_opaque[x])
+        {
+            // checks if clipped by object window
+            if (!bounds.in_bounds(OBJ_NUM, x))
+            {
+                line.is_opaque[x] = false;
+            }
+            else
+            {
+                const auto pram_addr = line.pixels[x];
+                line.pixels[x] = read_array_no_mask<u16>(pram, pram_addr);
             }
         }
     }
@@ -1369,13 +1394,15 @@ auto tile_render(Gba& gba, std::span<BgLine> bg_lines, const Layer layers = Laye
     // only render obj if enabled
     if (is_obj_enabled(gba) && layers & Layer::OBJ)
     {
-        render_obj(gba, bounds, obj_line);
+        parse_obj(gba, bounds, obj_line);
 
         // update bounds with any obj window
         if (apply_window)
         {
             bounds.apply_obj_window(gba, obj_line);
         }
+
+        render_obj(gba, bounds, obj_line);
     }
 
     for (auto& line : bg_lines)
