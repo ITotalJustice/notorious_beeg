@@ -3,7 +3,7 @@
 
 #include "backup.hpp"
 #include <string_view>
-#include <iostream>
+#include <cstdio>
 #include <cassert>
 
 namespace gba::backup {
@@ -25,16 +25,16 @@ auto find_type(std::span<const u8> rom) -> Type
 
     const auto rom_string = std::string_view{reinterpret_cast<const char*>(rom.data()), rom.size()};
 
-    for (auto& entry : entries)
+    for (auto& [string, type] : entries)
     {
-        if (rom_string.find(entry.string) != std::string_view::npos)
+        if (rom_string.find(string) != std::string_view::npos)
         {
-            std::cout << "[backup] found: " << entry.string << '\n';
-            return entry.type;
+            std::printf("[backup] found: %.*s\n", static_cast<int>(string.size()), string.data());
+            return type;
         }
     }
 
-    std::cout << "failed to find backup, assuming the game doesn't have one\n";
+    std::printf("failed to find backup, assuming the game doesn't have one\n");
 
     return Type::NONE;
 }

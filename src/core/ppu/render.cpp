@@ -138,6 +138,9 @@ struct ObjLine
     bool is_alpha[240]{false};
     bool is_win[240]{false};
     bool is_opaque[240]{false}; // pixel != 0
+
+    // set to the number of object windows
+    u8 number_of_windows{};
 };
 
 enum class RenderType
@@ -196,75 +199,65 @@ struct BgAffineMeta
     s32 dx, dy;
 };
 
-// todo: optimise the WIN IN/OUT arrays into bitfield
-// this will remove the loops in the window build function
+enum WinLayer : u8
+{
+    WinLayer_BG0 = 1 << 0,
+    WinLayer_BG1 = 1 << 1,
+    WinLayer_BG2 = 1 << 2,
+    WinLayer_BG3 = 1 << 3,
+    WinLayer_OBJ = 1 << 4,
+    WinLayer_BLEND = 1 << 5,
+
+    // there is a window taking priority
+    WinLayer_PRIO = 1 << 7,
+
+    WinLayer_ANY = WinLayer_BG0 | WinLayer_BG1 | WinLayer_BG2 | WinLayer_BG3 | WinLayer_OBJ | WinLayer_BLEND,
+};
+
 struct WININ
 {
-    constexpr WININ(const auto v) :
-        bg0{bit::is_set<0>(v)},
-        bg1{bit::is_set<1>(v)},
-        bg2{bit::is_set<2>(v)},
-        bg3{bit::is_set<3>(v)},
-        obj{bit::is_set<4>(v)},
-        blend{bit::is_set<5>(v)},
-        in{bg0, bg1, bg2, bg3, obj, blend} {}
+    constexpr WININ(const auto v)
+    {
+        in = v & 0x3F;
+    }
 
-private:
-    const bool bg0 : 1; // BG0 in winX
-    const bool bg1 : 1; // BG1 in winX
-    const bool bg2 : 1; // BG2 in winX
-    const bool bg3 : 1; // BG3 in winX
-    const bool obj : 1; // Sprites in winX
-    const bool blend : 1; // Blends in winX
+    [[nodiscard]] auto is_allowed(u8 win_layer) const { return bit::is_set(in, win_layer); }
 
-public:
-    bool in[6];
+    u8 in;
 };
 
 struct WINOUT
 {
-    constexpr WINOUT(const u16 v) :
-        bg0_out{bit::is_set<0>(v)},
-        bg1_out{bit::is_set<1>(v)},
-        bg2_out{bit::is_set<2>(v)},
-        bg3_out{bit::is_set<3>(v)},
-        obj_out{bit::is_set<4>(v)},
-        blend_out{bit::is_set<5>(v)},
-        bg0_obj_win{bit::is_set<8>(v)},
-        bg1_obj_win{bit::is_set<9>(v)},
-        bg2_obj_win{bit::is_set<10>(v)},
-        bg3_obj_win{bit::is_set<11>(v)},
-        obj_obj_win{bit::is_set<12>(v)},
-        blend_obj_win{bit::is_set<13>(v)},
-        out{bg0_out, bg1_out, bg2_out, bg3_out, obj_out, blend_out},
-        obj{bg0_obj_win, bg1_obj_win, bg2_obj_win, bg3_obj_win, obj_obj_win, blend_obj_win} {}
+    constexpr WINOUT(const u16 v)
+    {
+        out = v & 0x3F;
+        obj = (v >> 8) & 0x3F;
+    }
 
-private:
-    const bool bg0_out : 1;
-    const bool bg1_out : 1;
-    const bool bg2_out : 1;
-    const bool bg3_out : 1;
-    const bool obj_out : 1;
-    const bool blend_out : 1;
+    [[nodiscard]] auto is_allowed_out(u8 win_layer) const { return bit::is_set(out, win_layer); }
+    [[nodiscard]] auto is_allowed_obj(u8 win_layer) const { return bit::is_set(obj, win_layer); }
 
-    const bool bg0_obj_win : 1;
-    const bool bg1_obj_win : 1;
-    const bool bg2_obj_win : 1;
-    const bool bg3_obj_win : 1;
-    const bool obj_obj_win : 1;
-    const bool blend_obj_win : 1;
-
-public:
-    bool out[6];
-    bool obj[6];
+    u8 out;
+    u8 obj;
 };
 
 struct WindowBounds
 {
-    WindowBounds()
+    WindowBounds(u16 dispcnt, u16 winout, bool apply_window)
+    : win0_enabled{bit::is_set<13>(dispcnt)}
+    , win1_enabled{bit::is_set<14>(dispcnt)}
+    , win_obj_enabled{bit::is_set<15>(dispcnt)}
+    , win_out{winout}
     {
-        std::memset(inside, true, sizeof(inside));
-        std::memset(priority, 0xFF, sizeof(priority));
+        if (!apply_window || (!win0_enabled && !win1_enabled && !win_obj_enabled))
+        {
+            std::memset(this->inside, WinLayer_ANY, sizeof(this->inside));
+        }
+        else
+        {
+            // anything outside all windows uses WINOUT
+            std::memset(this->inside, win_out.out, sizeof(this->inside));
+        }
     }
 
     // builds the obj window, call this rendering obj (and bg)
@@ -275,15 +268,26 @@ struct WindowBounds
     auto apply_obj_window(Gba& gba, const ObjLine& obj_line) -> void;
 
     // returns true if the pixel can be drawn
-    [[nodiscard]] auto in_bounds(const auto bg_num, const auto x) const { return inside[bg_num][x]; }
+    [[nodiscard]] auto in_bounds(const auto bg_num, const auto x) const { return bit::is_set(inside[x], bg_num); }
     // returns true if this pixel can blend
     [[nodiscard]] auto can_blend(const auto x) const { return in_bounds(5, x); }
 
 private:
-    // bg0, bg1, bg2, bg3, obj, blend
-    bool inside[6][240];
-    bool in_range[240]{false};
-    u8 priority[240];
+    u8 inside[240];
+    bool win0_enabled;
+    bool win1_enabled;
+    bool win_obj_enabled;
+    WINOUT win_out;
+};
+
+enum class BlendLayer : u8
+{
+    BG0 = 1 << 0,
+    BG1 = 1 << 1,
+    BG2 = 1 << 2,
+    BG3 = 1 << 3,
+    OBJ = 1 << 4,
+    BACKDROP = 1 << 5,
 };
 
 struct BLDMOD
@@ -744,6 +748,7 @@ auto parse_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                     if (obj.attr0.GM == 0b10) [[unlikely]]
                     {
                         line.is_win[pixel_x] = obj.attr0.GM == 0b10;
+                        line.number_of_windows++;
                     }
                     else
                     {
@@ -1015,10 +1020,7 @@ auto is_obj_enabled(Gba& gba)
 
 auto WindowBounds::build(Gba& gba) -> void
 {
-    const auto win0_enabled = bit::is_set<13>(REG_DISPCNT);
-    const auto win1_enabled = bit::is_set<14>(REG_DISPCNT);
-
-    // exit early if neither windows are enabled
+    // exit early if no windows are enabled
     if (!win0_enabled && !win1_enabled)
     {
         return;
@@ -1026,7 +1028,6 @@ auto WindowBounds::build(Gba& gba) -> void
 
     const WININ win0_in{ REG_WININ };
     const WININ win1_in{ REG_WININ >> 8 };
-    const WINOUT win_out{REG_WINOUT};
 
     const auto win0_x_start = bit::get_range<8, 15>(REG_WIN0H);
     const auto win0_x_end = bit::get_range<0, 7>(REG_WIN0H);
@@ -1054,43 +1055,32 @@ auto WindowBounds::build(Gba& gba) -> void
     const auto win0_in_range_y = vcount >= win0_y_start && vcount < win0_y_end;
     const auto win1_in_range_y = vcount >= win1_y_start && vcount < win1_y_end;
 
-    // todo: optimise this into 2 loops...
-    for (auto x = 0; x < 240; x++)
+    // if the y is not in range then x never will be
+    // if the start is not less than end, then window will never be in bounds
+    if (this->win0_enabled && win0_in_range_y && win0_x_start < win0_x_end)
     {
-        if (win0_enabled)
+        for (auto x = 0; x < 240; x++)
         {
-            const auto win0_in_range = win0_in_range_y && x >= win0_x_start && x < win0_x_end;
+            const auto win0_in_range = x >= win0_x_start && x < win0_x_end;
 
-            for (auto i = 0; i < 6; i++)
+            if (win0_in_range)
             {
-                if (win0_in_range)
-                {
-                    this->inside[i][x] = win0_in.in[i];
-                    this->in_range[x] = true;
-                    this->priority[x] = WIN0_PRIORITY;
-                }
-                else
-                {
-                    this->inside[i][x] = !this->in_range[x] && win_out.out[i];
-                }
+                this->inside[x] = win0_in.in | WinLayer_PRIO;
             }
         }
+    }
 
-        if (win1_enabled && this->priority[x] == 0xFF)
+    if (this->win1_enabled && win1_in_range_y && win1_x_start < win1_x_end)
+    {
+        for (auto x = 0; x < 240; x++)
         {
-            const auto win1_in_range = win1_in_range_y && x >= win1_x_start && x < win1_x_end;
-
-            for (auto i = 0; i < 6; i++)
+            if ((this->inside[x] & WinLayer_PRIO) == 0)
             {
+                const auto win1_in_range = x >= win1_x_start && x < win1_x_end;
+
                 if (win1_in_range)
                 {
-                    this->inside[i][x] = win1_in.in[i];
-                    this->in_range[x] = true;
-                    this->priority[x] = WIN1_PRIORITY;
-                }
-                else
-                {
-                    this->inside[i][x] = !this->in_range[x] && win_out.out[i];
+                    this->inside[x] = win1_in.in | WinLayer_PRIO;
                 }
             }
         }
@@ -1099,31 +1089,27 @@ auto WindowBounds::build(Gba& gba) -> void
 
 auto WindowBounds::apply_obj_window(Gba& gba, const ObjLine& obj_line) -> void
 {
-    const auto win_obj_enabled = bit::is_set<15>(REG_DISPCNT);
-    const WINOUT win_out{REG_WINOUT};
-
     // exit early if obj window is not enabled
-    if (!win_obj_enabled)
+    if (!this->win_obj_enabled || !obj_line.number_of_windows)
     {
         return;
     }
 
+    u8 window_count{};
+
     for (auto x = 0; x < 240; x++)
     {
-        if (win_obj_enabled && this->priority[x] == 0xFF)
+        if (obj_line.is_win[x])
         {
-            for (auto i = 0; i < 6; i++)
+            if ((this->inside[x] & WinLayer_PRIO) == 0)
             {
-                if (obj_line.is_win[x])
-                {
-                    this->inside[i][x] = win_out.obj[i];
-                    this->in_range[x] = true;
-                    this->priority[x] = WIN_OBJ_PRIORITY;
-                }
-                else
-                {
-                    this->inside[i][x] = !this->in_range[x] && win_out.out[i];
-                }
+                this->inside[x] = this->win_out.obj | WinLayer_PRIO;
+            }
+
+            window_count++;
+            if (window_count == obj_line.number_of_windows)
+            {
+                break;
             }
         }
     }
@@ -1382,7 +1368,7 @@ auto write_scanline_to_frame(Gba& gba, const u16 scanline[160])
 auto tile_render(Gba& gba, std::span<BgLine> bg_lines, const Layer layers = Layer::ALL, const bool apply_window = true, const bool apply_merge = true) -> void
 {
     // setup inital windowing (using win0 and win1)
-    WindowBounds bounds{};
+    WindowBounds bounds{REG_DISPCNT, REG_WINOUT, apply_window};
 
     if (apply_window)
     {

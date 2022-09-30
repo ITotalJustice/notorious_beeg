@@ -15,7 +15,6 @@
 #include "gpio.hpp"
 #include "fwd.hpp"
 #include <span>
-#include <string_view>
 
 namespace gba {
 
