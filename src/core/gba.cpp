@@ -5,6 +5,7 @@
 #include "apu/apu.hpp"
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "backup/backup.hpp"
+#include "backup/eeprom.hpp"
 #include "backup/flash.hpp"
 #include "gameboy/gb.hpp"
 #include "mem.hpp"
@@ -97,13 +98,21 @@ auto loadsave_gba(Gba& gba, std::span<const u8> new_save) -> bool
     using enum backup::Type;
     switch (gba.backup.type)
     {
-        case NONE: return false;
-        case EEPROM: return gba.backup.eeprom.load_data(new_save);
-        case SRAM: return gba.backup.sram.load_data(new_save);
+        case NONE:
+            return false;
+
+        case EEPROM: [[fallthrough]];
+        case EEPROM512: [[fallthrough]];
+        case EEPROM8K:
+            return gba.backup.eeprom.load_data(new_save);
+
+        case SRAM:
+            return gba.backup.sram.load_data(new_save);
 
         case FLASH: [[fallthrough]];
         case FLASH512: [[fallthrough]];
-        case FLASH1M: return gba.backup.flash.load_data(new_save);
+        case FLASH1M:
+            return gba.backup.flash.load_data(new_save);
     }
 
     std::unreachable();
@@ -149,13 +158,21 @@ auto get_save_gba(const Gba& gba) -> std::span<const u8>
     using enum backup::Type;
     switch (gba.backup.type)
     {
-        case NONE: return {};
-        case EEPROM: return gba.backup.eeprom.get_data();
-        case SRAM: return gba.backup.sram.get_data();
+        case NONE:
+            return {};
+
+        case EEPROM: [[fallthrough]];
+        case EEPROM512: [[fallthrough]];
+        case EEPROM8K:
+            return gba.backup.eeprom.get_data();
+
+        case SRAM:
+            return gba.backup.sram.get_data();
 
         case FLASH: [[fallthrough]];
         case FLASH512: [[fallthrough]];
-        case FLASH1M: return gba.backup.flash.get_data();
+        case FLASH1M:
+            return gba.backup.flash.get_data();
     }
 
     std::unreachable();
@@ -323,6 +340,16 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
 
         case EEPROM:
             this->backup.eeprom.init(*this);
+            break;
+
+        case EEPROM512:
+            this->backup.eeprom.init(*this);
+            this->backup.eeprom.set_width(backup::eeprom::Width::small);
+            break;
+
+        case EEPROM8K:
+            this->backup.eeprom.init(*this);
+            this->backup.eeprom.set_width(backup::eeprom::Width::beeg);
             break;
 
         case SRAM:

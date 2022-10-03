@@ -14,7 +14,9 @@ namespace gba::backup {
 enum class Type : u8
 {
     NONE, // no backup chip
-    EEPROM, // 512bytes
+    EEPROM, // unknown size
+    EEPROM512, // 512bytes
+    EEPROM8K, // 8k
     SRAM, // 32k
     FLASH, // 64k
     FLASH512, // 64k
@@ -29,6 +31,16 @@ struct Backup
         sram::Sram sram;
         flash::Flash flash;
     };
+
+    [[nodiscard]] auto is_eeprom() const -> bool
+    {
+        return type == Type::EEPROM || type == Type::EEPROM512 || type == Type::EEPROM8K;
+    }
+
+    [[nodiscard]] auto is_flash() const -> bool
+    {
+        return type == Type::FLASH || type == Type::FLASH512 || type == Type::FLASH1M;
+    }
 
     Type type;
     bool dirty_ram;

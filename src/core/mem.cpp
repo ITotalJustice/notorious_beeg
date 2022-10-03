@@ -993,7 +993,7 @@ auto write_pram_region(Gba& gba, u32 addr, const T value) -> void
 template<typename T> [[nodiscard]]
 auto read_eeprom_region(Gba& gba, const u32 addr) -> T
 {
-    if (gba.backup.type == backup::Type::EEPROM)
+    if (gba.backup.is_eeprom())
     {
         // todo: check rom size for region access
         if constexpr(std::is_same<T, u8>())
@@ -1022,7 +1022,7 @@ auto read_eeprom_region(Gba& gba, const u32 addr) -> T
 template<typename T>
 auto write_eeprom_region(Gba& gba, const u32 addr, const T value) -> void
 {
-    if (gba.backup.type == backup::Type::EEPROM)
+    if (gba.backup.is_eeprom())
     {
         // todo: check rom size for region access
         if constexpr(std::is_same<T, u8>())
@@ -1220,7 +1220,7 @@ auto setup_tables(Gba& gba) -> void
     }
 
     // this will be handled by the function handlers
-    if (gba.backup.type == backup::Type::EEPROM)
+    if (gba.backup.is_eeprom())
     {
         gba.rmap[0xD] = {};
         gba.wmap[0xD] = {};

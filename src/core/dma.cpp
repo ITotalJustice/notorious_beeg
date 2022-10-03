@@ -95,18 +95,24 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
             // to read from union if not eeprom as thats UB in C / C++.
             if (gba.backup.type == backup::Type::EEPROM && dma.dst_addr >= 0x0D000000 && dma.dst_addr <= 0x0DFFFFFFF)
             {
-                auto width = backup::eeprom::Width::unknown;
-
-                if (dma.len > 9)
+                if (gba.backup.eeprom.width == backup::eeprom::Width::unknown)
                 {
-                    width = backup::eeprom::Width::beeg;
+                    // values and what they mean!
+                    // 9: exact number of bits setup a eeprom read
+                    // 73: exact number of bits to setup and complete an eeprom write (gaunlet uses this)
+                    if (dma.len == 17 || dma.len == 81)
+                    {
+                        gba.backup.eeprom.set_width(backup::eeprom::Width::beeg);
+                    }
+                    else if (dma.len == 9 || dma.len == 73)
+                    {
+                        gba.backup.eeprom.set_width(backup::eeprom::Width::small);
+                    }
+                    else
+                    {
+                        assert(!"unknown dma len for setting eeprom width!");
+                    }
                 }
-                else
-                {
-                    width = backup::eeprom::Width::small;
-                }
-
-                gba.backup.eeprom.set_width(width);
             }
         }
 
