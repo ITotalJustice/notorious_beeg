@@ -4,6 +4,8 @@ build*/
 compile_commands.json
 rom.state
 src/core/old/
+*.gb
+*.gbc
 *.gba
 *.bin
 *.state

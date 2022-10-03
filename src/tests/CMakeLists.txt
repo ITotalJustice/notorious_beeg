@@ -82,31 +82,31 @@ add_test(
 )
 
 
-#################################################
-## armwrestler-gba-fixed/armwrestler-gba-fixed ##
-#################################################
+############################
+## armwrestler-gba-fixed/ ##
+############################
 add_test(
-    NAME "armwrestler-gba-fixed/armwrestler-gba-fixed-00-menu"
+    NAME "armwrestler-gba-fixed/00-menu"
     COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "15" "0" "00-menu"
 )
 add_test(
-    NAME "armwrestler-gba-fixed/armwrestler-gba-fixed-01-alu_tests_part_1"
+    NAME "armwrestler-gba-fixed/01-alu_tests_part_1"
     COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "76" "0" "01-alu_tests_part_1" "START;61"
 )
 add_test(
-    NAME "armwrestler-gba-fixed/armwrestler-gba-fixed-02-alu_pt_2_misc"
+    NAME "armwrestler-gba-fixed/02-alu_pt_2_misc"
     COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "91" "0" "02-alu_pt_2_misc" "START;61;START;76"
 )
 add_test(
-    NAME "armwrestler-gba-fixed/armwrestler-gba-fixed-03-load_tests_part_1"
+    NAME "armwrestler-gba-fixed/03-load_tests_part_1"
     COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "106" "0" "03-load_tests_part_1" "START;61;START;76;START;91"
 )
 add_test(
-    NAME "armwrestler-gba-fixed/armwrestler-gba-fixed-04-load_tests_part_2"
+    NAME "armwrestler-gba-fixed/04-load_tests_part_2"
     COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "121" "0" "04-load_tests_part_2" "START;61;START;76;START;91;START;106"
 )
 add_test(
-    NAME "armwrestler-gba-fixed/armwrestler-gba-fixed-05-ldm_stm_tests_1"
+    NAME "armwrestler-gba-fixed/05-ldm_stm_tests_1"
     COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "136" "0" "05-ldm_stm_tests_1" "START;61;START;76;START;91;START;106;START;121"
 )
 
@@ -115,35 +115,35 @@ add_test(
 ## suite/ ##
 ############
 add_test(
-    NAME "00-menu"
+    NAME "suite/00-menu"
     COMMAND testing "${TEST_ROM_DIR}/suite/suite.zip" "60" "0" "00-menu"
 )
 # add_test(
-#     NAME "01-memory-tests"
+#     NAME "suite/01-memory-tests"
 #     COMMAND testing "${TEST_ROM_DIR}/suite/suite.zip" "120" "0" "01-memory-tests" "A;15"
 # )
 add_test(
-    NAME "02-io-read-tests"
+    NAME "suite/02-io-read-tests"
     COMMAND testing "${TEST_ROM_DIR}/suite/suite.zip" "120" "0" "02-io-read-tests" "DOWN;15;A;30"
 )
 # add_test(
-#     NAME "03-timing-tests"
+#     NAME "suite/03-timing-tests"
 #     COMMAND testing "${TEST_ROM_DIR}/suite/suite.zip" "480" "0" "03-timing-tests" "DOWN;15;DOWN;30;A;90"
 # )
 # add_test(
-#     NAME "04-timer-count-up-tests"
+#     NAME "suite/04-timer-count-up-tests"
 #     COMMAND testing "${TEST_ROM_DIR}/suite/suite.zip" "240" "0" "04-timer-count-up-tests" "DOWN;15;DOWN;30;DOWN;45;A;60"
 # )
 # add_test(
-#     NAME "05-timer-irq-tests"
+#     NAME "suite/05-timer-irq-tests"
 #     COMMAND testing "${TEST_ROM_DIR}/suite/suite.zip" "120" "0" "05-timer-irq-tests" "DOWN;15;DOWN;30;DOWN;45;DOWN;60;A;75"
 # )
 add_test(
-    NAME "06-carry-tests"
+    NAME "suite/06-carry-tests"
     COMMAND testing "${TEST_ROM_DIR}/suite/suite.zip" "120" "0" "06-carry-tests" "DOWN;15;DOWN;30;DOWN;45;DOWN;60;DOWN;75;A;90"
 )
 add_test(
-    NAME "07-shifter-tests"
+    NAME "suite/07-shifter-tests"
     COMMAND testing "${TEST_ROM_DIR}/suite/suite.zip" "120" "0" "07-shifter-tests" "DOWN;15;DOWN;30;DOWN;45;DOWN;60;DOWN;75;DOWN;90;A;105"
 )
 
@@ -552,10 +552,10 @@ add_test(
     NAME "mts/acceptance/timer/div_write"
     COMMAND testing "${TEST_ROM_DIR}/mts/acceptance/timer/div_write.zip" "240" "0"
 )
-# add_test(
-#     NAME "mts/acceptance/timer/rapid_toggle"
-#     COMMAND testing "${TEST_ROM_DIR}/mts/acceptance/timer/rapid_toggle.zip" "240" "0"
-# )
+add_test(
+    NAME "mts/acceptance/timer/rapid_toggle"
+    COMMAND testing "${TEST_ROM_DIR}/mts/acceptance/timer/rapid_toggle.zip" "240" "0"
+)
 add_test(
     NAME "mts/acceptance/timer/tim00_div_trigger"
     COMMAND testing "${TEST_ROM_DIR}/mts/acceptance/timer/tim00_div_trigger.zip" "240" "0"
@@ -592,14 +592,14 @@ add_test(
     NAME "mts/acceptance/timer/tima_reload"
     COMMAND testing "${TEST_ROM_DIR}/mts/acceptance/timer/tima_reload.zip" "240" "0"
 )
-# add_test(
-#     NAME "mts/acceptance/timer/tima_write_reloading"
-#     COMMAND testing "${TEST_ROM_DIR}/mts/acceptance/timer/tima_write_reloading.zip" "240" "01"
-# )
-# add_test(
-#     NAME "mts/acceptance/timer/tma_write_reloading"
-#     COMMAND testing "${TEST_ROM_DIR}/mts/acceptance/timer/tma_write_reloading.zip" "240" "0"
-# )
+add_test(
+    NAME "mts/acceptance/timer/tima_write_reloading"
+    COMMAND testing "${TEST_ROM_DIR}/mts/acceptance/timer/tima_write_reloading.zip" "240" "0"
+)
+add_test(
+    NAME "mts/acceptance/timer/tma_write_reloading"
+    COMMAND testing "${TEST_ROM_DIR}/mts/acceptance/timer/tma_write_reloading.zip" "240" "0"
+)
 
 
 #############################
@@ -773,4 +773,25 @@ add_test(
 add_test(
     NAME "mts/misc/ppu/vblank_stat_intr"
     COMMAND testing "${TEST_ROM_DIR}/mts/misc/ppu/vblank_stat_intr-C.zip" "240" "0"
+)
+
+
+#############
+## numism/ ##
+#############
+add_test(
+    NAME "numism/00"
+    COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "120" "0" "00"
+)
+# add_test(
+#     NAME "numism/01"
+#     COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "135" "0" "01" "RIGHT;120"
+# )
+# add_test(
+#     NAME "numism/02"
+#     COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "150" "0" "02" "RIGHT;120;RIGHT;135"
+# )
+add_test(
+    NAME "numism/03"
+    COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "165" "0" "03" "RIGHT;120;RIGHT;135;RIGHT;150"
 )

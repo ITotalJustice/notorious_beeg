@@ -77,6 +77,7 @@
 - add bitmap affine
 - add mode2 rendering
 - add obj in/out obj window support
+- pass all gb mooneye timers tests
 
 ---
 

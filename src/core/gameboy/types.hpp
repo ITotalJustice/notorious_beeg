@@ -341,8 +341,7 @@ struct Cart
 
 struct Timer
 {
-    u16 elapsed;
-    u8 reserved[1];
+    u8 reserved[3];
     bool reloading;
 };
 
