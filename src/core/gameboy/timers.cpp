@@ -4,6 +4,7 @@
 
 #include "gba.hpp"
 #include "scheduler.hpp"
+#include "apu/apu.hpp"
 
 // potential speedups:
 // - only tick div on:
@@ -47,6 +48,13 @@ inline auto is_div16_bit_set(const Gba& gba, u8 freq_index) -> bool
     return bit::is_set(div_16, bit_to_check);
 }
 
+inline auto check_if_div_clocks_fs(Gba& gba, u8 old_div, u8 new_div) -> bool
+{
+    // either bit 4 or 5 falling edge is checked
+    const auto bit = 1 << (4 + gba.gameboy.cpu.double_speed);
+    return (old_div & bit) && !(new_div & bit) && apu::is_apu_enabled(gba);
+}
+
 } // namespace
 
 void on_timer_reload_event(Gba& gba)
@@ -84,12 +92,22 @@ void on_timer_event(Gba& gba)
 
 void on_div_event(Gba& gba)
 {
+    if (check_if_div_clocks_fs(gba, IO_DIV, IO_DIV + 1))
+    {
+        apu::on_frame_sequencer_event(gba);
+    }
+
     IO_DIV++;
     scheduler::add(gba, scheduler::Event::TIMER1, on_div_event, 256 >> (gba.gameboy.cpu.double_speed));
 }
 
 void div_write(Gba& gba, [[maybe_unused]] u8 value)
 {
+    if (check_if_div_clocks_fs(gba, IO_DIV, 0))
+    {
+        apu::on_frame_sequencer_event(gba);
+    }
+
     if (is_timer_enabled(gba))
     {
         // "The timer uses the same internal counter as the DIV register, so resetting DIV also resets the timer."

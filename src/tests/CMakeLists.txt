@@ -783,14 +783,14 @@ add_test(
     NAME "numism/00"
     COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "120" "0" "00"
 )
-# add_test(
-#     NAME "numism/01"
-#     COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "135" "0" "01" "RIGHT;120"
-# )
-# add_test(
-#     NAME "numism/02"
-#     COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "150" "0" "02" "RIGHT;120;RIGHT;135"
-# )
+add_test(
+    NAME "numism/01"
+    COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "135" "0" "01" "RIGHT;120"
+)
+add_test( # i fail this test due to mode3 length, but i have no plans to pass it
+    NAME "numism/02"
+    COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "150" "0" "02" "RIGHT;120;RIGHT;135"
+)
 add_test(
     NAME "numism/03"
     COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "165" "0" "03" "RIGHT;120;RIGHT;135;RIGHT;150"

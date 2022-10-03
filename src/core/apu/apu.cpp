@@ -69,16 +69,9 @@ constexpr auto is_next_frame_sequencer_step_vol(const Gba& gba) -> bool
 [[nodiscard]]
 auto get_frame_sequencer_cycles(const Gba& gba) -> u16
 {
-    if (gba.is_gb())
-    {
-        // return gb::CPU_CYCLES / 512; // 8229
-        return 8192;
-    }
-    else
-    {
-        // return 280896*60/512; // 32917
-        return 8192 * 4; // 32768
-    }
+    assert(gba.is_gba() && "gb div clocks fs");
+    // return 280896*60/512; // 32917
+    return 8192 * 4; // 32768
 }
 
 template<typename T> [[nodiscard]]
@@ -409,8 +402,10 @@ auto apu_on_enabled(Gba& gba) -> void
 
     // only add back scheduler event.
     // channels are only re-enabled on trigger
-    const auto fs_cycles = get_frame_sequencer_cycles(gba);
-    scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, fs_cycles);
+    if (gba.is_gba())
+    {
+        scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, get_frame_sequencer_cycles(gba));
+    }
 }
 
 auto apu_on_disabled(Gba& gba) -> void
@@ -1641,8 +1636,10 @@ auto on_frame_sequencer_event(Gba& gba) -> void
 {
     APU.frame_sequencer.clock(gba);
 
-    const auto fs_cycles = get_frame_sequencer_cycles(gba);
-    scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, fs_cycles);
+    if (gba.is_gba())
+    {
+        scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, get_frame_sequencer_cycles(gba));
+    }
 }
 
 #undef APU

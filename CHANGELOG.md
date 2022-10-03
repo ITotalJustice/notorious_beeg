@@ -78,6 +78,7 @@
 - add mode2 rendering
 - add obj in/out obj window support
 - pass all gb mooneye timers tests
+- clock frame sequencer via div in gb mode
 
 ---
 
