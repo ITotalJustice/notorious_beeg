@@ -124,6 +124,41 @@ auto find_next_event(Gba& gba, bool fire)
     }
 }
 
+auto add_internal(Gba& gba, Event e, callback cb, u32 cycles) -> void
+{
+    auto& entry = gba.scheduler.entries[std::to_underlying(e)];
+    entry.cb = cb;
+    entry.cycles = (gba.scheduler.cycles + cycles);
+    entry.enabled = true;
+
+    if (e != scheduler::Event::INTERRUPT && e != Event::HALT && e != Event::DMA)
+    {
+        entry.cycles += entry.delta;
+
+        if (entry.cycles < gba.scheduler.cycles)
+        {
+            entry.delta = entry.cycles - gba.scheduler.cycles;
+        }
+        else
+        {
+            entry.delta = 0;
+        }
+    }
+
+    // check if the new event if sooner than current event
+    if (entry.cycles < gba.scheduler.next_event_cycles)
+    {
+        gba.scheduler.next_event_cycles = entry.cycles;
+        gba.scheduler.next_event = e;
+    }
+    // check if we are adding the same event but the cycles have increased
+    // at which point, we have to slowly find the next event again
+    else if (e == gba.scheduler.next_event && entry.cycles > gba.scheduler.next_event_cycles)
+    {
+        find_next_event(gba, false);
+    }
+}
+
 } // namespace
 
 auto reset(Gba& gba) -> void
@@ -241,57 +276,12 @@ auto fire(Gba& gba) -> void
 
 auto add(Gba& gba, Event e, callback cb, u32 cycles) -> void
 {
-    // used for filtering out events when debugging
-    // if (e != Event::PPU && e != Event::RESET && e != Event::INTERRUPT && e != Event::TIMER0 && e != Event::TIMER2 && e != Event::TIMER3)
-    // {
-    //     return;
-    // }
+    add_internal(gba, e, cb, cycles);
+}
 
-    #if 0
-    if (e == Event::APU_NOISE || e == Event::APU_SQUARE0 || e == Event::APU_SQUARE1 || e == Event::APU_WAVE)
-    {
-        return;
-    }
-    #endif
-
-    #if 0
-    if (e == Event::APU_NOISE)
-    {
-        return;
-    }
-    #endif
-
-    auto& entry = gba.scheduler.entries[std::to_underlying(e)];
-    entry.cb = cb;
-    entry.cycles = (gba.scheduler.cycles + cycles);
-    entry.enabled = true;
-
-    if (e != scheduler::Event::INTERRUPT && e != Event::HALT && e != Event::DMA)
-    {
-        entry.cycles += entry.delta;
-
-        if (entry.cycles < gba.scheduler.cycles)
-        {
-            entry.delta = entry.cycles - gba.scheduler.cycles;
-        }
-        else
-        {
-            entry.delta = 0;
-        }
-    }
-
-    // check if the new event if sooner than current event
-    if (entry.cycles < gba.scheduler.next_event_cycles)
-    {
-        gba.scheduler.next_event_cycles = entry.cycles;
-        gba.scheduler.next_event = e;
-    }
-    // check if we are adding the same event but the cycles have increased
-    // at which point, we have to slowly find the next event again
-    else if (e == gba.scheduler.next_event && entry.cycles > gba.scheduler.next_event_cycles)
-    {
-        find_next_event(gba, false);
-    }
+auto add_relative(Gba& gba, Event e, callback cb, u32 cycles) -> void
+{
+    add_internal(gba, e, cb, gba.scheduler.elapsed + cycles);
 }
 
 auto remove(Gba& gba, Event e) -> void

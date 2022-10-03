@@ -113,9 +113,6 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
         switch (dma.size_type)
         {
             case SizeType::half:
-                dma.src_addr = mem::align<u16>(dma.src_addr);
-                dma.dst_addr = mem::align<u16>(dma.dst_addr);
-
                 while (dma.len--)
                 {
                     dma.src_addr &= SRC_MASK[channel_num];
@@ -130,9 +127,6 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
                 break;
 
             case SizeType::word:
-                dma.src_addr = mem::align<u32>(dma.src_addr);
-                dma.dst_addr = mem::align<u32>(dma.dst_addr);
-
                 while (dma.len--)
                 {
                     dma.src_addr &= SRC_MASK[channel_num];
@@ -251,68 +245,61 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
     assert(channel_num <= 3);
     const auto [sad, dad, cnt_h, cnt_l] = get_channel_registers(gba, channel_num);
 
-    const auto B = static_cast<IncrementType>(bit::get_range<5, 6>(cnt_h)); // dst
-    const auto A = static_cast<IncrementType>(bit::get_range<7, 8>(cnt_h)); // src
-    const auto R = bit::is_set<9>(cnt_h); // repeat
-    const auto S = static_cast<SizeType>(bit::is_set<10>(cnt_h));
+    const auto dst_increment_type = static_cast<IncrementType>(bit::get_range<5, 6>(cnt_h)); // dst
+    const auto src_increment_type = static_cast<IncrementType>(bit::get_range<7, 8>(cnt_h)); // src
+    const auto repeat = bit::is_set<9>(cnt_h); // repeat
+    const auto size_type = static_cast<SizeType>(bit::is_set<10>(cnt_h));
     // const auto U = bit::is_set<11>(cnt_h); // unk
-    const auto M = static_cast<Mode>(bit::get_range<12, 13>(cnt_h));
-    const auto I = bit::is_set<14>(cnt_h); // irq
-    const auto N = bit::is_set<15>(cnt_h); // enable flag
+    const auto mode = static_cast<Mode>(bit::get_range<12, 13>(cnt_h));
+    const auto irq_enable = bit::is_set<14>(cnt_h); // irq
+    const auto dma_enable = bit::is_set<15>(cnt_h); // enable flag
 
     const auto src = sad; // address is masked on r/w
     const auto dst = dad; // address is masked on r/w
     const auto len = cnt_l;
 
-    // std::printf("[dma%u] src: 0x%08X dst: 0x%08X len: 0x%04X B: %u A: %u R: %u S: %u M: %u I: %u N: %u\n", channel_num, src, dst, len, (u8)B, (u8)A, R, (u8)S, (u8)M, I, N);
+    // std::printf("[dma%u] src: 0x%08X dst: 0x%08X len: 0x%04X dst_increment_type: %u src_increment_type: %u repeat: %u size_type: %u mode: %u irq_enable: %u dma_enable: %u\n", channel_num, src, dst, len, (u8)dst_increment_type, (u8)src_increment_type, repeat, (u8)size_type, (u8)mode, irq_enable, dma_enable);
 
     // load data into registers
     auto& dma = gba.dma[channel_num];
 
-    // see if the channel is to be stopped
-    if (!N)
+    const auto was_enabled = dma.enabled;
+
+    // update the dma enabled flag
+    dma.enabled = dma_enable;
+
+    // dma only updates internal registers on enable bit 0->1 transition(?)
+    // i think immediate dmas are only fired on 0->1 as well(?)
+    // TODO: verify this
+    if (!dma_enable || was_enabled)
     {
-        dma.enabled = false;
-        // std::printf("[dma%u] disabled\n", channel_num);
         return;
     }
 
     // load data into registers
-    dma.dst_increment_type = B;
-    dma.src_increment_type = A;
-    dma.repeat = R;
-    dma.size_type = S;
-    dma.mode = M;
-    dma.irq = I;
+    dma.dst_increment_type = dst_increment_type;
+    dma.src_increment_type = src_increment_type;
+    dma.repeat = repeat;
+    dma.size_type = size_type;
+    dma.mode = mode;
+    dma.irq = irq_enable;
 
-    // these can only be reloaded if going from 0-1 (off then on)
-    if (N && !dma.enabled)
+    dma.dst_addr = dst;
+    dma.src_addr = src;
+    dma.len = len;
+
+    // handle len=0, set len to max
+    if (dma.len == 0)
     {
-        dma.dst_addr = dst;
-        dma.src_addr = src;
-        dma.len = len;
-
-        // handle len=0, set len to max
-        if (dma.len == 0)
+        if (channel_num == 3)
         {
-            if (channel_num == 3)
-            {
-                dma.len = 0x10000;
-            }
-            else
-            {
-                dma.len = 0x4000;
-            }
+            dma.len = 0x10000;
+        }
+        else
+        {
+            dma.len = 0x4000;
         }
     }
-    else
-    {
-        if (dma.src_addr != src)
-        {
-            // std::printf("[dma%u] skipping reloading of src, old: 0x%08X new: 0x%08X\n", channel_num, dma.src_addr, src);
-        }
-    }
-    dma.enabled = N;
 
     assert(dma.enabled && "shouldnt get here if dma is disabled");
 
@@ -325,17 +312,27 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
         dma.dst_increment = 0;
     }
 
-    // sort increments
+    // sort increments and force alignment of src/dst addr
     switch (dma.size_type)
     {
         case SizeType::half:
             dma.src_increment = 2;
             dma.dst_increment = 2;
+
+            // assert(!(dma.src_addr & 0x1) && "dma addr not aligned");
+            dma.src_addr = mem::align<u16>(dma.src_addr);
+            // assert(!(dma.dst_addr & 0x1) && "dma addr not aligned");
+            dma.dst_addr = mem::align<u16>(dma.dst_addr);
             break;
 
         case SizeType::word:
             dma.src_increment = 4;
             dma.dst_increment = 4;
+
+            // assert(!(dma.src_addr & 0x3) && "dma addr not aligned");
+            dma.src_addr = mem::align<u32>(dma.src_addr);
+            // assert(!(dma.dst_addr & 0x3) && "dma addr not aligned");
+            dma.dst_addr = mem::align<u32>(dma.dst_addr);
             break;
     }
 
@@ -348,11 +345,12 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
             case IncrementType::inc:
              // same as increment, only that it reloads dst if R is set.
             case IncrementType::special:
+                inc = +inc;
                 break;
 
             // goes down
             case IncrementType::dec:
-                inc *= -1;
+                inc = -inc;
                 break;
 
             // don't increment
@@ -370,7 +368,7 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
     {
         // dmas are delayed
         // start_dma(gba, dma, channel_num);
-        scheduler::add(gba, scheduler::Event::DMA, on_event, 0);
+        scheduler::add_relative(gba, scheduler::Event::DMA, on_event, 3);
     }
 }
 

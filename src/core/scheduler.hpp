@@ -91,10 +91,18 @@ struct Scheduler
     }
 };
 
+// call this on savestate load in order to reload event callback pointers
 auto on_loadstate(Gba& gba) -> void;
+// call this on rom load
 auto reset(Gba& gba) -> void;
+// fires scheduler.next_event and then resorts the events
 auto fire(Gba& gba) -> void;
+// adds an event using scheduler.cycles + cycles
 auto add(Gba& gba, Event e, callback cb, u32 cycles) -> void;
+// adds an event using scheduler.cycles + scheduler + elapsed + cycles
+auto add_relative(Gba& gba, Event e, callback cb, u32 cycles) -> void;
+// remove an event and reset it's delta time, if the event was next_event
+// it will resort to find a new next event
 auto remove(Gba& gba, Event e) -> void;
 
 } // namespace gba::scheduler
