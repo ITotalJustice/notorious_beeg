@@ -38,6 +38,11 @@
         #include "arm7tdmi/thumb/thumb_goto.cpp"
     #endif
 
+    #include "fat/fat.cpp"
+    #include "fat/mpcf.cpp"
+    #include "fat/m3cf.cpp"
+    #include "fat/sccf.cpp"
+
     #include "gameboy/gb.cpp"
     #include "gameboy/cpu.cpp"
     #include "gameboy/bus.cpp"
