@@ -3,6 +3,7 @@
 #pragma once
 
 #include <frontend_base.hpp>
+#include <vector>
 
 enum class TextureID
 {
@@ -83,6 +84,8 @@ public:
 
     bool inside_emu_window{true};
     bool layer_enable_master{false};
+
+    std::vector<std::uint8_t> fat_sd_card;
 
     struct Layer
     {

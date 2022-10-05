@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <span>
+#include "fwd.hpp"
 #include "eeprom.hpp"
 #include "sram.hpp"
 #include "flash.hpp"
@@ -35,6 +35,11 @@ struct Backup
     [[nodiscard]] auto is_eeprom() const -> bool
     {
         return type == Type::EEPROM || type == Type::EEPROM512 || type == Type::EEPROM8K;
+    }
+
+    [[nodiscard]] auto is_sram() const -> bool
+    {
+        return type == Type::SRAM;
     }
 
     [[nodiscard]] auto is_flash() const -> bool

@@ -43,6 +43,11 @@ else ()
 
         arm7tdmi/arm7tdmi.cpp
 
+        fat/fat.cpp
+        fat/mpcf.cpp
+        fat/m3cf.cpp
+        fat/sccf.cpp
+
         gameboy/gb.cpp
         gameboy/cpu.cpp
         gameboy/bus.cpp

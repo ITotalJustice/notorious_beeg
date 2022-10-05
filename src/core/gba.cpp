@@ -491,6 +491,7 @@ auto Gba::loadstate(const State& state) -> bool
     this->timer[3] = state.timer[3];
     this->backup = state.backup;
     this->gpio = state.gpio;
+    this->fat_device = state.fat_device;
 
     if (is_gb())
     {
@@ -525,6 +526,7 @@ auto Gba::savestate(State& state) const -> bool
     state.timer[3] = this->timer[3];
     state.backup = this->backup;
     state.gpio = this->gpio;
+    state.fat_device = this->fat_device;
 
     if (is_gb())
     {
@@ -587,6 +589,23 @@ auto Gba::get_rom_name() const -> RomName
     }
 
     return name;
+}
+
+auto Gba::create_fat32_image(std::span<u8> data) -> bool
+{
+    return fat::create_image(data);
+}
+
+auto Gba::set_fat32_data(std::span<u8> data) -> bool
+{
+    if (data.size() == 512 * 1024 * 1024)
+    {
+        fat32_data = data.data();
+        fat32_data_size = data.size();
+        return true;
+    }
+
+    return false;
 }
 
 auto Gba::run(u32 _cycles) -> void

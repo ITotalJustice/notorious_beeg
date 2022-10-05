@@ -4,6 +4,7 @@
 #pragma once
 
 #include "arm7tdmi/arm7tdmi.hpp"
+#include "fat/fat.hpp"
 #include "gameboy/types.hpp"
 #include "ppu/ppu.hpp"
 #include "apu/apu.hpp"
@@ -81,12 +82,21 @@ using AudioCallback = void(*)(void* user);
 using VblankCallback = void(*)(void* user);
 using HblankCallback = void(*)(void* user, u16 line);
 using ColourCallback = u32(*)(void* user, Colour colour);
+using FatFlushCallback = void(*)(void* user, u64 offset, u64 size);
 
 struct Gba
 {
     // at the top so no offset needed into struct on r/w access
     mem::ReadArray rmap[16];
     mem::WriteArray wmap[16];
+
+    mem::ReadFunction<u8> rfuncmap_8[16];
+    mem::ReadFunction<u16> rfuncmap_16[16];
+    mem::ReadFunction<u32> rfuncmap_32[16];
+
+    mem::WriteFunction<u8> wfuncmap_8[16];
+    mem::WriteFunction<u16> wfuncmap_16[16];
+    mem::WriteFunction<u32> wfuncmap_32[16];
 
     scheduler::Scheduler scheduler;
     arm7tdmi::Arm7tdmi cpu;
@@ -97,6 +107,7 @@ struct Gba
     timer::Timer timer[4];
     backup::Backup backup;
     gpio::Gpio gpio;
+    fat::Device fat_device;
 
     gb::Core gameboy;
 
@@ -129,11 +140,12 @@ struct Gba
     // OR keys together
     auto setkeys(u16 buttons, bool down) -> void;
 
-    auto set_userdata(void* user) { this->userdata = user; }
-    auto set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate = 65536) -> void;
-    auto set_vblank_callback(VblankCallback cb) { this->vblank_callback = cb; }
-    auto set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
-    auto set_colour_callback(ColourCallback cb) { this->colour_callback = cb; }
+    void set_userdata(void* user) { this->userdata = user; }
+    void set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate = 65536);
+    void set_vblank_callback(VblankCallback cb) { this->vblank_callback = cb; }
+    void set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
+    void set_colour_callback(ColourCallback cb) { this->colour_callback = cb; }
+    void set_fat_flush_callback(FatFlushCallback cb) { this->fat_flush_callback = cb; }
 
     // set the pixels that the game will render to
     // IMPORTANT: if pixels == NULL, then no rendering will happen!
@@ -148,9 +160,18 @@ struct Gba
 
     [[nodiscard]] auto get_rom_name() const -> RomName;
 
+    [[nodiscard]] auto get_fat_device_type() const { return fat_device.type; }
+    void set_fat_device_type(fat::Type type) { fat_device.type = type; }
+    //
+    auto create_fat32_image(std::span<u8> data) -> bool;
+    auto set_fat32_data(std::span<u8> data) -> bool;
+
     System system;
 
     bool bit_crushing{false};
+
+    u8* fat32_data;
+    u64 fat32_data_size;
 
     void* userdata{};
     std::span<s16> sample_data;
@@ -166,6 +187,7 @@ struct Gba
     VblankCallback vblank_callback{};
     HblankCallback hblank_callback{};
     ColourCallback colour_callback{};
+    FatFlushCallback fat_flush_callback{};
 };
 
 struct State
@@ -184,13 +206,14 @@ struct State
     timer::Timer timer[4];
     backup::Backup backup;
     gpio::Gpio gpio;
+    fat::Device fat_device;
     gb::State gb_state;
 };
 
 enum StateMeta : u32
 {
     MAGIC = 0xFACADE,
-    VERSION = 5,
+    VERSION = 6,
     SIZE = sizeof(State),
 };
 
