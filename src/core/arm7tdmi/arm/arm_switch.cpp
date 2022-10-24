@@ -16,7 +16,7 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
-#include "logger.hpp"
+#include "log.hpp"
 #include <cassert>
 #include <array>
 #include <cstdint>

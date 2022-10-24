@@ -9,7 +9,7 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "scheduler.hpp"
-#include "logger.hpp"
+#include "log.hpp"
 
 #include <cassert>
 #include <cstddef>

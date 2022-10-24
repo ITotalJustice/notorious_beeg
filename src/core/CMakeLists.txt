@@ -37,6 +37,8 @@ else ()
         gpio.cpp
         rtc.cpp
         key.cpp
+        sio.cpp
+        log.cpp
 
         backup/backup.cpp
         backup/eeprom.cpp

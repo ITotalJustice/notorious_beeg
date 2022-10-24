@@ -7,7 +7,7 @@
 #include "timer.hpp"
 #include "bit.hpp"
 #include "arm7tdmi/arm7tdmi.hpp"
-#include "logger.hpp"
+#include "log.hpp"
 #include <utility>
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#Timer%20registers

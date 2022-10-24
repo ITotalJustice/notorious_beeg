@@ -4,7 +4,7 @@
 #include "../internal.hpp"
 #include "../gb.hpp"
 #include "scheduler.hpp"
-#include "logger.hpp"
+#include "log.hpp"
 
 #include <cstring>
 #include <cassert>

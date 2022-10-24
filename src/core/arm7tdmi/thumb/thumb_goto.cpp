@@ -22,7 +22,7 @@
 #include "software_interrupt.cpp"
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "gba.hpp"
-#include "logger.hpp"
+#include "log.hpp"
 #include <cassert>
 #include <cstdint>
 #include <array>

@@ -63,6 +63,7 @@ protected:
     auto render_layers() -> void;
     auto toggle_master_layer_enable() -> void;
     void log_window();
+    void sio_window();
 
 public:
     #if DEBUGGER == 0
@@ -84,6 +85,7 @@ public:
     bool show_menubar{true};
 
     bool show_log_window{false};
+    bool show_sio_window{false};
 
     bool inside_emu_window{true};
     bool layer_enable_master{false};

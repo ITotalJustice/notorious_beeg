@@ -9,7 +9,7 @@
 #include "bit.hpp"
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "scheduler.hpp"
-#include "logger.hpp"
+#include "log.hpp"
 #include <utility> // for std::unreachable c++23
 
 // tick scheduler after every dma transfer

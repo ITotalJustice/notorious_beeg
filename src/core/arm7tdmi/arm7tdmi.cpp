@@ -9,7 +9,7 @@
 #include "bios_hle.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
-#include "logger.hpp"
+#include "log.hpp"
 
 #include <bit>
 #include <cassert>

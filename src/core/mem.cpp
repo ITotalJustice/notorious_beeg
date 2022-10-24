@@ -10,8 +10,9 @@
 #include "key.hpp"
 #include "ppu/ppu.hpp"
 #include "scheduler.hpp"
+#include "sio.hpp"
 #include "timer.hpp"
-#include "logger.hpp"
+#include "log.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -351,6 +352,11 @@ inline auto read_io16(Gba& gba, const u32 addr) -> u16
             return REG_KEY & mask;
         }
 
+        case IO_SIOCNT: {
+            // todo: mask bits
+            return REG_SIOCNT;
+        }
+
         // these are registers with w only bits
         // these don't return openbus, instead return 0x0000
         case 0x4000066: // REG_SOUND1CNT_X (high 16 bits unreadable)
@@ -513,13 +519,20 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
         case IO_DMA1CNT_L:
         case IO_DMA2CNT_L:
         case IO_DMA3CNT_L:
-        case IO_RCNT:
             gba.mem.io[(addr & IO_MASK) >> 1] = value;
             break;
 
         case IO_KEYCNT:
             gba.mem.io[(addr & IO_MASK) >> 1] = value;
-            gba::key::check_key_interrupt(gba);
+            key::check_key_interrupt(gba);
+            break;
+
+        case IO_RCNT:
+            sio::on_rcnt_write(gba, value);
+            break;
+
+        case IO_SIOCNT:
+            sio::on_siocnt_write(gba, value);
             break;
 
         case IO_BG2X_LO:

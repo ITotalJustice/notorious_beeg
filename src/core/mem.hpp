@@ -240,9 +240,22 @@ enum IOAddr
     IO_TM2CNT = 0x400010A, // (Timer 2 Control)
     IO_TM3CNT = 0x400010E, // (Timer 3 Control)
 
+    // general
+    IO_SIODATA8 = 0x0400012A, // SIO Normal Communication 8bit Data (R/W)
+    IO_SIODATA32_L = 0x04000120, // SIO Normal Communication lower 16bit data (R/W)
+    IO_SIODATA32_H = 0x04000122, // SIO Normal Communication upper 16bit data (R/W)
+    IO_SIOCNT = 0x04000128, // SIO Control, usage in NORMAL Mode (R/W)
+
+    // multiplayer
+    IO_SIOMLT_SEND = 0x0400012A, // Data Send Register (R/W)
+    IO_SIOMULTI0 = 0x04000120, // SIO Multi-Player Data 0 (Parent) (R/W)
+    IO_SIOMULTI1 = 0x04000122, // SIO Multi-Player Data 1 (1st child) (R/W)
+    IO_SIOMULTI2 = 0x04000124, // SIO Multi-Player Data 2 (2nd child) (R/W)
+    IO_SIOMULTI3 = 0x04000126, // SIO Multi-Player Data 3 (3rd child) (R/W)
+
     IO_KEY = 0x04000130, // (The input register)(Read Only)
     IO_KEYCNT = 0x04000132, // (Input control register, used for interrupts)
-    IO_RCNT = 0x04000134,
+    IO_RCNT = 0x04000134, // Mode Selection (R), in Normal/Multiplayer/UART modes (R/W)
 
     IO_IE = 0x04000200, // (Interrupt Enable Register)
     IO_IF = 0x04000202, // (Interrupt Flags Regster)
@@ -432,6 +445,17 @@ enum LogAddr
 #define REG_TM1CNT gba.mem.io[(gba::mem::IO_TM1CNT & 0x3FF) >> 1]
 #define REG_TM2CNT gba.mem.io[(gba::mem::IO_TM2CNT & 0x3FF) >> 1]
 #define REG_TM3CNT gba.mem.io[(gba::mem::IO_TM3CNT & 0x3FF) >> 1]
+
+#define REG_SIODATA32_L gba.mem.io[(gba::mem::IO_SIODATA32_L & 0x3FF) >> 1]
+#define REG_SIODATA32_H gba.mem.io[(gba::mem::IO_SIODATA32_H & 0x3FF) >> 1]
+#define REG_SIOCNT gba.mem.io[(gba::mem::IO_SIOCNT & 0x3FF) >> 1]
+#define REG_SIODATA8 gba.mem.io[(gba::mem::IO_SIODATA8 & 0x3FF) >> 1]
+
+#define REG_SIOMLT_SEND gba.mem.io[(gba::mem::IO_SIOMLT_SEND & 0x3FF) >> 1]
+#define REG_SIOMULTI0 gba.mem.io[(gba::mem::IO_SIOMULTI0 & 0x3FF) >> 1]
+#define REG_SIOMULTI1 gba.mem.io[(gba::mem::IO_SIOMULTI1 & 0x3FF) >> 1]
+#define REG_SIOMULTI2 gba.mem.io[(gba::mem::IO_SIOMULTI2 & 0x3FF) >> 1]
+#define REG_SIOMULTI3 gba.mem.io[(gba::mem::IO_SIOMULTI3 & 0x3FF) >> 1]
 
 #define REG_KEY gba.mem.io[(gba::mem::IO_KEY & 0x3FF) >> 1]
 #define REG_KEYCNT gba.mem.io[(gba::mem::IO_KEYCNT & 0x3FF) >> 1]

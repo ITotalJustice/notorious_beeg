@@ -5,7 +5,7 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
-#include "logger.hpp"
+#include "log.hpp"
 #include <bit>
 
 namespace gba::arm7tdmi::arm {

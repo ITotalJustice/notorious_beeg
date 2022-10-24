@@ -1,75 +1,15 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 #include "imgui_log.hpp"
+#include <cstddef>
 #include <imgui.h>
-#include <logger.hpp>
+#include <log.hpp>
 #include <algorithm>
 #include <cstdint>
 #include <imgui_internal.h>
 #include <array>
 
 namespace {
-
-struct Entry
-{
-    const char* name;
-    std::uint64_t flag;
-};
-
-constexpr std::array TYPES =
-{
-    Entry{ "ALL", gba::log::FLAG_TYPE_ALL },
-    Entry{ "PPU", gba::log::FLAG_PPU },
-    Entry{ "SQUARE0", gba::log::FLAG_SQUARE0 },
-    Entry{ "SQUARE1", gba::log::FLAG_SQUARE1 },
-    Entry{ "WAVE", gba::log::FLAG_WAVE },
-    Entry{ "NOISE", gba::log::FLAG_NOISE },
-    Entry{ "FRAME_SEQUENCER", gba::log::FLAG_FRAME_SEQUENCER },
-    Entry{ "TIMER0", gba::log::FLAG_TIMER0 },
-    Entry{ "TIMER1", gba::log::FLAG_TIMER1 },
-    Entry{ "TIMER2", gba::log::FLAG_TIMER2 },
-    Entry{ "TIMER3", gba::log::FLAG_TIMER3 },
-    Entry{ "DMA0", gba::log::FLAG_DMA0 },
-    Entry{ "DMA1", gba::log::FLAG_DMA1 },
-    Entry{ "DMA2", gba::log::FLAG_DMA2 },
-    Entry{ "DMA3", gba::log::FLAG_DMA3 },
-    Entry{ "INTERRUPT", gba::log::FLAG_INTERRUPT },
-    Entry{ "HALT", gba::log::FLAG_HALT },
-    Entry{ "ARM", gba::log::FLAG_ARM },
-    Entry{ "THUMB", gba::log::FLAG_THUMB },
-    Entry{ "MEMORY", gba::log::FLAG_MEMORY },
-    Entry{ "EEPROM", gba::log::FLAG_EEPROM },
-    Entry{ "FLASH", gba::log::FLAG_FLASH },
-    Entry{ "SRAM", gba::log::FLAG_SRAM },
-    Entry{ "GPIO", gba::log::FLAG_GPIO },
-    Entry{ "EZFLASH", gba::log::FLAG_EZFLASH },
-    Entry{ "M3CF", gba::log::FLAG_M3CF },
-    Entry{ "M3SD", gba::log::FLAG_M3SD },
-    Entry{ "MPCF", gba::log::FLAG_MPCF },
-    Entry{ "SCCF", gba::log::FLAG_SCCF },
-    Entry{ "SCSD", gba::log::FLAG_SCSD },
-    Entry{ "GB_BUS", gba::log::FLAG_GB_BUS },
-    Entry{ "GB_CPU", gba::log::FLAG_GB_CPU },
-    Entry{ "GB_PPU", gba::log::FLAG_GB_PPU },
-    Entry{ "GB_MBC0", gba::log::FLAG_GB_MBC0 },
-    Entry{ "GB_MBC1", gba::log::FLAG_GB_MBC1 },
-    Entry{ "GB_MBC2", gba::log::FLAG_GB_MBC2 },
-    Entry{ "GB_MBC3", gba::log::FLAG_GB_MBC3 },
-    Entry{ "GB_MBC5", gba::log::FLAG_GB_MBC5 },
-    Entry{ "GB_TIMER", gba::log::FLAG_GB_TIMER },
-    Entry{ "GB_DIV", gba::log::FLAG_GB_DIV },
-    Entry{ "GAME", gba::log::FLAG_GAME },
-};
-
-constexpr std::array LEVELS =
-{
-    Entry{ "ALL", gba::log::FLAG_LEVEL_ALL },
-    Entry{ "FATAL", gba::log::FLAG_FATAL },
-    Entry{ "ERROR", gba::log::FLAG_ERROR },
-    Entry{ "WARN", gba::log::FLAG_WARN },
-    Entry{ "INFO", gba::log::FLAG_INFO },
-    Entry{ "DEBUG", gba::log::FLAG_DEBUG },
-};
 
 [[nodiscard]] auto get_colour(std::string_view view)  -> std::pair<ImVec4, bool>
 {
@@ -148,10 +88,11 @@ void ExampleAppLog::Draw(const char* title, std::uint64_t* type_flags, std::uint
     // Left
     {
         ImGui::BeginChild("left pane", ImVec2(150, 0), true);
-        for (auto& [name, flag] : TYPES)
+        CheckboxFlags("ALL", type_flags, gba::log::FLAG_TYPE_ALL);
+        const auto type_str = gba::log::get_type_str();
+        for (std::size_t i = 0; i < type_str.size(); i++)
         {
-            // ImGui::CheckboxFlags(name, type_flags, flag);
-            CheckboxFlags(name, type_flags, flag);
+            CheckboxFlags(type_str[i], type_flags, 1ULL << i);
         }
         ImGui::EndChild();
     }
@@ -168,11 +109,13 @@ void ExampleAppLog::Draw(const char* title, std::uint64_t* type_flags, std::uint
 
     ImGui::AlignTextToFramePadding();
     ImGui::Text("Level:");
-    for (const auto& [name, flag] : LEVELS)
+    ImGui::SameLine();
+    CheckboxFlags("ALL", level_flags, gba::log::FLAG_LEVEL_ALL);
+    const auto level_str = gba::log::get_level_str();
+    for (std::size_t i = 0; i < level_str.size(); i++)
     {
         ImGui::SameLine();
-        // ImGui::CheckboxFlags(name, level_flags, flag);
-        CheckboxFlags(name, level_flags, flag);
+        CheckboxFlags(level_str[i], level_flags, 1ULL << i);
     }
 
     // Main window

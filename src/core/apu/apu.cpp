@@ -8,7 +8,7 @@
 #include "dma.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
-#include "logger.hpp"
+#include "log.hpp"
 #include <algorithm>
 #include <cassert>
 #include <type_traits>
