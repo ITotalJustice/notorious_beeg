@@ -255,6 +255,36 @@ enum IOAddr
     IO_IMC_H = 0x4000802, // (Internal Memory Control)
 };
 
+enum LogOnOff
+{
+    IO_LOG_ON = 0xC0DE,
+    IO_LOG_OFF = 0x0000,
+    IO_LOG_ON_RESULT = 0x1DEA,
+};
+
+enum Breakpoint
+{
+    BREAKPOINT_ON = 0xC0DE,
+};
+
+enum LogLevel
+{
+    IO_LOG_LEVEL_FATAL = 0,
+    IO_LOG_LEVEL_ERROR = 1,
+    IO_LOG_LEVEL_WARN = 2,
+    IO_LOG_LEVEL_INFO = 3,
+    IO_LOG_LEVEL_DEBUG = 4
+};
+
+enum LogAddr
+{
+    IO_MGBA_STDOUT = 0x4FFF600,
+    IO_MGBA_FLAGS = 0x4FFF700,
+    IO_MGBA_CONTROL = 0x4FFF780,
+
+    IO_BREAKPOINT = 0x4FFF790, // todo:
+};
+
 #define REG_DISPCNT  gba.mem.io[(gba::mem::IO_DISPCNT & 0x3FF) >> 1]
 #define REG_DISPSTAT gba.mem.io[(gba::mem::IO_DISPSTAT & 0x3FF) >> 1]
 #define REG_VCOUNT   gba.mem.io[(gba::mem::IO_VCOUNT & 0x3FF) >> 1]

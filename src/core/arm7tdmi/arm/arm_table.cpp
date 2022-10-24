@@ -16,9 +16,9 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
+#include "logger.hpp"
 #include <cassert>
 #include <array>
-#include <cstdio>
 
 namespace gba::arm7tdmi::arm {
 namespace {
@@ -151,7 +151,7 @@ consteval auto decode(const u32 opcode) -> Instruction
 
 auto undefined([[maybe_unused]] Gba& gba, u32 opcode) -> void
 {
-    std::printf("[arm] undefined %08X\n", opcode);
+    log::print_fatal(gba, log::Type::ARM, "undefined 0x%08X\n", opcode);
     assert(!"[arm] undefined");
 }
 

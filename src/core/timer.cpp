@@ -7,11 +7,20 @@
 #include "timer.hpp"
 #include "bit.hpp"
 #include "arm7tdmi/arm7tdmi.hpp"
+#include "logger.hpp"
 #include <utility>
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#Timer%20registers
 namespace gba::timer {
 namespace {
+
+constexpr log::Type LOG_TYPE[4] =
+{
+    log::Type::TIMER0,
+    log::Type::TIMER1,
+    log::Type::TIMER2,
+    log::Type::TIMER3,
+};
 
 constexpr arm7tdmi::Interrupt INTERRUPT[4] =
 {
@@ -126,29 +135,32 @@ auto on_cnt_write(Gba& gba, const u8 num) -> void
 
     auto& timer = gba.timer[num];
 
-    // if timer is enabled, reload
-    if (!timer.enable && E)
-    {
-        timer.counter = timer.reload;
-    }
+    const auto was_enabled = timer.enable;
 
+    // can these be updated whilst the timer is enabled?
     timer.freq = freq_table[F];
     timer.cascade = C;
     timer.irq = I;
     timer.enable = E;
 
-    if (timer.enable)
+    // if timer is now enabled, reload
+    if (!was_enabled && E)
     {
-        // searching on emudev discord about timers mention that they
-        // have a 2 cycle delay on startup (but not on overflow)
-        gba.delta.remove(EVENTS[num]);
-        add_timer_event(gba, timer, num, 2);
+        log::print_info(gba, LOG_TYPE[num], "enabling timer\n");
+        timer.counter = timer.reload;
     }
-    else
+    else if (was_enabled && !E)
     {
+        log::print_info(gba, LOG_TYPE[num], "disabling timer\n");
         gba.delta.remove(EVENTS[num]);
         gba.scheduler.remove(EVENTS[num]);
+        return;
     }
+
+    // searching on emudev discord about timers mention that they
+    // have a 2 cycle delay on startup (but not on overflow)
+    gba.delta.remove(EVENTS[num]);
+    add_timer_event(gba, timer, num, 2);
 }
 
 void on_timer_event(void* user, s32 id, s32 late)

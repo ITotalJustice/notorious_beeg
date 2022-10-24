@@ -9,6 +9,7 @@
 #include "bit.hpp"
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "scheduler.hpp"
+#include "logger.hpp"
 #include <utility> // for std::unreachable c++23
 
 // tick scheduler after every dma transfer
@@ -23,6 +24,14 @@ namespace {
 
 constexpr auto INTERNAL_MEMORY_RANGE = 0x07FFFFFF;
 constexpr auto ANY_MEMORY_RANGE = 0x0FFFFFFF;
+
+constexpr log::Type LOG_TYPE[4] =
+{
+    log::Type::DMA0,
+    log::Type::DMA1,
+    log::Type::DMA2,
+    log::Type::DMA3,
+};
 
 constexpr arm7tdmi::Interrupt INTERRUPTS[4] =
 {
@@ -217,7 +226,7 @@ auto on_hblank(Gba& gba) -> void
     {
         if (gba.dma[i].enabled && gba.dma[i].mode == Mode::hblank)
         {
-            // std::printf("firing hdma: %u len: %08X dst: %08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
+            log::print_info(gba, LOG_TYPE[i], "firing hdma: %u len: 0x%08X dst: 0x%08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
             start_dma(gba, gba.dma[i], i); // i think we only handle 1 dma at a time?
         }
     }
@@ -229,7 +238,7 @@ auto on_vblank(Gba& gba) -> void
     {
         if (gba.dma[i].enabled && gba.dma[i].mode == Mode::vblank)
         {
-            // std::printf("firing vdma: %u len: %08X dst: %08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
+            log::print_info(gba, LOG_TYPE[i], "firing vdma: %u len: 0x%08X dst: 0x%08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
             start_dma(gba, gba.dma[i], i); // i think we only handle 1 dma at a time?
         }
     }
@@ -241,13 +250,13 @@ auto on_fifo_empty(Gba& gba, u8 num) -> void
 
     if (num == 1 && gba.dma[num].dst_addr != mem::IO_FIFO_A_L && gba.dma[num].mode == Mode::special)
     {
-        gba_log("addr: 0x%08X\n", gba.dma[num].dst_addr);
+        log::print_warn(gba, log::Type::DMA1, "bad fifo addr: 0x%08X\n", gba.dma[num].dst_addr);
         assert(0);
         return;
     }
     if (num == 2 && gba.dma[num].dst_addr != mem::IO_FIFO_B_L && gba.dma[num].mode == Mode::special)
     {
-        gba_log("addr: 0x%08X\n", gba.dma[num].dst_addr);
+        log::print_warn(gba, log::Type::DMA2, "bad fifo addr: 0x%08X\n", gba.dma[num].dst_addr);
         assert(0);
         return;
     }
@@ -299,6 +308,15 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
 
     // update the dma enabled flag
     dma.enabled = dma_enable;
+
+    if (!was_enabled && dma.enabled)
+    {
+        log::print_info(gba, LOG_TYPE[channel_num], "enabling dma\n");
+    }
+    else if (was_enabled && !dma.enabled)
+    {
+        log::print_info(gba, LOG_TYPE[channel_num], "disabling dma\n");
+    }
 
     // dma only updates internal registers on enable bit 0->1 transition(?)
     // i think immediate dmas are only fired on 0->1 as well(?)

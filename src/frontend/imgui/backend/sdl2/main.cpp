@@ -356,6 +356,10 @@ auto App::on_key_event(const SDL_KeyboardEvent& e) -> void
                     gameboy_advance.bit_crushing ^= 1;
                     break;
 
+                case SDL_SCANCODE_P:
+                    show_log_window ^= 1;
+                    break;
+
                 default: break; // silence enum warning
             }
         }

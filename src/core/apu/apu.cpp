@@ -8,11 +8,11 @@
 #include "dma.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
+#include "logger.hpp"
 #include <algorithm>
 #include <cassert>
 #include <type_traits>
 #include <utility>
-#include <cstdio>
 
 // bad code lives here
 // so i copy / pasted my gb apu code from my gb emu
@@ -24,6 +24,14 @@
 
 namespace gba::apu {
 namespace {
+
+constexpr log::Type LOG_TYPE[4] =
+{
+    log::Type::SQUARE0,
+    log::Type::SQUARE1,
+    log::Type::WAVE,
+    log::Type::NOISE,
+};
 
 constexpr scheduler::ID EVENTS[4] =
 {
@@ -274,7 +282,8 @@ auto len::on_nrx4_edge_case_write(Gba& gba, auto& channel, u8 value)
     {
         --len.counter;
 
-        gba_log("[APU] ch1 edge case: extra len clock!\n");
+        log::print_info(gba, LOG_TYPE[channel.num], "edge case: extra len clock!");
+
         // if this makes the result 0, and trigger is clear, disable channel
         if (!len.counter && !bit::is_set<7>(value))
         {
@@ -392,7 +401,7 @@ auto clock_env(Gba& gba)
 
 auto apu_on_enabled(Gba& gba) -> void
 {
-    gba_log("[APU] enabling...\n");
+    log::print_info(gba, log::Type::FRAME_SEQUENCER, "enabling...\n");
 
     // todo: reset more regs
     APU.square0.duty = 0;
@@ -411,7 +420,7 @@ auto apu_on_enabled(Gba& gba) -> void
 
 auto apu_on_disabled(Gba& gba) -> void
 {
-    gba_log("[APU] disabling...\n");
+    log::print_info(gba, log::Type::FRAME_SEQUENCER, "disabling...\n");
 
     REG_SOUND1CNT_L = 0;
     REG_SOUND1CNT_H = 0;
@@ -551,6 +560,8 @@ auto trigger(Gba& gba, T& channel)
 template<typename T>
 auto on_nrx0_write(Gba& gba, T& channel, u8 value)
 {
+    log::print_info(gba, LOG_TYPE[channel.num], "NR%u0: 0x%02X\n", channel.num, value);
+
     if constexpr(std::is_same<T, Square0>())
     {
         const bool sweep_negate = bit::is_set<3>(value);
@@ -559,7 +570,7 @@ auto on_nrx0_write(Gba& gba, T& channel, u8 value)
         // and negate is now cleared, then disable ch1.
         if (channel.sweep.negate && !sweep_negate && channel.sweep.did_negate)
         {
-            gba_log("[APU] NR10 sweep negate cleared, disabling channel!\n");
+            log::print_info(gba, LOG_TYPE[channel.num], "NRX0 sweep negate cleared, disabling channel!\n");
             channel.disable(gba);
         }
 
@@ -587,6 +598,8 @@ auto on_nrx0_write(Gba& gba, T& channel, u8 value)
 template<typename T>
 auto on_nrx1_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 {
+    log::print_info(gba, LOG_TYPE[channel.num], "NR%u1: 0x%02X\n", channel.num, value);
+
     if constexpr(std::is_same<T, Wave>())
     {
         channel.len.counter = 256 - value;
@@ -605,6 +618,8 @@ auto on_nrx1_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 template<typename T>
 auto on_nrx2_write(Gba& gba, T& channel, u8 value)
 {
+    log::print_info(gba, LOG_TYPE[channel.num], "NR%u2: 0x%02X\n", channel.num, value);
+
     if constexpr(std::is_same<T, Wave>())
     {
         channel.vol_code = bit::get_range<5, 6>(value);
@@ -623,6 +638,8 @@ auto on_nrx2_write(Gba& gba, T& channel, u8 value)
 template<typename T>
 auto on_nrx3_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 {
+    log::print_info(gba, LOG_TYPE[channel.num], "NR%u3: 0x%02X\n", channel.num, value);
+
     if constexpr(std::is_same<T, Noise>())
     {
         channel.clock_shift = bit::get_range<4, 7>(value);
@@ -638,6 +655,8 @@ auto on_nrx3_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 template<typename T>
 auto on_nrx4_write(Gba& gba, T& channel, u8 value)
 {
+    log::print_info(gba, LOG_TYPE[channel.num], "NR%u4: 0x%02X\n", channel.num, value);
+
     len::on_nrx4_edge_case_write(gba, channel, value);
 
     if constexpr(!std::is_same<T, Noise>())
@@ -680,6 +699,8 @@ auto on_nr52_write(Gba& gba, u8 value)
 
 auto on_wave_mem_write(Gba& gba, u8 addr, u8 value)
 {
+    log::print_info(gba, log::Type::WAVE, "ram write: 0x%02X value: 0x%02X\n", addr, value);
+
     if (gba.is_gb())
     {
         if (APU.wave.is_enabled(gba))
@@ -731,12 +752,20 @@ auto is_apu_enabled(Gba& gba) -> bool
 template<u8 Number>
 auto Base<Number>::enable(Gba& gba) -> void
 {
+    if (!is_enabled(gba))
+    {
+        log::print_info(gba, LOG_TYPE[Number], "enabling channel\n");
+    }
     REG_SOUNDCNT_X = bit::set<num>(REG_SOUNDCNT_X);
 }
 
 template<u8 Number>
 auto Base<Number>::disable(Gba& gba) -> void
 {
+    if (is_enabled(gba))
+    {
+        log::print_info(gba, LOG_TYPE[Number], "disabling channel\n");
+    }
     REG_SOUNDCNT_X = bit::unset<num>(REG_SOUNDCNT_X);
     gba.delta.remove(EVENTS[Number]);
     gba.scheduler.remove(EVENTS[Number]);
@@ -1196,6 +1225,8 @@ auto write_WAVE(Gba& gba, u8 addr, u8 value) -> void
 
 auto read_WAVE(Gba& gba, u8 addr) -> u8
 {
+    log::print_info(gba, log::Type::WAVE, "ram read: 0x%02X\n", addr);
+
     if (gba.is_gb())
     {
         if (gba.apu.wave.is_enabled(gba))
@@ -1210,7 +1241,7 @@ auto read_WAVE(Gba& gba, u8 addr) -> u8
     }
     else
     {
-        std::printf("[APU] WARNING, wave reads not properly implemented!\n");
+        log::print_warn(gba, log::Type::WAVE, "wave reads not properly implemented!\n");
 
         if (APU.wave.bank_mode == 0)
         {

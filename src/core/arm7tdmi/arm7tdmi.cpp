@@ -9,8 +9,10 @@
 #include "bios_hle.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
+#include "logger.hpp"
+
+#include <bit>
 #include <cassert>
-#include <cstdio>
 #include <span>
 #include <utility>
 
@@ -199,7 +201,7 @@ auto exception(Gba& gba, const Exception e)
 
 auto on_interrupt(Gba& gba)
 {
-    //printf("performing irq IE: 0x%04X IF 0x%04X lr: 0x%08X pc: 0x%08X mode: %u state: %s\n", REG_IE, REG_IF, get_lr(gba), get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
+    log::print_info(gba, log::Type::INTERRUPT, "num: %u lr: 0x%08X pc: 0x%08X mode: %u state: %s\n", std::countr_zero(static_cast<u16>(REG_IE & REG_IF)), get_lr(gba), get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
     exception(gba, Exception::IRQ);
 }
 
@@ -577,12 +579,14 @@ auto on_halt_trigger(Gba& gba, const HaltType type) -> void
         }
 
         assert(gba.cpu.halted == false);
+        log::print_info(gba, log::Type::HALT, "halt called, pc: 0x%08X mode: %u state: %s\n", get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
+
         gba.cpu.halted = true;
         gba.scheduler.add(scheduler::ID::HALT, 0, arm7tdmi::on_halt_event, &gba);
     }
     else
     {
-        std::printf("[HALT] called when no interrupt can happen!\n");
+        log::print_fatal(gba, log::Type::HALT, "called when no interrupt can happen!\n");
         assert(!"writing to hltcnt");
     }
 }

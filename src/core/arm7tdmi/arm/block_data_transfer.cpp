@@ -5,6 +5,8 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
+#include "logger.hpp"
+#include <bit>
 
 namespace gba::arm7tdmi::arm {
 namespace {
@@ -79,7 +81,7 @@ auto block_data_transfer(Gba& gba, const u32 opcode) -> void
     if (!Rlist)
     {
         // this just simplifies stuff
-        gba_log("\tempty rlist in block_data_transfer\n");
+        log::print_info(gba, log::Type::ARM, "empty rlist in block_data_transfer\n");
         block_data_transfer_empty_rlist(gba, opcode);
         return;
     }

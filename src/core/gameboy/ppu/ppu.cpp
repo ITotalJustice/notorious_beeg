@@ -4,8 +4,8 @@
 #include "../internal.hpp"
 #include "../gb.hpp"
 #include "scheduler.hpp"
+#include "logger.hpp"
 
-#include <cstdio>
 #include <cstring>
 #include <cassert>
 
@@ -102,12 +102,12 @@ void change_status_mode(Gba& gba, const u8 new_mode)
 
 void on_lcd_disable(Gba& gba)
 {
-    printf("disabling ppu...\n");
+    log::print_info(gba, log::Type::GB_PPU, "disabling ppu...\n");
 
     // this *should* only happen in vblank!
     if (get_status_mode(gba) != STATUS_MODE_VBLANK)
     {
-        gb_log("[PPU-WARN] game is disabling lcd outside vblank: 0x%0X\n", get_status_mode(gba));
+        log::print_warn(gba, log::Type::GB_PPU, "game is disabling lcd outside vblank: 0x%0X\n", get_status_mode(gba));
     }
 
     // in progress hdma should be stopped when ppu is turned off

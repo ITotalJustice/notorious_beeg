@@ -10,6 +10,7 @@
 #include "ppu/ppu.hpp"
 #include "scheduler.hpp"
 #include "timer.hpp"
+#include "logger.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -114,6 +115,28 @@ inline auto empty_write([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr, [[
     #if 0
     std::printf("empty write to: 0x%08X value: 0x%08X\n", addr, value);
     #endif
+}
+
+void log_write(Gba& gba, char c)
+{
+    if (gba.log_buffer_index < 0x100)
+    {
+        gba.log_buffer[gba.log_buffer_index] = c;
+        gba.log_buffer_index++;
+    }
+}
+
+void log_flag_write(Gba& gba, u16 value)
+{
+    u8 level = value & 7;
+    bool flush = bit::is_set<8>(value);
+
+    if (flush)
+    {
+        gba.log_buffer[gba.log_buffer_index + 1] = '\0';
+        log::print(gba, log::Type::GAME, level, gba.log_buffer);
+        gba.log_buffer_index = 0;
+    }
 }
 
 [[nodiscard]]
@@ -341,6 +364,9 @@ inline auto read_io16(Gba& gba, const u32 addr) -> u16
         case 0x400020A: // REG_IME (high 16 bits unreadable)
         case 0x4000302: // REG_PAUSE (high 16 bits unreadable)
             return 0x0000;
+
+        case IO_MGBA_CONTROL: // LON (log on)
+            return gba.rom_logging ? IO_LOG_ON_RESULT : 0x0000;
 
         default:
             // the only mirrored reg
@@ -637,7 +663,36 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
             apu::on_soundcnt_write(gba);
             break;
 
+        case IO_MGBA_CONTROL: // LON (log on)
+            if (value == IO_LOG_ON)
+            {
+                gba.rom_logging = true;
+                std::printf("[LOG] logging enabled\n");
+            }
+            else if (value == IO_LOG_OFF)
+            {
+                gba.rom_logging = false;
+                std::printf("[LOG] logging disabled\n");
+            }
+            else
+            {
+                std::printf("[LOG] invalid write to [IO_MGBA_CONTROL]: 0x%04X\n", value);
+            }
+            break;
+
+        case IO_MGBA_FLAGS:
+            if (gba.rom_logging)
+            {
+                log_flag_write(gba, value);
+            }
+            break;
+
         default:
+            if (gba.rom_logging && addr >= IO_MGBA_STDOUT && addr <= IO_MGBA_STDOUT + 0x100) [[unlikely]]
+            {
+                log_write(gba, (value >> 0) & 0xFF);
+                log_write(gba, (value >> 8) & 0xFF);
+            }
             // the only mirrored reg
             if ((addr & 0xFFF) == (IO_IMC_L & 0xFFF))
             {
@@ -774,6 +829,12 @@ inline auto write_io8(Gba& gba, const u32 addr, const u8 value) -> void
             break;
 
         default: {
+            if (gba.rom_logging && addr >= IO_MGBA_STDOUT && addr <= IO_MGBA_STDOUT + 0x100) [[unlikely]]
+            {
+                log_write(gba, value);
+                break;
+            }
+
             u16 actual_value = value;
             const u16 old_value = MEM.io[(addr & 0x3FF) >> 1];
 

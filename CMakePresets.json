@@ -69,7 +69,8 @@
                 "core"
             ],
             "cacheVariables": {
-                "IMGUI": true
+                "IMGUI": true,
+                "GBA_LOGGER": true
             }
         },
         {
@@ -80,7 +81,8 @@
             ],
             "cacheVariables": {
                 "IMGUI": true,
-                "TESTING": true
+                "TESTING": true,
+                "GBA_LOGGER": true
             }
         },
         {

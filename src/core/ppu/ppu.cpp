@@ -9,10 +9,10 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "scheduler.hpp"
+#include "logger.hpp"
 
 #include <cassert>
 #include <cstddef>
-#include <cstdio>
 #include <cstring>
 #include <utility>
 
@@ -41,6 +41,8 @@ auto update_period_cycles(Gba& gba) -> u16
 // this means that this is called during vblank as well
 auto on_hblank(Gba& gba)
 {
+    log::print_info(gba, log::Type::PPU, "entered hblank\n");
+
     REG_DISPSTAT = bit::set<1>(REG_DISPSTAT);
 
     if (bit::is_set<4>(REG_DISPSTAT))
@@ -63,6 +65,8 @@ auto on_hblank(Gba& gba)
 // called on line 160
 auto on_vblank(Gba& gba)
 {
+    log::print_info(gba, log::Type::PPU, "entered hblank\n");
+
     REG_DISPSTAT = bit::set<0>(REG_DISPSTAT);
 
     if (bit::is_set<3>(REG_DISPSTAT))

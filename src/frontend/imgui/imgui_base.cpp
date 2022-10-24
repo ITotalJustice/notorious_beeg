@@ -28,6 +28,8 @@ auto draw_grid(int size, int count, float thicc, int x, int y)
 
 auto on_hblank_callback(void* user, std::uint16_t line) -> void
 {
+    if (!user) { return; }
+
     // this is UB because the actual ptr is whatever inherts the base
     auto app = static_cast<ImguiBase*>(user);
 
@@ -50,6 +52,18 @@ auto on_hblank_callback(void* user, std::uint16_t line) -> void
     }
 }
 
+void on_log_callback(void* user, std::uint8_t type, std::uint8_t level, const char* str)
+{
+    if (!user) { return; }
+
+    // this is UB because the actual ptr is whatever inherts the base
+    auto app = static_cast<ImguiBase*>(user);
+
+    static const char* type_str[] = { "PPU", "SQUARE0", "SQUARE1", "WAVE", "NOISE", "FRAME_SEQUENCER", "TIMER0", "TIMER1", "TIMER2", "TIMER3", "DMA0", "DMA1", "DMA2", "DMA3", "INTERRUPT", "HALT", "ARM", "THUMB", "MEMORY",  "EEPROM", "FLASH", "SRAM", "GPIO", "EZFLASH", "M3CF", "M3SD", "MPCF", "SCCF", "SCSD", "GB_BUS", "GB_CPU", "GB_PPU", "GB_MBC0", "GB_MBC1", "GB_MBC2", "GB_MBC3", "GB_MBC5", "GB_TIMER", "GB_DIV", "GAME" };
+    static const char* level_str[] = { "FATAL", "ERROR", "WARN", "INFO", "DEBUG" };
+    app->logger.AddLog("[%s] [%s] %s", level_str[level], type_str[type], str);
+}
+
 template<int num, typename T>
 auto mem_viewer_entry(const char* name, std::span<T> data) -> void
 {
@@ -66,7 +80,6 @@ auto mem_viewer_entry(const char* name, std::span<T> data) -> void
 ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
 {
     scale = 4;
-    // gameboy_advance.set_hblank_callback(on_hblank_callback);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -81,6 +94,7 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
     io.Fonts->AddFontFromMemoryCompressedTTF(trim_font_compressed_data, trim_font_compressed_size, 20);
 
     gameboy_advance.set_hblank_callback(on_hblank_callback);
+    gameboy_advance.set_log_callback(on_log_callback);
     gameboy_advance.set_pixels(pixels, 240, 16);
 }
 
@@ -131,6 +145,7 @@ auto ImguiBase::run_render() -> void
     menubar(); // this should be child to emu screen
     im_debug_window();
     render_layers();
+    log_window();
 
     resize_to_menubar();
 
@@ -351,8 +366,9 @@ auto ImguiBase::menubar_tab_view() -> void
         ImGui::MenuItem("Layer 3", nullptr, &layers[3].enabled);
         ImGui::EndMenu();
     }
+    ImGui::Separator();
 
-    ImGui::MenuItem("todo...");
+    ImGui::MenuItem("Show Logger", "Ctrl+Shift+P", &show_log_window);
 }
 
 auto ImguiBase::menubar_tab_help() -> void
@@ -511,5 +527,14 @@ auto ImguiBase::toggle_master_layer_enable() -> void
     for (auto& layer : layers)
     {
         layer.enabled = layer_enable_master;
+    }
+}
+
+void ImguiBase::log_window()
+{
+    if (show_log_window)
+    {
+        ImGui::SetNextWindowSize(ImVec2(700, 400), ImGuiCond_FirstUseEver);
+        logger.Draw("Logger", &gameboy_advance.log_type, &gameboy_advance.log_level, &show_log_window);
     }
 }

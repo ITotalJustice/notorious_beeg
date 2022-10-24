@@ -9,6 +9,8 @@ project(notorious_beeg
 option(SINGLE_FILE "compile everything as a single file" OFF)
 # enable sanitizers
 option(GBA_DEV "enable sanitizers" OFF)
+# enable logging
+option(GBA_LOGGER "enable logging" OFF)
 
 set(INTERPRETER_TABLE 0)
 set(INTERPRETER_SWITCH 1)
@@ -99,6 +101,7 @@ endif()
 
 target_compile_definitions(GBA PRIVATE
     GBA_DEBUG=$<BOOL:${GBA_DEBUG}>
+    GBA_LOGGER=$<BOOL:${GBA_LOGGER}>
     SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
     ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
     INTERPRETER=${INTERPRETER}

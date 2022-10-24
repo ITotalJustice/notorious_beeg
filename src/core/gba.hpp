@@ -157,6 +157,7 @@ using AudioCallback = void(*)(void* user);
 using VblankCallback = void(*)(void* user);
 using HblankCallback = void(*)(void* user, u16 line);
 using ColourCallback = u32(*)(void* user, Colour colour);
+using LogCallback = void(*)(void* user, u8 type, u8 level, const char* str);
 
 struct Gba
 {
@@ -208,11 +209,12 @@ struct Gba
     // OR keys together
     auto setkeys(u16 buttons, bool down) -> void;
 
-    auto set_userdata(void* user) { this->userdata = user; }
-    auto set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate = 65536) -> void;
-    auto set_vblank_callback(VblankCallback cb) { this->vblank_callback = cb; }
-    auto set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
-    auto set_colour_callback(ColourCallback cb) { this->colour_callback = cb; }
+    void set_userdata(void* user) { this->userdata = user; }
+    void set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate = 65536);
+    void set_vblank_callback(VblankCallback cb) { this->vblank_callback = cb; }
+    void set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
+    void set_colour_callback(ColourCallback cb) { this->colour_callback = cb; }
+    void set_log_callback(LogCallback cb) { this->log_callback = cb; }
 
     // set the pixels that the game will render to
     // IMPORTANT: if pixels == NULL, then no rendering will happen!
@@ -231,6 +233,8 @@ struct Gba
 
     bool bit_crushing{false};
     bool frame_end;
+    // controlled by the rom writing to [IO_LOG_CONTROL]
+    bool rom_logging{false};
 
     void* userdata{};
     std::span<s16> sample_data;
@@ -242,10 +246,16 @@ struct Gba
     u32 stride;
     u8 bpp;
 
+    char log_buffer[0x101]{};
+    u32 log_buffer_index{};
+    u64 log_type{};
+    u64 log_level{};
+
     AudioCallback audio_callback{};
     VblankCallback vblank_callback{};
     HblankCallback hblank_callback{};
     ColourCallback colour_callback{};
+    LogCallback log_callback{};
 };
 
 struct State
