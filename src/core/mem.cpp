@@ -7,6 +7,7 @@
 #include "backup/backup.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
+#include "key.hpp"
 #include "ppu/ppu.hpp"
 #include "scheduler.hpp"
 #include "timer.hpp"
@@ -343,6 +344,13 @@ inline auto read_io16(Gba& gba, const u32 addr) -> u16
             return REG_KEY & mask;
         }
 
+        case IO_KEYCNT: {
+            constexpr auto mask =
+                bit::get_mask<0, 9, u16>() |
+                bit::get_mask<14, 15, u16>();
+            return REG_KEY & mask;
+        }
+
         // these are registers with w only bits
         // these don't return openbus, instead return 0x0000
         case 0x4000066: // REG_SOUND1CNT_X (high 16 bits unreadable)
@@ -507,6 +515,11 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
         case IO_DMA3CNT_L:
         case IO_RCNT:
             gba.mem.io[(addr & IO_MASK) >> 1] = value;
+            break;
+
+        case IO_KEYCNT:
+            gba.mem.io[(addr & IO_MASK) >> 1] = value;
+            gba::key::check_key_interrupt(gba);
             break;
 
         case IO_BG2X_LO:

@@ -18,6 +18,7 @@
     #include "bios_hle.cpp"
     #include "gpio.cpp"
     #include "rtc.cpp"
+    #include "key.cpp"
 
     #include "backup/backup.cpp"
     #include "backup/eeprom.cpp"

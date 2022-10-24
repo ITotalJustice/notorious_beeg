@@ -36,6 +36,7 @@ else ()
         bios_hle.cpp
         gpio.cpp
         rtc.cpp
+        key.cpp
 
         backup/backup.cpp
         backup/eeprom.cpp

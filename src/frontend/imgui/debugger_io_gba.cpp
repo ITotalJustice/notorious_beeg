@@ -891,6 +891,27 @@ auto io_key(gba::Gba& gba) -> void
     io_button<0x9>(REG_KEY, "Button::R");
 }
 
+auto io_KEYCNT(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_KEYCNT, REG_KEYCNT);
+
+    io_button<0x0>(REG_KEYCNT, "Button::A");
+    io_button<0x1>(REG_KEYCNT, "Button::B");
+    io_button<0x2>(REG_KEYCNT, "Button::SELECT");
+    io_button<0x3>(REG_KEYCNT, "Button::START");
+    io_button<0x4>(REG_KEYCNT, "Button::RIGHT");
+    io_button<0x5>(REG_KEYCNT, "Button::LEFT");
+    io_button<0x6>(REG_KEYCNT, "Button::UP");
+    io_button<0x7>(REG_KEYCNT, "Button::DOWN");
+    io_button<0x8>(REG_KEYCNT, "Button::L");
+    io_button<0x9>(REG_KEYCNT, "Button::R");
+    ImGui::Separator();
+
+    io_button<14>(REG_KEYCNT, "IRQ enable");
+    static const char* condition_list[] = { "Logical OR", "Logical AND" };
+    io_list<15, 15>(REG_KEYCNT, "IRQ condition", condition_list);
+}
+
 auto io_ie_if(auto addr, auto& reg) -> void
 {
     io_title(addr, reg);
@@ -1052,6 +1073,7 @@ constexpr std::array IO_NAMES =
     IoRegEntry{ "TM2CNT", IO_TM2CNT },
     IoRegEntry{ "TM3CNT", IO_TM3CNT },
     IoRegEntry{ "KEY", io_key },
+    IoRegEntry{ "KEYCNT", io_KEYCNT },
     IoRegEntry{ "IE", io_ie },
     IoRegEntry{ "IF", io_if },
     IoRegEntry{ "WSCNT", IO_WSCNT },

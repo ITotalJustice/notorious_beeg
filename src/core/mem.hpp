@@ -241,6 +241,7 @@ enum IOAddr
     IO_TM3CNT = 0x400010E, // (Timer 3 Control)
 
     IO_KEY = 0x04000130, // (The input register)(Read Only)
+    IO_KEYCNT = 0x04000132, // (Input control register, used for interrupts)
     IO_RCNT = 0x04000134,
 
     IO_IE = 0x04000200, // (Interrupt Enable Register)
@@ -433,6 +434,7 @@ enum LogAddr
 #define REG_TM3CNT gba.mem.io[(gba::mem::IO_TM3CNT & 0x3FF) >> 1]
 
 #define REG_KEY gba.mem.io[(gba::mem::IO_KEY & 0x3FF) >> 1]
+#define REG_KEYCNT gba.mem.io[(gba::mem::IO_KEYCNT & 0x3FF) >> 1]
 #define REG_RCNT gba.mem.io[(gba::mem::IO_RCNT & 0x3FF) >> 1]
 
 #define REG_IE gba.mem.io[(gba::mem::IO_IE & 0x3FF) >> 1]

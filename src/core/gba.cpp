@@ -8,6 +8,7 @@
 #include "backup/eeprom.hpp"
 #include "backup/flash.hpp"
 #include "gameboy/gb.hpp"
+#include "key.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
 #include "bios.hpp"
@@ -138,37 +139,7 @@ auto set_buttons_gb(Gba& gba, u16 buttons, bool down)
 
 auto set_buttons_gba(Gba& gba, u16 buttons, bool down)
 {
-    // the pins go LOW when pressed!
-    if (down)
-    {
-        REG_KEY &= ~buttons;
-
-    }
-    else
-    {
-        REG_KEY |= buttons;
-    }
-
-    // this can be better optimised at some point
-    if (down && ((buttons & DIRECTIONAL) != 0))
-    {
-        if ((buttons & RIGHT) != 0)
-        {
-            REG_KEY |= LEFT;
-        }
-        if ((buttons & LEFT) != 0)
-        {
-            REG_KEY |= RIGHT;
-        }
-        if ((buttons & UP) != 0)
-        {
-            REG_KEY |= DOWN;
-        }
-        if ((buttons & DOWN) != 0)
-        {
-            REG_KEY |= UP;
-        }
-    }
+    key::set_key(gba, buttons, down);
 }
 
 auto loadsave_gb(Gba& gba, std::span<const u8> new_save) -> bool
