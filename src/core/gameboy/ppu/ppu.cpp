@@ -5,6 +5,7 @@
 #include "../gb.hpp"
 #include "scheduler.hpp"
 
+#include <cstdio>
 #include <cstring>
 #include <cassert>
 
@@ -57,12 +58,13 @@ void change_status_mode(Gba& gba, const u8 new_mode)
     // mode will set the stat_line=0 (unless LY==LYC)
     stat_interrupt_update(gba);
 
-    #if USE_SCHED
+    u16 next_cycles = 0;
+
     // TODO: check what the timing should actually be for ppu modes!
     switch (new_mode)
     {
         case STATUS_MODE_HBLANK:
-            gba.gameboy.ppu.next_cycles = MODE_CYCLES_HBLANK;
+            next_cycles = MODE_CYCLES_HBLANK;
             draw_scanline(gba);
 
             if (gba.hblank_callback != nullptr)
@@ -73,7 +75,7 @@ void change_status_mode(Gba& gba, const u8 new_mode)
 
         case STATUS_MODE_VBLANK:
             enable_interrupt(gba, INTERRUPT_VBLANK);
-            gba.gameboy.ppu.next_cycles = MODE_CYCLES_VBLANK;
+            next_cycles = MODE_CYCLES_VBLANK;
 
             if (gba.vblank_callback != nullptr)
             {
@@ -83,45 +85,18 @@ void change_status_mode(Gba& gba, const u8 new_mode)
             break;
 
         case STATUS_MODE_SPRITE:
-            gba.gameboy.ppu.next_cycles = MODE_CYCLES_SPRITE;
+            next_cycles = MODE_CYCLES_SPRITE;
             break;
 
         case STATUS_MODE_TRANSFER:
-            gba.gameboy.ppu.next_cycles = MODE_CYCLES_TRANSFER;
+            next_cycles = MODE_CYCLES_TRANSFER;
             break;
     }
+
+    #if USE_SCHED
+    gba.gameboy.ppu.next_cycles = next_cycles;
     #else
-    switch (new_mode)
-    {
-        case STATUS_MODE_HBLANK:
-            gba.gameboy.ppu.next_cycles += MODE_CYCLES_HBLANK;
-            draw_scanline(gba);
-
-            if (gba.hblank_callback != nullptr)
-            {
-                gba.hblank_callback(gba.userdata, IO_LY);
-            }
-            break;
-
-        case STATUS_MODE_VBLANK:
-            enable_interrupt(gba, INTERRUPT_VBLANK);
-            gba.gameboy.ppu.next_cycles += MODE_CYCLES_VBLANK;
-
-            if (gba.vblank_callback != nullptr)
-            {
-                gba.vblank_callback(gba.userdata);
-            }
-            gba.gameboy.ppu.first_frame_enabled = false;
-            break;
-
-        case STATUS_MODE_SPRITE:
-            gba.gameboy.ppu.next_cycles += MODE_CYCLES_SPRITE;
-            break;
-
-        case STATUS_MODE_TRANSFER:
-            gba.gameboy.ppu.next_cycles += MODE_CYCLES_TRANSFER;
-            break;
-    }
+    gba.gameboy.ppu.next_cycles += next_cycles;
     #endif
 }
 
@@ -152,7 +127,8 @@ void on_lcd_disable(Gba& gba)
     // gba.gameboy.ppu.stat_line = false;
 
     #if USE_SCHED
-    scheduler::remove(gba, scheduler::Event::PPU);
+    gba.delta.remove(scheduler::ID::PPU);
+    gba.scheduler.remove(scheduler::ID::PPU);
     #endif
 }
 
@@ -173,7 +149,7 @@ void on_lcd_enable(Gba& gba)
     gba.gameboy.ppu.mode = STATUS_MODE_SPRITE;
     compare_LYC(gba);
     #if USE_SCHED
-    scheduler::add(gba, scheduler::Event::PPU, on_ppu_event, gba.gameboy.ppu.next_cycles);
+    gba.scheduler.add(scheduler::ID::PPU, gba.gameboy.ppu.next_cycles, on_ppu_event, &gba);
     #endif
 }
 
@@ -190,9 +166,12 @@ const u8 PIXEL_BIT_GROW[] =
     0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
 };
 
-void on_ppu_event(Gba& gba)
+void on_ppu_event(void* user, s32 id, s32 late)
 {
     #if USE_SCHED
+    auto& gba = *static_cast<Gba*>(user);
+    gba.delta.add(id, late);
+
     switch (get_status_mode(gba))
     {
         case STATUS_MODE_HBLANK:
@@ -252,7 +231,7 @@ void on_ppu_event(Gba& gba)
             break;
     }
 
-    scheduler::add(gba, scheduler::Event::PPU, on_ppu_event, gba.gameboy.ppu.next_cycles);
+    gba.scheduler.add(id, gba.delta.get(id, gba.gameboy.ppu.next_cycles), on_ppu_event, &gba);
     #endif
 }
 

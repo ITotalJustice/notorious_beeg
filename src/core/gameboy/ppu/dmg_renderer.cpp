@@ -62,23 +62,24 @@ inline void on_dmg_palette_write(const Gba& gba, PalCache cache[20], bool* dirty
     *dirty |= palette != value;
 
     #if USE_SCHED
-    const auto& entry = gba.scheduler.entries[std::to_underlying(scheduler::Event::PPU)];
-
-    if (!entry.enabled)
+    if (!gba.scheduler.has_event(scheduler::ID::PPU))
     {
         return;
     }
 
-    const auto cycles = entry.cycles - gba.scheduler.cycles - entry.delta;
-    // assert(cycles >= 0);
-    assert(entry.cycles >= gba.scheduler.cycles);
+    const auto event_cycles = gba.scheduler.get_event_cycles(scheduler::ID::PPU);
+    const auto scheduler_cycles = gba.scheduler.get_ticks();
+    const auto cycles = event_cycles - scheduler_cycles;
+
+    assert(cycles >= 0);
+    assert(event_cycles >= scheduler_cycles);
     #else
     const auto cycles = gba.gameboy.ppu.next_cycles;
     #endif
 
     // can writes to happen even if disabled?
     // im assuming that is the case for now!
-    if (get_status_mode(gba) == STATUS_MODE_TRANSFER && cycles >= 12 && cycles <= 172)
+    if (get_status_mode(gba) == STATUS_MODE_TRANSFER && cycles > 12 && cycles <= 172)
     {
         const auto index = (172 - cycles) / 8;
 

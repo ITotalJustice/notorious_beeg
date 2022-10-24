@@ -53,6 +53,12 @@ struct Envelope
     bool disable;
 };
 
+// todo: don't use template class, its bad
+// just have a seperate class for every channel
+// even if it means repeated code, its better than this.
+// also, don't use inheritance either, vtables bad.
+// potentially could have 1 big class that covers all channels
+// and then have an array[4]
 template<u8 Number>
 struct Base
 {
@@ -206,12 +212,12 @@ STATIC auto write_NR52(Gba& gba, u8 value) -> void;
 STATIC auto write_WAVE(Gba& gba, u8 addr, u8 value) -> void;
 STATIC auto read_WAVE(Gba& gba, u8 addr) -> u8;
 
-STATIC auto on_square0_event(Gba& gba) -> void;
-STATIC auto on_square1_event(Gba& gba) -> void;
-STATIC auto on_wave_event(Gba& gba) -> void;
-STATIC auto on_noise_event(Gba& gba) -> void;
-STATIC auto on_frame_sequencer_event(Gba& gba) -> void;
-STATIC auto on_sample_event(Gba& gba) -> void;
+STATIC auto on_square0_event(void* user, s32 id, s32 late) -> void;
+STATIC auto on_square1_event(void* user, s32 id, s32 late) -> void;
+STATIC auto on_wave_event(void* user, s32 id, s32 late) -> void;
+STATIC auto on_noise_event(void* user, s32 id, s32 late) -> void;
+STATIC auto on_frame_sequencer_event(void* user, s32 id = 0, s32 late = 0) -> void;
+STATIC auto on_sample_event(void* user, s32 id, s32 late) -> void;
 
 STATIC auto is_apu_enabled(Gba& gba) -> bool;
 

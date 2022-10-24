@@ -14,7 +14,83 @@
 #include "backup/backup.hpp"
 #include "gpio.hpp"
 #include "fwd.hpp"
+#include <cassert>
 #include <span>
+
+namespace scheduler {
+
+enum ID : s32
+{
+    PPU,
+    // todo: profile removing the apu channel events
+    APU_SQUARE0,
+    APU_SQUARE1,
+    APU_WAVE,
+    APU_NOISE,
+    APU_FRAME_SEQUENCER,
+    APU_SAMPLE,
+    TIMER0,
+    TIMER1,
+    TIMER2,
+    TIMER3,
+    DMA,
+    INTERRUPT,
+    HALT,
+
+    // special event to indicate the end of a frame.
+    // the cycles is set by the user in run();
+    FRAME,
+
+    // not an actual event, it just keeps track of the size
+    END,
+};
+
+struct DeltaManager
+{
+    s32 deltas[ID::END]{};
+
+    constexpr void reset()
+    {
+        for (auto& delta : deltas) { delta = 0; }
+    }
+
+    constexpr void add(s32 id, s32 delta)
+    {
+        assert(id < 15);
+        assert(delta <= 0);
+        deltas[id] = delta;
+    }
+
+    constexpr void remove(s32 id)
+    {
+        assert(id < 15);
+        deltas[id] = 0;
+    }
+
+    [[nodiscard]] constexpr auto get(s32 id, s32 time) -> s32
+    {
+        assert(id < 15);
+        return time + deltas[id];
+    }
+};
+
+struct State
+{
+    struct Entry
+    {
+        s32 enabled;
+        s32 cycles;
+    };
+
+    Entry entries[ID::END];
+    DeltaManager delta;
+    s32 scheduler_cycles;
+
+    void on_savestate(const gba::Gba& gba);
+    void on_loadstate(gba::Gba& gba) const;
+};
+
+} // namespace scheduler
 
 namespace gba {
 
@@ -88,7 +164,10 @@ struct Gba
     mem::ReadArray rmap[16];
     mem::WriteArray wmap[16];
 
+    s32 elapsed_cycles;
+
     scheduler::Scheduler scheduler;
+    scheduler::DeltaManager delta;
     arm7tdmi::Arm7tdmi cpu;
     mem::Mem mem;
     ppu::Ppu ppu;
@@ -151,6 +230,7 @@ struct Gba
     System system;
 
     bool bit_crushing{false};
+    bool frame_end;
 
     void* userdata{};
     std::span<s16> sample_data;
@@ -175,7 +255,7 @@ struct State
     u32 size; // see StateMeta::SIZE
     u32 crc; // crc of game
 
-    scheduler::Scheduler scheduler;
+    scheduler::State scheduler;
     arm7tdmi::Arm7tdmi cpu;
     mem::Mem mem;
     apu::Apu apu;
@@ -190,7 +270,7 @@ struct State
 enum StateMeta : u32
 {
     MAGIC = 0xFACADE,
-    VERSION = 5,
+    VERSION = 6,
     SIZE = sizeof(State),
 };
 

@@ -56,13 +56,13 @@ inline auto computed_goto(Gba& gba)
 		goto *table[(opcode>>6)&0x3FF];
 
 	#define DISPATCH \
-		gba.scheduler.cycles += gba.scheduler.elapsed; \
-		gba.scheduler.elapsed = 0; \
+		gba.scheduler.tick(gba.elapsed_cycles); \
+		gba.elapsed_cycles = 0; \
 		\
-		if (gba.scheduler.next_event_cycles <= gba.scheduler.cycles) \
+		if (gba.scheduler.should_fire()) \
 		{ \
-			scheduler::fire(gba); \
-			if (gba.scheduler.frame_end) [[unlikely]] /* check if we are at end of frame */ \
+			gba.scheduler.fire(); \
+			if (gba.frame_end) [[unlikely]] /* check if we are at end of frame */ \
 			{ \
 				return; \
 			} \

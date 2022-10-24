@@ -7,6 +7,8 @@
 #include "mem.hpp"
 #include <utility>
 #include <cassert>
+#include <cstdio>
+#include <cstring>
 
 namespace gba::backup::flash {
 

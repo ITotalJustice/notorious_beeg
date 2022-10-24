@@ -5,6 +5,7 @@
 #include "gba.hpp"
 #include <cassert>
 #include <cstring>
+#include <cstdio>
 #include <utility>
 
 namespace gba::backup::eeprom {

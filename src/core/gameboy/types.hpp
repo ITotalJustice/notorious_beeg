@@ -341,8 +341,7 @@ struct Cart
 
 struct Timer
 {
-    u8 reserved[3];
-    bool reloading;
+    s32 tima_reload_timestamp;
 };
 
 struct mem

@@ -19,6 +19,7 @@
 #include <span>
 #include <type_traits>
 #include <bit>
+#include <utility>
 
 #define MEM gba.mem
 
@@ -1136,7 +1137,7 @@ inline auto read_internal(Gba& gba, u32 addr) -> T
         /*[0xF] =*/ read_sram_region<T>,
     };
 
-    gba.scheduler.tick(get_memory_timing(sizeof(T) >> 1, addr));
+    gba.elapsed_cycles += (get_memory_timing(sizeof(T) >> 1, addr));
 
     addr = mirror_address(addr);
     const auto& entry = gba.rmap[addr >> 24];
@@ -1174,7 +1175,7 @@ inline auto write_internal(Gba& gba, u32 addr, T value)
         /*[0xF] =*/ write_sram_region<T>,
     };
 
-    gba.scheduler.tick(get_memory_timing(sizeof(T) >> 1, addr));
+    gba.elapsed_cycles += (get_memory_timing(sizeof(T) >> 1, addr));
 
     addr = mirror_address(addr);
     const auto& entry = gba.wmap[addr >> 24];

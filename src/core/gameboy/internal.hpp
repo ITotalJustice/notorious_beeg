@@ -159,12 +159,12 @@ STATIC auto is_win_enabled(const Gba& gba) -> bool;
 STATIC auto is_obj_enabled(const Gba& gba) -> bool;
 STATIC auto is_bg_enabled(const Gba& gba) -> bool;
 
-STATIC void on_timer_reload_event(Gba& gba);
-STATIC void on_timer_event(Gba& gba);
-STATIC void on_div_event(Gba& gba);
+STATIC void on_timer_reload_event(void* user, s32 id = 0, s32 late = 0);
+STATIC void on_timer_event(void* user, s32 id = 0, s32 late = 0);
+STATIC void on_div_event(void* user, s32 id, s32 late);
 
-STATIC void on_halt_event(Gba& gba);
-STATIC void on_interrupt_event(Gba& gba);
+STATIC void on_halt_event(void* user, s32 id = 0, s32 late = 0);
+STATIC void on_interrupt_event(void* user, s32 id, s32 late);
 STATIC void schedule_interrupt(Gba& gba, u8 cycles_delay = 0);
 
 } // namespace gba::gb

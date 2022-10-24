@@ -601,7 +601,7 @@ void sprite_ram_bug(Gba& gba, u8 v)
 #else
 #define EI() do { \
     gba.gameboy.cpu.ime_delay = true; \
-    scheduler::add(gba, scheduler::Event::INTERRUPT, on_interrupt_event, 0); \
+    gba.scheduler.add(scheduler::ID::INTERRUPT, 0, on_interrupt_event, &gba); \
 } while(0)
 #endif
 
@@ -818,7 +818,7 @@ inline void HALT(Gba& gba)
     {
         // normal halt
         gba.gameboy.cpu.halt = true;
-        scheduler::add(gba, scheduler::Event::HALT, on_halt_event, 0);
+        gba.scheduler.add(scheduler::ID::HALT, 0, on_halt_event, &gba);
     }
     else
     {
@@ -830,7 +830,7 @@ inline void HALT(Gba& gba)
         {
             assert(GB_IO_IE && "never ending halt");
             gba.gameboy.cpu.halt = true;
-            scheduler::add(gba, scheduler::Event::HALT, on_halt_event, 0);
+            gba.scheduler.add(scheduler::ID::HALT, 0, on_halt_event, &gba);
         }
     }
 }
@@ -864,7 +864,7 @@ void STOP(Gba& gba)
 
         if (!gba.gameboy.cpu.double_speed)
         {
-            printf("double speed mode was disabled!\n");
+            // printf("double speed mode was disabled!\n");
         }
     }
 
@@ -1430,25 +1430,26 @@ auto cpu_get_register_pair(const Gba& gba, enum CpuRegisterPairs pair) -> u16
     std::unreachable();
 }
 
-void on_halt_event(Gba& gba)
+void on_halt_event(void* user, s32 id, s32 late)
 {
     #if USE_SCHED
-    assert(gba.scheduler.next_event != scheduler::Event::HALT && "halt bug");
+    auto& gba = *static_cast<Gba*>(user);
 
-    while (gba.gameboy.cpu.halt && !gba.scheduler.frame_end)
+    // assert(gba.scheduler.next_event != scheduler::ID::HALT && "halt bug");
+
+    while (gba.gameboy.cpu.halt && !gba.frame_end)
     {
-        if (gba.scheduler.next_event_cycles >= gba.scheduler.cycles) [[likely]]
-        {
-            gba.scheduler.cycles = gba.scheduler.next_event_cycles;
-        }
-        scheduler::fire(gba);
+        gba.scheduler.advance_to_next_event();
+        gba.scheduler.fire();
     }
     #endif
 }
 
-void on_interrupt_event(Gba& gba)
+void on_interrupt_event(void* user, s32 id, s32 late)
 {
     #if USE_SCHED
+    auto& gba = *static_cast<Gba*>(user);
+
     if (gba.gameboy.cpu.ime_delay)
     {
         if (gba.gameboy.cpu.ime && GB_IO_IF & GB_IO_IE & 0x1F)
@@ -1480,7 +1481,7 @@ void schedule_interrupt(Gba& gba, u8 cycles_delay)
 
         if (gba.gameboy.cpu.ime)
         {
-            scheduler::add(gba, scheduler::Event::INTERRUPT, on_interrupt_event, cycles_delay);
+            gba.scheduler.add(scheduler::ID::INTERRUPT, cycles_delay, on_interrupt_event, &gba);
         }
     }
     #endif

@@ -50,7 +50,7 @@ struct Channel
 	bool enabled;
 };
 
-STATIC auto on_event(Gba& gba) -> void;
+STATIC auto on_event(void* user, s32 id, s32 late) -> void;
 STATIC auto on_hblank(Gba& gba) -> void;
 STATIC auto on_vblank(Gba& gba) -> void;
 STATIC auto on_fifo_empty(Gba& gba, u8 num) -> void;

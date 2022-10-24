@@ -39,7 +39,7 @@ STATIC auto is_screen_blanked(Gba& gba) -> bool;
 // returns true if in hdraw and screen isn't blanked
 STATIC auto is_screen_visible(Gba& gba) -> bool;
 
-STATIC auto on_event(Gba& gba) -> void;
+STATIC auto on_event(void* user, s32 id, s32 late) -> void;
 STATIC auto reset(Gba& gba, bool skip_bios) -> void;
 
 STATIC auto write_BG2X(Gba& gba, u32 addr, u16 value) -> void;

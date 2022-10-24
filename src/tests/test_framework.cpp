@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <memory>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_STATIC
@@ -46,10 +47,6 @@ enum RW : int
     WRITE = 1,
 };
 
-// todo: fix global constructor warning by removing std::span and
-// all default value{} in gba struct.
-gba::Gba gameboy_advance{};
-
 constexpr auto width = 240;
 constexpr auto height = 160;
 constexpr auto bpp = sizeof(std::uint32_t);
@@ -82,8 +79,10 @@ auto main(int argc, char** argv) -> int
         return Error::ARGS;
     }
 
-    gameboy_advance.set_colour_callback(colour_callback);
-    gameboy_advance.set_pixels(pixels, width, bpp);
+    auto gameboy_advance = std::make_unique<gba::Gba>();
+
+    gameboy_advance->set_colour_callback(colour_callback);
+    gameboy_advance->set_pixels(pixels, width, bpp);
 
     const auto rom_path = argv[1];
     std::string _image_path;
@@ -151,7 +150,7 @@ auto main(int argc, char** argv) -> int
         return Error::ROM;
     }
 
-    if (!gameboy_advance.loadrom(rom_data))
+    if (!gameboy_advance->loadrom(rom_data))
     {
         std::printf("failed to load rom\n");
         return Error::ROM;
@@ -159,13 +158,13 @@ auto main(int argc, char** argv) -> int
 
     for (auto i = 0; i < frames; i++)
     {
-        gameboy_advance.run();
+        gameboy_advance->run();
 
         for (auto& [button, button_frame, used] : buttons)
         {
             if (i > button_frame)
             {
-                gameboy_advance.setkeys(button, !used);
+                gameboy_advance->setkeys(button, !used);
                 used = true;
             }
         }

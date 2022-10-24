@@ -11,6 +11,11 @@
 #include "scheduler.hpp"
 #include <utility> // for std::unreachable c++23
 
+// tick scheduler after every dma transfer
+// there's a few ways to speed this up but none have been
+// expored yet.
+#define ACCURATE_BUT_SLOW_DMA_TIMING 0
+
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#DMA%20Source%20Registers
 // https://problemkaputt.de/gbatek.htm#gbadmatransfers
 namespace gba::dma {
@@ -81,8 +86,15 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
             dma.dst_addr &= DST_MASK[channel_num];
 
             const auto value = mem::read32(gba, dma.src_addr);
-            gba.scheduler.tick(1); // for fifo write
             apu::on_fifo_write32(gba, value, channel_num-1);
+            gba.elapsed_cycles += 1; // for fifo write
+
+            #if ACCURATE_BUT_SLOW_DMA_TIMING
+            gba.scheduler.tick(gba.elapsed_cycles);
+            gba.elapsed_cycles = 0;
+            gba.scheduler.fire();
+            #endif
+
             dma.src_addr += dma.src_increment;
         }
     }
@@ -127,6 +139,12 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
                     const auto value = mem::read16(gba, dma.src_addr);
                     mem::write16(gba, dma.dst_addr, value);
 
+                    #if ACCURATE_BUT_SLOW_DMA_TIMING
+                    gba.scheduler.tick(gba.elapsed_cycles);
+                    gba.elapsed_cycles = 0;
+                    gba.scheduler.fire();
+                    #endif
+
                     dma.src_addr += dma.src_increment;
                     dma.dst_addr += dma.dst_increment;
                 }
@@ -140,6 +158,12 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
 
                     const auto value = mem::read32(gba, dma.src_addr);
                     mem::write32(gba, dma.dst_addr, value);
+
+                    #if ACCURATE_BUT_SLOW_DMA_TIMING
+                    gba.scheduler.tick(gba.elapsed_cycles);
+                    gba.elapsed_cycles = 0;
+                    gba.scheduler.fire();
+                    #endif
 
                     dma.src_addr += dma.src_increment;
                     dma.dst_addr += dma.dst_increment;
@@ -235,8 +259,10 @@ auto on_fifo_empty(Gba& gba, u8 num) -> void
     }
 }
 
-auto on_event(Gba& gba) -> void
+auto on_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
+
     for (auto i = 0; i < 4; i++)
     {
         if (gba.dma[i].enabled && gba.dma[i].mode == Mode::immediate)
@@ -311,11 +337,25 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
 
     if (dma.mode == Mode::special)
     {
-        dma.len = 4;
-        // forced to word, openlara needs this
-        dma.size_type = SizeType::word;
-        dma.dst_increment_type = IncrementType::special;
-        dma.dst_increment = 0;
+        switch (channel_num)
+        {
+            case 0:
+                break;
+
+            // fifo dma
+            case 1: case 2:
+                dma.len = 4;
+                // forced to word, openlara needs this
+                dma.size_type = SizeType::word;
+                dma.dst_increment_type = IncrementType::special;
+                dma.dst_increment = 0;
+                break;
+
+            // video transfer dma
+            case 3:
+                assert(!"DMA3 special transfer not implemented!");
+                break;
+        }
     }
 
     // sort increments and force alignment of src/dst addr
@@ -374,7 +414,8 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
     {
         // dmas are delayed
         // start_dma(gba, dma, channel_num);
-        scheduler::add_relative(gba, scheduler::Event::DMA, on_event, 3);
+        gba.scheduler.add(scheduler::ID::DMA, 3, on_event, &gba);
+        // gba.scheduler.add(gba, scheduler::Event::DMA, on_event, 3);
     }
 }
 

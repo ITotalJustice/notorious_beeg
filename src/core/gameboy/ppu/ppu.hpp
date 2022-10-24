@@ -10,7 +10,7 @@ namespace gba::gb {
 extern const u8 PIXEL_BIT_SHRINK[8];
 extern const u8 PIXEL_BIT_GROW[8];
 
-STATIC void on_ppu_event(Gba& gba);
+STATIC void on_ppu_event(void* user, s32 id, s32 late);
 STATIC void write_scanline_to_frame(void* _pixels, u32 stride, u8 bpp, int x, int y, const u32 scanline[160]);
 STATIC auto DMG_render_layer(Gba& gba, std::span<u16> pixels, u8 layer) -> u8;
 STATIC auto GBC_render_layer(Gba& gba, std::span<u16> pixels, u8 layer) -> u8;

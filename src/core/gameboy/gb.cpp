@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <cassert>
 #include <utility>
@@ -203,7 +204,8 @@ void reset(Gba& gba)
     std::memset(gba.gameboy.hram, 0xFF, 0x80);
     std::memset(gba.gameboy.io, 0xFF, 0xA0);
 
-    scheduler::reset(gba);
+    gba.scheduler.reset();
+    gba.delta.reset();
     apu::reset(gba, true);
 
     update_all_colours_gb(gba);
@@ -312,9 +314,11 @@ void reset(Gba& gba)
     #endif
 
     #if USE_SCHED
-    scheduler::add(gba, scheduler::Event::PPU, on_ppu_event, gba.gameboy.ppu.next_cycles);
+    // ppu should add this itself!
+    gba.scheduler.add(scheduler::ID::PPU, gba.gameboy.ppu.next_cycles, on_ppu_event, &gba);
     #endif
-    scheduler::add(gba, scheduler::Event::TIMER1, on_div_event, 256);
+    // timer should add this itself in reset!
+    gba.scheduler.add(scheduler::ID::TIMER1, 256, on_div_event, &gba);
 }
 
 auto get_rom_header_from_data(const u8* data, struct CartHeader* header) -> bool
@@ -705,22 +709,24 @@ auto get_name_of_region_str(u16 addr) -> const char*
     return names[get_name_of_region(addr)];
 }
 
-static auto on_frame_event(Gba& gba)
+static auto on_frame_event(void* user, s32 id, s32 late)
 {
-    gba.scheduler.frame_end = true;
+    auto& gba = *static_cast<Gba*>(user);
+    gba.delta.add(id, late);
+    gba.frame_end = true;
 }
 
 void run(Gba& gba, u32 tcycles)
 {
     #if USE_SCHED
-    gba.scheduler.frame_end = false;
-    scheduler::add(gba, scheduler::Event::FRAME, on_frame_event, tcycles);
+    gba.frame_end = false;
+    gba.scheduler.add(scheduler::ID::FRAME, gba.delta.get(scheduler::ID::FRAME, tcycles), on_frame_event, &gba);
 
     if (gba.gameboy.cpu.halt)
     {
-        on_halt_event(gba);
+        on_halt_event(&gba, 0);
 
-        if (gba.scheduler.frame_end)
+        if (gba.frame_end)
         {
             return;
         }
@@ -731,12 +737,12 @@ void run(Gba& gba, u32 tcycles)
         cpu_run(gba);
         const auto cycles = gba.gameboy.cycles;
 
-        gba.scheduler.cycles += cycles >> gba.gameboy.cpu.double_speed;
-        if (gba.scheduler.next_event_cycles <= gba.scheduler.cycles)
+        gba.scheduler.tick(cycles >> gba.gameboy.cpu.double_speed);
+        if (gba.scheduler.should_fire())
         {
-            scheduler::fire(gba);
+            gba.scheduler.fire();
 
-            if (gba.scheduler.frame_end) [[unlikely]]
+            if (gba.frame_end) [[unlikely]]
             {
                 break;
             }
@@ -748,10 +754,10 @@ void run(Gba& gba, u32 tcycles)
         cpu_run(gba);
         ppu_run(gba, gba.gameboy.cycles >> gba.gameboy.cpu.double_speed);
 
-        gba.scheduler.cycles += gba.gameboy.cycles;// >> gba.gameboy.cpu.double_speed;
-        if (gba.scheduler.next_event_cycles <= gba.scheduler.cycles)
+        gba.scheduler.tick(gba.gameboy.cycles >> gba.gameboy.cpu.double_speed);
+        if (gba.scheduler.should_fire())
         {
-            scheduler::fire(gba);
+            gba.scheduler.fire();
         }
     }
     #endif

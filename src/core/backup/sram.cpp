@@ -4,6 +4,7 @@
 #include "sram.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
+#include <cstdio>
 #include <cstring>
 
 namespace gba::backup::sram {

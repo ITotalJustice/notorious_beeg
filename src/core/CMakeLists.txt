@@ -32,7 +32,6 @@ else ()
         apu/apu.cpp
         bios.cpp
         bios_hle.cpp
-        scheduler.cpp
         gpio.cpp
         rtc.cpp
 
@@ -68,36 +67,6 @@ else ()
 endif()
 
 target_include_directories(GBA PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-# testing this out for now
-target_precompile_headers(GBA PRIVATE
-    <fwd.hpp>
-    <gba.hpp>
-    <mem.hpp>
-    <scheduler.hpp>
-    <timer.hpp>
-    <apu/apu.hpp>
-    <arm7tdmi/arm7tdmi.hpp>
-    <arm7tdmi/barrel_shifter.hpp>
-    <arm7tdmi/helper.hpp>
-    <bit.hpp>
-    <gameboy/gb.hpp>
-    <gameboy/internal.hpp>
-    <gameboy/types.hpp>
-
-    <cstdint>
-    <cstddef>
-    <cassert>
-    <cstdio>
-    <cstring>
-    <iterator>
-    <span>
-    <type_traits>
-    <bit>
-    <utility>
-    <numeric>
-    <cmath>
-)
 
 target_add_common_cflags(GBA PRIVATE)
 

@@ -527,11 +527,12 @@ auto fire_interrupt(Gba& gba, const Interrupt i) -> void
 auto disable_interrupts(Gba& gba) -> void
 {
     CPU.cpsr.I = true; // 1=off
-    scheduler::remove(gba, scheduler::Event::INTERRUPT);
+    gba.scheduler.remove(scheduler::ID::INTERRUPT);
 }
 
-auto on_interrupt_event(Gba& gba) -> void
+auto on_interrupt_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
     on_interrupt(gba);
 }
 
@@ -542,26 +543,19 @@ auto schedule_interrupt(Gba& gba) -> void
         CPU.halted = false;
         if (REG_IME&1 && !CPU.cpsr.I) [[likely]]
         {
-            scheduler::add(gba, scheduler::Event::INTERRUPT, on_interrupt_event, 0);
+            gba.scheduler.add(scheduler::ID::INTERRUPT, 0, on_interrupt_event, &gba);
         }
     }
 }
 
-auto on_halt_event(Gba& gba) -> void
+auto on_halt_event(void* user, s32 id, s32 late) -> void
 {
-    assert(gba.scheduler.next_event != scheduler::Event::HALT && "halt bug");
+    auto& gba = *static_cast<Gba*>(user);
 
-    while (CPU.halted && !gba.scheduler.frame_end)
+    while (CPU.halted && !gba.frame_end)
     {
-        // only want to advance the scheduler if the new timer is later
-        // than the current time
-        if (gba.scheduler.next_event_cycles >= gba.scheduler.cycles) [[likely]]
-        {
-            gba.scheduler.cycles = gba.scheduler.next_event_cycles;
-        }
-
-        gba.scheduler.elapsed = 0;
-        scheduler::fire(gba);
+        gba.scheduler.advance_to_next_event();
+        gba.scheduler.fire();
     }
 }
 
@@ -584,7 +578,7 @@ auto on_halt_trigger(Gba& gba, const HaltType type) -> void
 
         assert(gba.cpu.halted == false);
         gba.cpu.halted = true;
-        scheduler::add(gba, scheduler::Event::HALT, arm7tdmi::on_halt_event, 0);
+        gba.scheduler.add(scheduler::ID::HALT, 0, arm7tdmi::on_halt_event, &gba);
     }
     else
     {
