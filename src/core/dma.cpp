@@ -78,6 +78,19 @@ auto get_channel_registers(Gba& gba, const u8 channel_num) -> Registers
     std::unreachable();
 }
 
+void disable_channel(Gba& gba, u8 channel_num)
+{
+    switch (channel_num)
+    {
+        case 0: REG_DMA0CNT_H = bit::unset<15>(REG_DMA0CNT_H); break;
+        case 1: REG_DMA1CNT_H = bit::unset<15>(REG_DMA1CNT_H); break;
+        case 2: REG_DMA2CNT_H = bit::unset<15>(REG_DMA2CNT_H); break;
+        case 3: REG_DMA3CNT_H = bit::unset<15>(REG_DMA3CNT_H); break;
+    }
+
+    gba.dma[channel_num].enabled = false;
+}
+
 template<bool Special = false>
 auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
 {
@@ -207,14 +220,7 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
     }
     else
     {
-        switch (channel_num)
-        {
-            case 0: REG_DMA0CNT_H = bit::unset<15>(REG_DMA0CNT_H); break;
-            case 1: REG_DMA1CNT_H = bit::unset<15>(REG_DMA1CNT_H); break;
-            case 2: REG_DMA2CNT_H = bit::unset<15>(REG_DMA2CNT_H); break;
-            case 3: REG_DMA3CNT_H = bit::unset<15>(REG_DMA3CNT_H); break;
-        }
-        dma.enabled = false;
+        disable_channel(gba, channel_num);
     }
 }
 
@@ -240,6 +246,24 @@ auto on_vblank(Gba& gba) -> void
         {
             log::print_info(gba, LOG_TYPE[i], "firing vdma: %u len: 0x%08X dst: 0x%08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
             start_dma(gba, gba.dma[i], i); // i think we only handle 1 dma at a time?
+        }
+    }
+}
+
+auto on_dma3_special(Gba& gba) -> void
+{
+    constexpr auto dma3 = 3;
+
+    if (gba.dma[dma3].enabled && gba.dma[dma3].mode == Mode::special)
+    {
+        if (REG_VCOUNT == 162)
+        {
+            disable_channel(gba, dma3);
+        }
+        else
+        {
+            log::print_info(gba, LOG_TYPE[dma3], "firing dma3-special len: 0x%08X dst: 0x%08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", gba.dma[dma3].len, gba.dma[dma3].dst_addr, gba.dma[dma3].src_addr, gba.dma[dma3].dst_increment, gba.dma[dma3].src_increment, gba.dma[dma3].repeat);
+            start_dma(gba, gba.dma[dma3], dma3);
         }
     }
 }
@@ -371,7 +395,8 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
 
             // video transfer dma
             case 3:
-                assert(!"DMA3 special transfer not implemented!");
+                // assert(!"DMA3 special transfer not implemented!");
+                assert(dma.repeat && "repeat bit not set for DMA3 special");
                 break;
         }
     }

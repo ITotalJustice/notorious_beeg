@@ -88,6 +88,11 @@ auto on_vcount_update(Gba& gba, const u16 new_vcount)
     REG_VCOUNT = new_vcount;
     const auto lyc = bit::get_range<8, 15>(REG_DISPSTAT);
 
+    if (REG_VCOUNT >= 2 && REG_VCOUNT <= 162)
+    {
+        dma::on_dma3_special(gba);
+    }
+
     if (REG_VCOUNT == lyc)
     {
         REG_DISPSTAT = bit::set<2>(REG_DISPSTAT);
