@@ -3,7 +3,7 @@
 #pragma once
 
 #include <frontend_base.hpp>
-#include <vector>
+#include "imgui_log.hpp"
 
 enum class TextureID
 {
@@ -62,6 +62,8 @@ protected:
     auto im_debug_window() -> void;
     auto render_layers() -> void;
     auto toggle_master_layer_enable() -> void;
+    void log_window();
+    void sio_window();
 
 public:
     #if DEBUGGER == 0
@@ -81,6 +83,9 @@ public:
     bool show_debug_window{false};
     bool show_demo_window{false};
     bool show_menubar{true};
+
+    bool show_log_window{false};
+    bool show_sio_window{false};
 
     bool inside_emu_window{true};
     bool layer_enable_master{false};
@@ -102,4 +107,6 @@ public:
     bool viewer_io{false};
 
     bool show_grid{false};
+
+    ExampleAppLog logger{};
 };

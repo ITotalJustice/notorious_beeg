@@ -16,9 +16,11 @@
     #include "apu/apu.cpp"
     #include "bios.cpp"
     #include "bios_hle.cpp"
-    #include "scheduler.cpp"
     #include "gpio.cpp"
     #include "rtc.cpp"
+    #include "key.cpp"
+    #include "sio.cpp"
+    #include "log.cpp"
 
     #include "backup/backup.cpp"
     #include "backup/eeprom.cpp"

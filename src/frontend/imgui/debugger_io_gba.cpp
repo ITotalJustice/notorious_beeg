@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "mem.hpp"
+#include "debugger_io.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <imgui.h>
@@ -25,129 +26,7 @@ struct IoRegEntry
 
 auto io_title(auto addr, auto reg) -> void
 {
-    ImGui::Text("Addr: 0x%08X Value: 0x%04X", addr, reg);
-    ImGui::Separator();
-    ImGui::Spacing();
-}
-
-template<int start, int end>
-auto io_list(auto& reg, const char* name, std::span<const char*> items) -> void
-{
-    // 2 labels because label1 is the text shows.
-    // label2 is the ID of the combo, prefixed with ##
-    // could just use std::string, but rather avoid the allocs
-    char label[128]{};
-    char label2[128]{};
-
-    // some lists might only be 1 bit
-    if constexpr(start == end)
-    {
-        std::sprintf(label, "[0x%X] %s\n", start, name);
-    }
-    else
-    {
-        std::sprintf(label, "[0x%X-0x%X] %s\n", start, end, name);
-    }
-
-    std::sprintf(label2, "##%s", label);
-    ImGui::Text("%s", label);
-
-    const int old = bit::get_range<start, end>(reg);
-    int current = old;
-
-    ImGui::Combo(label2, &current, items.data(), items.size());
-
-    // if the value changed, update it in the register
-    if (old != current)
-    {
-        reg = bit::set<start, end>(reg, current);
-    }
-}
-
-template<int bit>
-auto io_button(auto& reg, const char* name) -> void
-{
-    char label[128]{};
-    std::sprintf(label, "[0x%X] %s", bit, name);
-    bool is_set = bit::is_set<bit>(reg);
-
-    if (ImGui::Checkbox(label, &is_set))
-    {
-        reg = bit::set<bit>(reg, is_set);
-    }
-}
-
-template<int start, int end>
-auto io_button(auto& reg, const char* name) -> void
-{
-    static_assert(start < end);
-    constexpr auto max = (end-start) * 4;
-    const auto value = bit::get_range<start, end>(reg);
-
-    ImGui::Text("[0x%X-0x%X] %s\n", start, end, name);
-
-    for (auto i = 0; i < max; i++)
-    {
-        char label[128]{};
-        std::sprintf(label, "%d", i);
-        const bool is_set = i == value;
-
-        if (ImGui::RadioButton(label, is_set))
-        {
-            reg = bit::set<start, end>(reg, i);
-        }
-
-        if (i + 1 < max)
-        {
-            ImGui::SameLine();
-        }
-    }
-}
-
-template<int start, int end, bool sign = false, typename T>
-auto io_int(T& reg, const char* name) -> void
-{
-    char label[128]{};
-    char label2[128]{};
-
-    // some lists might only be 1 bit
-    if constexpr(start == end)
-    {
-        std::sprintf(label, "[0x%X] %s\n", start, name);
-    }
-    else
-    {
-        std::sprintf(label, "[0x%X-0x%X] %s\n", start, end, name);
-    }
-
-    std::sprintf(label2, "##%s", label);
-
-    ImGui::Text("%s", label);
-
-    auto max = 0;
-    auto min = 0;
-    int old = bit::get_range<start, end>(reg);
-
-    if constexpr(sign)
-    {
-        max = bit::get_mask<start, end-1, T>() >> start;
-        min = -max - 1; // eg, min: -128, max: +127
-        old = bit::sign_extend<end-start>(old);
-    }
-    else
-    {
-        max = bit::get_mask<start, end, T>() >> start;
-    }
-
-    int value = old;
-
-    ImGui::SliderInt(label2, &value, min, max);
-
-    // update if the value changed
-    if (value != old)
-    {
-        reg = bit::set<start, end>(reg, value);
-    }
+    io_title_16(addr, reg);
 }
 
 auto io_dispcnt(gba::Gba& gba) -> void
@@ -875,6 +754,21 @@ auto IO_TM3CNT(gba::Gba& gba) -> void
     IO_TMXCNT(gba::mem::IO_TM3CNT, REG_TM3CNT);
 }
 
+void IO_SIOCNT_general(gba::Gba& gba)
+{
+
+}
+
+void IO_SIOCNT_multiplayer(gba::Gba& gba)
+{
+
+}
+
+void IO_SIOCNT(gba::Gba& gba)
+{
+
+}
+
 auto io_key(gba::Gba& gba) -> void
 {
     io_title(gba::mem::IO_KEY, REG_KEY);
@@ -889,6 +783,38 @@ auto io_key(gba::Gba& gba) -> void
     io_button<0x7>(REG_KEY, "Button::DOWN");
     io_button<0x8>(REG_KEY, "Button::L");
     io_button<0x9>(REG_KEY, "Button::R");
+}
+
+auto io_KEYCNT(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_KEYCNT, REG_KEYCNT);
+
+    io_button<0x0>(REG_KEYCNT, "Button::A");
+    io_button<0x1>(REG_KEYCNT, "Button::B");
+    io_button<0x2>(REG_KEYCNT, "Button::SELECT");
+    io_button<0x3>(REG_KEYCNT, "Button::START");
+    io_button<0x4>(REG_KEYCNT, "Button::RIGHT");
+    io_button<0x5>(REG_KEYCNT, "Button::LEFT");
+    io_button<0x6>(REG_KEYCNT, "Button::UP");
+    io_button<0x7>(REG_KEYCNT, "Button::DOWN");
+    io_button<0x8>(REG_KEYCNT, "Button::L");
+    io_button<0x9>(REG_KEYCNT, "Button::R");
+    ImGui::Separator();
+
+    io_button<14>(REG_KEYCNT, "IRQ enable");
+    static const char* condition_list[] = { "Logical OR", "Logical AND" };
+    io_list<15, 15>(REG_KEYCNT, "IRQ condition", condition_list);
+}
+
+auto io_RCNT(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_RCNT, REG_RCNT);
+
+    io_int<0, 3>(REG_RCNT, "Undocumented");
+    io_int<4, 8>(REG_RCNT, "Should be zero? (r/w)");
+    io_int<9, 13>(REG_RCNT, "Always zero (r)");
+    io_int<14, 14>(REG_RCNT, "Should be zero? (r/w)");
+    io_int<15, 15>(REG_RCNT, "Must be zero");
 }
 
 auto io_ie_if(auto addr, auto& reg) -> void
@@ -1052,6 +978,8 @@ constexpr std::array IO_NAMES =
     IoRegEntry{ "TM2CNT", IO_TM2CNT },
     IoRegEntry{ "TM3CNT", IO_TM3CNT },
     IoRegEntry{ "KEY", io_key },
+    IoRegEntry{ "KEYCNT", io_KEYCNT },
+    IoRegEntry{ "RCNT", io_RCNT },
     IoRegEntry{ "IE", io_ie },
     IoRegEntry{ "IF", io_if },
     IoRegEntry{ "WSCNT", IO_WSCNT },

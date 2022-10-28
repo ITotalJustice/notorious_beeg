@@ -9,6 +9,8 @@ project(notorious_beeg
 option(SINGLE_FILE "compile everything as a single file" OFF)
 # enable sanitizers
 option(GBA_DEV "enable sanitizers" OFF)
+# enable logging
+option(GBA_LOGGER "enable logging" OFF)
 
 set(INTERPRETER_TABLE 0)
 set(INTERPRETER_SWITCH 1)
@@ -32,9 +34,11 @@ else ()
         apu/apu.cpp
         bios.cpp
         bios_hle.cpp
-        scheduler.cpp
         gpio.cpp
         rtc.cpp
+        key.cpp
+        sio.cpp
+        log.cpp
 
         backup/backup.cpp
         backup/eeprom.cpp
@@ -74,36 +78,6 @@ endif()
 
 target_include_directories(GBA PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-# testing this out for now
-target_precompile_headers(GBA PRIVATE
-    <fwd.hpp>
-    <gba.hpp>
-    <mem.hpp>
-    <scheduler.hpp>
-    <timer.hpp>
-    <apu/apu.hpp>
-    <arm7tdmi/arm7tdmi.hpp>
-    <arm7tdmi/barrel_shifter.hpp>
-    <arm7tdmi/helper.hpp>
-    <bit.hpp>
-    <gameboy/gb.hpp>
-    <gameboy/internal.hpp>
-    <gameboy/types.hpp>
-
-    <cstdint>
-    <cstddef>
-    <cassert>
-    <cstdio>
-    <cstring>
-    <iterator>
-    <span>
-    <type_traits>
-    <bit>
-    <utility>
-    <numeric>
-    <cmath>
-)
-
 target_add_common_cflags(GBA PRIVATE)
 
 # enable sanitizer_flags
@@ -135,6 +109,7 @@ endif()
 
 target_compile_definitions(GBA PRIVATE
     GBA_DEBUG=$<BOOL:${GBA_DEBUG}>
+    GBA_LOGGER=$<BOOL:${GBA_LOGGER}>
     SINGLE_FILE=$<BOOL:${SINGLE_FILE}>
     ENABLE_SCHEDULER=$<BOOL:${ENABLE_SCHEDULER}>
     INTERPRETER=${INTERPRETER}

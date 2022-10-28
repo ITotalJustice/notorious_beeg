@@ -51,6 +51,6 @@ struct Backup
     bool dirty_ram;
 };
 
-STATIC auto find_type(std::span<const u8> rom) -> Type;
+auto find_type(std::span<const u8> rom) -> Type;
 
 } // namespace gba::backup

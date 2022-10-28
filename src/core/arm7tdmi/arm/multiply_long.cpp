@@ -4,6 +4,7 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
+#include <type_traits>
 
 namespace gba::arm7tdmi::arm {
 namespace {
@@ -49,6 +50,8 @@ auto multiply_long(Gba& gba, const u32 opcode) -> void
 
     set_reg(gba, RdLo, result);
     set_reg(gba, RdHi, result >> 32);
+
+    gba.scheduler.tick(1 + get_multiply_cycles<A, std::is_signed<T1>::value>(oprand1));
 }
 
 // page 67 (4.8)

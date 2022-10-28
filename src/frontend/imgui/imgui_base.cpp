@@ -3,6 +3,9 @@
 
 #include "imgui_base.hpp"
 #include "debugger_io.hpp"
+#include "log.hpp"
+#include "mem.hpp"
+#include "sio.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -37,6 +40,8 @@ auto draw_grid(int size, int count, float thicc, int x, int y)
 
 auto on_hblank_callback(void* user, std::uint16_t line) -> void
 {
+    if (!user) { return; }
+
     // this is UB because the actual ptr is whatever inherts the base
     auto app = static_cast<ImguiBase*>(user);
 
@@ -77,6 +82,18 @@ void on_fat_flush_callback(void* user, std::uint64_t offset, std::uint64_t size)
     assert(fs.good());
 }
 
+void on_log_callback(void* user, std::uint8_t type, std::uint8_t level, const char* str)
+{
+    if (!user) { return; }
+
+    // this is UB because the actual ptr is whatever inherts the base
+    auto app = static_cast<ImguiBase*>(user);
+
+    const auto type_str = gba::log::get_type_str();
+    const auto level_str = gba::log::get_level_str();
+    app->logger.AddLog("[%s] [%s] %s", level_str[level], type_str[type], str);
+}
+
 template<int num, typename T>
 auto mem_viewer_entry(const char* name, std::span<T> data) -> void
 {
@@ -108,7 +125,13 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
 
     gameboy_advance.set_hblank_callback(on_hblank_callback);
     gameboy_advance.set_fat_flush_callback(on_fat_flush_callback);
+    gameboy_advance.set_log_callback(on_log_callback);
     gameboy_advance.set_pixels(pixels, 240, 16);
+
+    // gameboy_advance.log_level |= gba::log::LevelFlag::FLAG_INFO;
+    // gameboy_advance.log_type |= gba::log::TypeFlag::FLAG_SIO;
+    // gameboy_advance.log_type |= gba::log::TypeFlag::FLAG_GAME;
+    // gameboy_advance.log_type |= gba::log::TypeFlag::FLAG_TIMER0;
 }
 
 ImguiBase::~ImguiBase()
@@ -166,6 +189,8 @@ auto ImguiBase::run_render() -> void
     menubar(); // this should be child to emu screen
     im_debug_window();
     render_layers();
+    log_window();
+    sio_window();
 
     resize_to_menubar();
 
@@ -419,8 +444,10 @@ auto ImguiBase::menubar_tab_view() -> void
         ImGui::MenuItem("Layer 3", nullptr, &layers[3].enabled);
         ImGui::EndMenu();
     }
+    ImGui::Separator();
 
-    ImGui::MenuItem("todo...");
+    ImGui::MenuItem("Show Logger", "Ctrl+Shift+P", &show_log_window);
+    ImGui::MenuItem("Show Sio", nullptr, &show_sio_window);
 }
 
 auto ImguiBase::menubar_tab_help() -> void
@@ -580,4 +607,73 @@ auto ImguiBase::toggle_master_layer_enable() -> void
     {
         layer.enabled = layer_enable_master;
     }
+}
+
+void ImguiBase::log_window()
+{
+    if (show_log_window)
+    {
+        ImGui::SetNextWindowSize(ImVec2(700, 400), ImGuiCond_FirstUseEver);
+        logger.Draw("Logger", &gameboy_advance.log_type, &gameboy_advance.log_level, &show_log_window);
+    }
+}
+
+static void sio_normal_window(gba::Gba& gba)
+{
+    debugger::io::io_title_16(gba::mem::IO_SIOCNT, REG_SIOCNT);
+
+    static const char* shift_clock_list[] = { "External", "Internal" };
+    static const char* internal_shift_clock_list[] = { "256KHz", "2MHz" };
+    static const char* si_state_list[] = { "Low", "High/None" };
+    static const char* so_state_list[] = { "Low", "High" };
+    static const char* start_bit_list[] = { "Inactive/Ready", "Start/Active" };
+    static const char* transfer_length_list[] = { "8bit", "32bit" };
+
+    debugger::io::io_list<0, 0>(REG_SIOCNT, "Shift Clock", shift_clock_list);
+    debugger::io::io_list<1, 1>(REG_SIOCNT, "Internal Clock Shift", internal_shift_clock_list);
+    debugger::io::io_list<2, 2>(REG_SIOCNT, "SI State (opponents SO)", si_state_list);
+    debugger::io::io_list<3, 3>(REG_SIOCNT, "SO during inacticity", so_state_list);
+    debugger::io::io_list<7, 7>(REG_SIOCNT, "Start Bit", start_bit_list);
+    debugger::io::io_list<12, 12>(REG_SIOCNT, "Transfer Length", transfer_length_list);
+    debugger::io::io_button<14>(REG_SIOCNT, "IRQ Enable");
+}
+
+void ImguiBase::sio_window()
+{
+    if (!show_sio_window)
+    {
+        return;
+    }
+
+    if (ImGui::Begin("sio", &show_sio_window))
+    {
+        const auto mode = gba::sio::get_mode(gameboy_advance);
+        ImGui::Text("[%s]", gba::sio::get_mode_str(mode));
+        ImGui::Separator();
+
+        switch (mode)
+        {
+            case gba::sio::Mode::Normal_8bit:
+            case gba::sio::Mode::Normal_32bit:
+                sio_normal_window(gameboy_advance);
+                break;
+
+            case gba::sio::Mode::MultiPlayer:
+                ImGui::Text("Unimplemented");
+                break;
+
+            case gba::sio::Mode::UART:
+                ImGui::Text("Unimplemented");
+                break;
+
+            case gba::sio::Mode::JOY_BUS:
+                ImGui::Text("Unimplemented");
+                break;
+
+            case gba::sio::Mode::General:
+                ImGui::Text("Unimplemented");
+                break;
+        }
+    }
+    ImGui::End();
 }

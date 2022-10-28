@@ -10,6 +10,8 @@
 namespace gba::arm7tdmi::arm {
 namespace {
 
+// TODO: N+S needs to be handled here (Page 90)
+
 // page 89 (4.12)
 template<
     bool B // 0=word, 1=byte
@@ -37,6 +39,9 @@ auto single_data_swap(Gba& gba, const u32 opcode) -> void
         mem::write32(gba, base_address, to_mem);
         set_reg(gba, Rd, to_reg);
     }
+
+    // Page 90
+    gba.scheduler.tick(1);
 }
 
 } // namespace

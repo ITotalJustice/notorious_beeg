@@ -40,6 +40,7 @@ add_library(imgui_base
     imgui_base.cpp
     debugger_io_gb.cpp
     debugger_io_gba.cpp
+    imgui_log.cpp
 )
 
 target_include_directories(imgui_base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

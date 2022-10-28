@@ -22,6 +22,12 @@ enum Access : u8
     Access_NONE = 0,
 };
 
+enum
+{
+    SEQ = 0, // sequential access
+    NSEQ = 1, // non-sequential access
+};
+
 // packed to 32bit on x86 (struct == 8 bytes)
 // 4 bytes padding on x64 (struct == 16 bytes)
 struct ReadArray
@@ -246,8 +252,22 @@ enum IOAddr
     IO_TM2CNT = 0x400010A, // (Timer 2 Control)
     IO_TM3CNT = 0x400010E, // (Timer 3 Control)
 
+    // general
+    IO_SIODATA8 = 0x0400012A, // SIO Normal Communication 8bit Data (R/W)
+    IO_SIODATA32_L = 0x04000120, // SIO Normal Communication lower 16bit data (R/W)
+    IO_SIODATA32_H = 0x04000122, // SIO Normal Communication upper 16bit data (R/W)
+    IO_SIOCNT = 0x04000128, // SIO Control, usage in NORMAL Mode (R/W)
+
+    // multiplayer
+    IO_SIOMLT_SEND = 0x0400012A, // Data Send Register (R/W)
+    IO_SIOMULTI0 = 0x04000120, // SIO Multi-Player Data 0 (Parent) (R/W)
+    IO_SIOMULTI1 = 0x04000122, // SIO Multi-Player Data 1 (1st child) (R/W)
+    IO_SIOMULTI2 = 0x04000124, // SIO Multi-Player Data 2 (2nd child) (R/W)
+    IO_SIOMULTI3 = 0x04000126, // SIO Multi-Player Data 3 (3rd child) (R/W)
+
     IO_KEY = 0x04000130, // (The input register)(Read Only)
-    IO_RCNT = 0x04000134,
+    IO_KEYCNT = 0x04000132, // (Input control register, used for interrupts)
+    IO_RCNT = 0x04000134, // Mode Selection (R), in Normal/Multiplayer/UART modes (R/W)
 
     IO_IE = 0x04000200, // (Interrupt Enable Register)
     IO_IF = 0x04000202, // (Interrupt Flags Regster)
@@ -259,6 +279,36 @@ enum IOAddr
 
     IO_IMC_L = 0x4000800, // (Internal Memory Control)
     IO_IMC_H = 0x4000802, // (Internal Memory Control)
+};
+
+enum LogOnOff
+{
+    IO_LOG_ON = 0xC0DE,
+    IO_LOG_OFF = 0x0000,
+    IO_LOG_ON_RESULT = 0x1DEA,
+};
+
+enum Breakpoint
+{
+    BREAKPOINT_ON = 0xC0DE,
+};
+
+enum LogLevel
+{
+    IO_LOG_LEVEL_FATAL = 0,
+    IO_LOG_LEVEL_ERROR = 1,
+    IO_LOG_LEVEL_WARN = 2,
+    IO_LOG_LEVEL_INFO = 3,
+    IO_LOG_LEVEL_DEBUG = 4
+};
+
+enum LogAddr
+{
+    IO_MGBA_STDOUT = 0x4FFF600,
+    IO_MGBA_FLAGS = 0x4FFF700,
+    IO_MGBA_CONTROL = 0x4FFF780,
+
+    IO_BREAKPOINT = 0x4FFF790, // todo:
 };
 
 #define REG_DISPCNT  gba.mem.io[(gba::mem::IO_DISPCNT & 0x3FF) >> 1]
@@ -408,7 +458,19 @@ enum IOAddr
 #define REG_TM2CNT gba.mem.io[(gba::mem::IO_TM2CNT & 0x3FF) >> 1]
 #define REG_TM3CNT gba.mem.io[(gba::mem::IO_TM3CNT & 0x3FF) >> 1]
 
+#define REG_SIODATA32_L gba.mem.io[(gba::mem::IO_SIODATA32_L & 0x3FF) >> 1]
+#define REG_SIODATA32_H gba.mem.io[(gba::mem::IO_SIODATA32_H & 0x3FF) >> 1]
+#define REG_SIOCNT gba.mem.io[(gba::mem::IO_SIOCNT & 0x3FF) >> 1]
+#define REG_SIODATA8 gba.mem.io[(gba::mem::IO_SIODATA8 & 0x3FF) >> 1]
+
+#define REG_SIOMLT_SEND gba.mem.io[(gba::mem::IO_SIOMLT_SEND & 0x3FF) >> 1]
+#define REG_SIOMULTI0 gba.mem.io[(gba::mem::IO_SIOMULTI0 & 0x3FF) >> 1]
+#define REG_SIOMULTI1 gba.mem.io[(gba::mem::IO_SIOMULTI1 & 0x3FF) >> 1]
+#define REG_SIOMULTI2 gba.mem.io[(gba::mem::IO_SIOMULTI2 & 0x3FF) >> 1]
+#define REG_SIOMULTI3 gba.mem.io[(gba::mem::IO_SIOMULTI3 & 0x3FF) >> 1]
+
 #define REG_KEY gba.mem.io[(gba::mem::IO_KEY & 0x3FF) >> 1]
+#define REG_KEYCNT gba.mem.io[(gba::mem::IO_KEYCNT & 0x3FF) >> 1]
 #define REG_RCNT gba.mem.io[(gba::mem::IO_RCNT & 0x3FF) >> 1]
 
 #define REG_IE gba.mem.io[(gba::mem::IO_IE & 0x3FF) >> 1]
@@ -419,19 +481,19 @@ enum IOAddr
 #define REG_IMC_L gba.mem.imc_l
 #define REG_IMC_H gba.mem.imc_h
 
-STATIC auto setup_tables(Gba& gba) -> void;
-STATIC auto reset(Gba& gba, bool skip_bios) -> void;
+auto setup_tables(Gba& gba) -> void;
+auto reset(Gba& gba, bool skip_bios) -> void;
 
 [[nodiscard]]
-STATIC_INLINE auto read8(Gba& gba, u32 addr) -> u8;
+auto read8(Gba& gba, u32 addr) -> u8;
 [[nodiscard]]
-STATIC_INLINE auto read16(Gba& gba, u32 addr) -> u16;
+auto read16(Gba& gba, u32 addr) -> u16;
 [[nodiscard]]
-STATIC_INLINE auto read32(Gba& gba, u32 addr) -> u32;
+auto read32(Gba& gba, u32 addr) -> u32;
 
-STATIC_INLINE auto write8(Gba& gba, u32 addr, u8 value) -> void;
-STATIC_INLINE auto write16(Gba& gba, u32 addr, u16 value) -> void;
-STATIC_INLINE auto write32(Gba& gba, u32 addr, u32 value) -> void;
+auto write8(Gba& gba, u32 addr, u8 value) -> void;
+auto write16(Gba& gba, u32 addr, u16 value) -> void;
+auto write32(Gba& gba, u32 addr, u32 value) -> void;
 
 template <typename T> [[nodiscard]]
 constexpr auto align(u32 addr) -> u32

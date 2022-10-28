@@ -8,6 +8,7 @@
 #include "dma.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
+#include "log.hpp"
 #include <algorithm>
 #include <cassert>
 #include <type_traits>
@@ -24,15 +25,23 @@
 namespace gba::apu {
 namespace {
 
-constexpr scheduler::Event EVENTS[4] =
+constexpr log::Type LOG_TYPE[4] =
 {
-    scheduler::Event::APU_SQUARE0,
-    scheduler::Event::APU_SQUARE1,
-    scheduler::Event::APU_WAVE,
-    scheduler::Event::APU_NOISE,
+    log::Type::SQUARE0,
+    log::Type::SQUARE1,
+    log::Type::WAVE,
+    log::Type::NOISE,
 };
 
-constexpr scheduler::callback CALLBACKS[4] =
+constexpr scheduler::ID EVENTS[4] =
+{
+    scheduler::ID::APU_SQUARE0,
+    scheduler::ID::APU_SQUARE1,
+    scheduler::ID::APU_WAVE,
+    scheduler::ID::APU_NOISE,
+};
+
+constexpr scheduler::Callback CALLBACKS[4] =
 {
     on_square0_event,
     on_square1_event,
@@ -273,7 +282,8 @@ auto len::on_nrx4_edge_case_write(Gba& gba, auto& channel, u8 value)
     {
         --len.counter;
 
-        gba_log("[APU] ch1 edge case: extra len clock!\n");
+        log::print_info(gba, LOG_TYPE[channel.num], "edge case: extra len clock!");
+
         // if this makes the result 0, and trigger is clear, disable channel
         if (!len.counter && !bit::is_set<7>(value))
         {
@@ -391,7 +401,7 @@ auto clock_env(Gba& gba)
 
 auto apu_on_enabled(Gba& gba) -> void
 {
-    gba_log("[APU] enabling...\n");
+    log::print_info(gba, log::Type::FRAME_SEQUENCER, "enabling...\n");
 
     // todo: reset more regs
     APU.square0.duty = 0;
@@ -404,13 +414,13 @@ auto apu_on_enabled(Gba& gba) -> void
     // channels are only re-enabled on trigger
     if (gba.is_gba())
     {
-        scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, get_frame_sequencer_cycles(gba));
+        gba.scheduler.add(scheduler::ID::APU_FRAME_SEQUENCER, get_frame_sequencer_cycles(gba), on_frame_sequencer_event, &gba);
     }
 }
 
 auto apu_on_disabled(Gba& gba) -> void
 {
-    gba_log("[APU] disabling...\n");
+    log::print_info(gba, log::Type::FRAME_SEQUENCER, "disabling...\n");
 
     REG_SOUND1CNT_L = 0;
     REG_SOUND1CNT_H = 0;
@@ -440,11 +450,16 @@ auto apu_on_disabled(Gba& gba) -> void
     gba.apu.noise = {};
 
     // these events are no longer ticked
-    scheduler::remove(gba, scheduler::Event::APU_SQUARE0);
-    scheduler::remove(gba, scheduler::Event::APU_SQUARE1);
-    scheduler::remove(gba, scheduler::Event::APU_WAVE);
-    scheduler::remove(gba, scheduler::Event::APU_NOISE);
-    scheduler::remove(gba, scheduler::Event::APU_FRAME_SEQUENCER);
+    gba.delta.remove(scheduler::ID::APU_SQUARE0);
+    gba.scheduler.remove(scheduler::ID::APU_SQUARE0);
+    gba.delta.remove(scheduler::ID::APU_SQUARE1);
+    gba.scheduler.remove(scheduler::ID::APU_SQUARE1);
+    gba.delta.remove(scheduler::ID::APU_WAVE);
+    gba.scheduler.remove(scheduler::ID::APU_WAVE);
+    gba.delta.remove(scheduler::ID::APU_NOISE);
+    gba.scheduler.remove(scheduler::ID::APU_NOISE);
+    gba.delta.remove(scheduler::ID::APU_FRAME_SEQUENCER);
+    gba.scheduler.remove(scheduler::ID::APU_FRAME_SEQUENCER);
 }
 
 template<typename T>
@@ -490,7 +505,7 @@ auto on_channel_event(Gba& gba) -> void
 
     if (freq > 0)
     {
-        scheduler::add(gba, EVENTS[channel.num], CALLBACKS[channel.num], freq);
+        gba.scheduler.add(EVENTS[channel.num], gba.delta.get(EVENTS[channel.num], freq), CALLBACKS[channel.num], &gba);
     }
 }
 
@@ -538,15 +553,15 @@ auto trigger(Gba& gba, T& channel)
 
     if (channel.is_enabled(gba) && channel.timer > 0) [[likely]]
     {
-        // remove to clear delta
-        scheduler::remove(gba, EVENTS[channel.num]);
-        scheduler::add(gba, EVENTS[channel.num], CALLBACKS[channel.num], channel.timer);
+        gba.scheduler.add(EVENTS[channel.num], channel.timer, CALLBACKS[channel.num], &gba);
     }
 }
 
 template<typename T>
 auto on_nrx0_write(Gba& gba, T& channel, u8 value)
 {
+    log::print_info(gba, LOG_TYPE[channel.num], "NR%u0: 0x%02X\n", channel.num, value);
+
     if constexpr(std::is_same<T, Square0>())
     {
         const bool sweep_negate = bit::is_set<3>(value);
@@ -555,7 +570,7 @@ auto on_nrx0_write(Gba& gba, T& channel, u8 value)
         // and negate is now cleared, then disable ch1.
         if (channel.sweep.negate && !sweep_negate && channel.sweep.did_negate)
         {
-            gba_log("[APU] NR10 sweep negate cleared, disabling channel!\n");
+            log::print_info(gba, LOG_TYPE[channel.num], "NRX0 sweep negate cleared, disabling channel!\n");
             channel.disable(gba);
         }
 
@@ -583,6 +598,8 @@ auto on_nrx0_write(Gba& gba, T& channel, u8 value)
 template<typename T>
 auto on_nrx1_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 {
+    log::print_info(gba, LOG_TYPE[channel.num], "NR%u1: 0x%02X\n", channel.num, value);
+
     if constexpr(std::is_same<T, Wave>())
     {
         channel.len.counter = 256 - value;
@@ -601,6 +618,8 @@ auto on_nrx1_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 template<typename T>
 auto on_nrx2_write(Gba& gba, T& channel, u8 value)
 {
+    log::print_info(gba, LOG_TYPE[channel.num], "NR%u2: 0x%02X\n", channel.num, value);
+
     if constexpr(std::is_same<T, Wave>())
     {
         channel.vol_code = bit::get_range<5, 6>(value);
@@ -619,6 +638,8 @@ auto on_nrx2_write(Gba& gba, T& channel, u8 value)
 template<typename T>
 auto on_nrx3_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 {
+    log::print_info(gba, LOG_TYPE[channel.num], "NR%u3: 0x%02X\n", channel.num, value);
+
     if constexpr(std::is_same<T, Noise>())
     {
         channel.clock_shift = bit::get_range<4, 7>(value);
@@ -634,6 +655,8 @@ auto on_nrx3_write([[maybe_unused]] Gba& gba, T& channel, u8 value)
 template<typename T>
 auto on_nrx4_write(Gba& gba, T& channel, u8 value)
 {
+    log::print_info(gba, LOG_TYPE[channel.num], "NR%u4: 0x%02X\n", channel.num, value);
+
     len::on_nrx4_edge_case_write(gba, channel, value);
 
     if constexpr(!std::is_same<T, Noise>())
@@ -657,7 +680,6 @@ auto on_nr52_write(Gba& gba, u8 value)
     {
         if (!master_enable)
         {
-            gba_log("\tapu disabled\n");
             apu_on_disabled(gba);
         }
     }
@@ -665,7 +687,6 @@ auto on_nr52_write(Gba& gba, u8 value)
     {
         if (master_enable)
         {
-            gba_log("\tapu enabled\n");
             apu_on_enabled(gba);
         }
     }
@@ -676,6 +697,8 @@ auto on_nr52_write(Gba& gba, u8 value)
 
 auto on_wave_mem_write(Gba& gba, u8 addr, u8 value)
 {
+    log::print_info(gba, log::Type::WAVE, "ram write: 0x%02X value: 0x%02X\n", addr, value);
+
     if (gba.is_gb())
     {
         if (APU.wave.is_enabled(gba))
@@ -727,14 +750,23 @@ auto is_apu_enabled(Gba& gba) -> bool
 template<u8 Number>
 auto Base<Number>::enable(Gba& gba) -> void
 {
+    if (!is_enabled(gba))
+    {
+        log::print_info(gba, LOG_TYPE[Number], "enabling channel\n");
+    }
     REG_SOUNDCNT_X = bit::set<num>(REG_SOUNDCNT_X);
 }
 
 template<u8 Number>
 auto Base<Number>::disable(Gba& gba) -> void
 {
+    if (is_enabled(gba))
+    {
+        log::print_info(gba, LOG_TYPE[Number], "disabling channel\n");
+    }
     REG_SOUNDCNT_X = bit::unset<num>(REG_SOUNDCNT_X);
-    scheduler::remove(gba, EVENTS[Number]);
+    gba.delta.remove(EVENTS[Number]);
+    gba.scheduler.remove(EVENTS[Number]);
 }
 
 template<u8 Number>
@@ -902,23 +934,31 @@ auto SquareBase<Number>::is_dac_enabled() const -> bool
     return env.starting_vol != 0 || env.mode != 0;
 }
 
-auto on_square0_event(Gba& gba) -> void
+auto on_square0_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
+    gba.delta.add(id, late);
     on_channel_event<Square0>(gba);
 }
 
-auto on_square1_event(Gba& gba) -> void
+auto on_square1_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
+    gba.delta.add(id, late);
     on_channel_event<Square1>(gba);
 }
 
-auto on_wave_event(Gba& gba) -> void
+auto on_wave_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
+    gba.delta.add(id, late);
     on_channel_event<Wave>(gba);
 }
 
-auto on_noise_event(Gba& gba) -> void
+auto on_noise_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
+    gba.delta.add(id, late);
     on_channel_event<Noise>(gba);
 }
 
@@ -1183,6 +1223,8 @@ auto write_WAVE(Gba& gba, u8 addr, u8 value) -> void
 
 auto read_WAVE(Gba& gba, u8 addr) -> u8
 {
+    log::print_info(gba, log::Type::WAVE, "ram read: 0x%02X\n", addr);
+
     if (gba.is_gb())
     {
         if (gba.apu.wave.is_enabled(gba))
@@ -1197,7 +1239,7 @@ auto read_WAVE(Gba& gba, u8 addr) -> u8
     }
     else
     {
-        std::printf("[APU] WARNING, wave reads not properly implemented!\n");
+        log::print_warn(gba, log::Type::WAVE, "wave reads not properly implemented!\n");
 
         if (APU.wave.bank_mode == 0)
         {
@@ -1250,11 +1292,11 @@ auto reset(Gba& gba, bool skip_bios) -> void
 
     if (gba.audio_callback && !gba.sample_data.empty() && gba.sample_rate_calculated)
     {
-        scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, gba.sample_rate_calculated);
+        gba.scheduler.add(scheduler::ID::APU_SAMPLE, gba.sample_rate_calculated, on_sample_event, &gba);
     }
     else
     {
-        scheduler::remove(gba, scheduler::Event::APU_SAMPLE);
+        gba.scheduler.remove(scheduler::ID::APU_SAMPLE);
     }
 
     if (gba.is_gb())
@@ -1626,19 +1668,23 @@ auto sample(Gba& gba)
     }
 }
 
-auto on_sample_event(Gba& gba) -> void
+auto on_sample_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
+    gba.delta.add(id, late);
     sample(gba);
-    scheduler::add(gba, scheduler::Event::APU_SAMPLE, on_sample_event, gba.sample_rate_calculated);
+    gba.scheduler.add(id, gba.delta.get(id, gba.sample_rate_calculated), on_sample_event, &gba);
 }
 
-auto on_frame_sequencer_event(Gba& gba) -> void
+auto on_frame_sequencer_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
     APU.frame_sequencer.clock(gba);
 
     if (gba.is_gba())
     {
-        scheduler::add(gba, scheduler::Event::APU_FRAME_SEQUENCER, on_frame_sequencer_event, get_frame_sequencer_cycles(gba));
+        gba.delta.add(id, late);
+        gba.scheduler.add(id, gba.delta.get(id, get_frame_sequencer_cycles(gba)), on_frame_sequencer_event, &gba);
     }
 }
 

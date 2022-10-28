@@ -40,6 +40,7 @@ list(APPEND gcc_flags
     # -fno-rtti
     -fno-exceptions
     -Wno-missing-field-initializers
+    -Wno-format-nonliteral
     # -fanalyzer
 )
 
@@ -97,6 +98,7 @@ list(APPEND clang_flags
     -Wno-unused-parameter
     -Wno-unused-variable
     -Wno-gnu-label-as-value # don't warn about computed goto
+    -Wno-format-nonliteral
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")

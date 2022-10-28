@@ -7,6 +7,6 @@
 
 namespace gba::ppu {
 
-STATIC auto render(Gba& gba) -> void;
+auto render(Gba& gba) -> void;
 
 } // namespace gba::ppu

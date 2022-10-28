@@ -93,6 +93,9 @@ auto push_sample_callback(void* user) -> void
 
 App::App(int argc, char** argv) : ImguiBase{argc, argv}
 {
+    // https://github.com/mosra/magnum/issues/184#issuecomment-425952900
+    SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER))
     {
         return;
@@ -354,6 +357,10 @@ auto App::on_key_event(const SDL_KeyboardEvent& e) -> void
 
                 case SDL_SCANCODE_A:
                     gameboy_advance.bit_crushing ^= 1;
+                    break;
+
+                case SDL_SCANCODE_P:
+                    show_log_window ^= 1;
                     break;
 
                 default: break; // silence enum warning

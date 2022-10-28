@@ -9,8 +9,10 @@
 #include "bios_hle.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
+#include "log.hpp"
+
+#include <bit>
 #include <cassert>
-#include <cstdio>
 #include <span>
 #include <utility>
 
@@ -199,7 +201,7 @@ auto exception(Gba& gba, const Exception e)
 
 auto on_interrupt(Gba& gba)
 {
-    //printf("performing irq IE: 0x%04X IF 0x%04X lr: 0x%08X pc: 0x%08X mode: %u state: %s\n", REG_IE, REG_IF, get_lr(gba), get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
+    log::print_info(gba, log::Type::INTERRUPT, "num: %u lr: 0x%08X pc: 0x%08X mode: %u state: %s\n", std::countr_zero(static_cast<u16>(REG_IE & REG_IF)), get_lr(gba), get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
     exception(gba, Exception::IRQ);
 }
 
@@ -527,14 +529,17 @@ auto fire_interrupt(Gba& gba, const Interrupt i) -> void
 auto disable_interrupts(Gba& gba) -> void
 {
     CPU.cpsr.I = true; // 1=off
-    scheduler::remove(gba, scheduler::Event::INTERRUPT);
+    gba.scheduler.remove(scheduler::ID::INTERRUPT);
 }
 
-auto on_interrupt_event(Gba& gba) -> void
+auto on_interrupt_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
     on_interrupt(gba);
 }
 
+// todo: test if its possible for an irq to be set and then
+// cancelled within the 3 second window.
 auto schedule_interrupt(Gba& gba) -> void
 {
     if (REG_IE & REG_IF & 0b11'1111'1111'1111)
@@ -542,26 +547,34 @@ auto schedule_interrupt(Gba& gba) -> void
         CPU.halted = false;
         if (REG_IME&1 && !CPU.cpsr.I) [[likely]]
         {
-            scheduler::add(gba, scheduler::Event::INTERRUPT, on_interrupt_event, 0);
+            if (!gba.scheduler.has_event(scheduler::ID::INTERRUPT))
+            {
+                // TODO: fix me
+                #if 1
+                // delaying by 3 cycles breaks LOZMC :/
+                gba.scheduler.add(scheduler::ID::INTERRUPT, 2, on_interrupt_event, &gba);
+                #else
+                // irq is delayed by 3 cycles, who would've known!
+                // SOURCE: suite.gba timer-irq test
+                gba.scheduler.add(scheduler::ID::INTERRUPT, 3, on_interrupt_event, &gba);
+                #endif
+            }
+            else
+            {
+                log::print_warn(gba, log::Type::INTERRUPT, "skipping adding event: ticks: %d ev_ticks: %d\n", gba.scheduler.get_ticks(), gba.scheduler.get_event_cycles_absolute(scheduler::ID::INTERRUPT));
+            }
         }
     }
 }
 
-auto on_halt_event(Gba& gba) -> void
+auto on_halt_event(void* user, s32 id, s32 late) -> void
 {
-    assert(gba.scheduler.next_event != scheduler::Event::HALT && "halt bug");
+    auto& gba = *static_cast<Gba*>(user);
 
-    while (CPU.halted && !gba.scheduler.frame_end)
+    while (CPU.halted && !gba.frame_end)
     {
-        // only want to advance the scheduler if the new timer is later
-        // than the current time
-        if (gba.scheduler.next_event_cycles >= gba.scheduler.cycles) [[likely]]
-        {
-            gba.scheduler.cycles = gba.scheduler.next_event_cycles;
-        }
-
-        gba.scheduler.elapsed = 0;
-        scheduler::fire(gba);
+        gba.scheduler.advance_to_next_event();
+        gba.scheduler.fire();
     }
 }
 
@@ -583,12 +596,14 @@ auto on_halt_trigger(Gba& gba, const HaltType type) -> void
         }
 
         assert(gba.cpu.halted == false);
+        log::print_info(gba, log::Type::HALT, "halt called, pc: 0x%08X mode: %u state: %s\n", get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
+
         gba.cpu.halted = true;
-        scheduler::add(gba, scheduler::Event::HALT, arm7tdmi::on_halt_event, 0);
+        gba.scheduler.add(scheduler::ID::HALT, 0, arm7tdmi::on_halt_event, &gba);
     }
     else
     {
-        std::printf("[HALT] called when no interrupt can happen!\n");
+        log::print_fatal(gba, log::Type::HALT, "called when no interrupt can happen!\n");
         assert(!"writing to hltcnt");
     }
 }

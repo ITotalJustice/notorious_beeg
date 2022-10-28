@@ -12,12 +12,14 @@
 namespace gba::arm7tdmi::arm {
 namespace {
 
+// TODO: N+S needs to be handled here (Page 73)
+
 // page 70 [4.9]
 template<
     bool P, // 0=post,1=pre
     bool U, // 0=sub,1=add
     bool L, // 0=str,1=ldr
-    bool B, // 0=byte,1=word
+    bool B, // 0=word,1=byte
     bool W  // 0=none,1=write
 >
 auto single_data_transfer(Gba& gba, const u32 opcode, u32 addr, const u32 offset, const u8 Rn) -> void
@@ -66,6 +68,9 @@ auto single_data_transfer(Gba& gba, const u32 opcode, u32 addr, const u32 offset
         }
 
         set_reg(gba, Rd, result);
+
+        // Page 73
+        gba.scheduler.tick(1);
     }
     else
     {
@@ -102,7 +107,7 @@ template<
     bool P, // 0=post,1=pre
     bool U, // 0=sub,1=add
     bool L, // 0=str,1=ldr
-    bool B, // 0=byte,1=word
+    bool B, // 0=word,1=byte
     bool W  // 0=none,1=write
 >
 auto single_data_transfer_imm(Gba& gba, const u32 opcode) -> void
@@ -117,7 +122,7 @@ template<
     bool P, // 0=post,1=pre
     bool U, // 0=sub,1=add
     bool L, // 0=str,1=ldr
-    bool B, // 0=byte,1=word
+    bool B, // 0=word,1=byte
     bool W, // 0=none,1=write
     barrel::type shift_type, // see barrel_shifter.hpp
     bool reg_shift // 0=shift reg by imm, 1=shift reg by reg

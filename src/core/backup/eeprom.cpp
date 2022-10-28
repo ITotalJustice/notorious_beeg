@@ -3,6 +3,7 @@
 
 #include "eeprom.hpp"
 #include "gba.hpp"
+#include "log.hpp"
 #include <cassert>
 #include <cstring>
 #include <utility>
@@ -28,23 +29,23 @@ auto Eeprom::init([[maybe_unused]] Gba& gba) -> void
     std::memset(this->data, 0xFF, sizeof(this->data));
 }
 
-auto Eeprom::load_data(std::span<const u8> new_data) -> bool
+auto Eeprom::load_data(Gba& gba, std::span<const u8> new_data) -> bool
 {
     if (new_data.size() == 512)
     {
         std::memcpy(this->data, new_data.data(), new_data.size());
-        this->set_width(Width::small);
+        this->set_width(gba, Width::small);
         return true;
     }
     else if (new_data.size() == 8 * 1024)
     {
         std::memcpy(this->data, new_data.data(), new_data.size());
-        this->set_width(Width::beeg);
+        this->set_width(gba, Width::beeg);
         return true;
     }
     else
     {
-        std::printf("[EEPROM] tried loading bad save data: %zu\n", new_data.size());
+        log::print_error(gba, log::Type::EEPROM, "tried loading bad save data: %zu\n", new_data.size());
         return false;
     }
 }
@@ -68,18 +69,18 @@ auto Eeprom::on_state_change(State new_state) -> void
     this->bit_write_counter = 0;
 }
 
-auto Eeprom::set_width(Width new_width) -> void
+auto Eeprom::set_width(Gba& gba, Width new_width) -> void
 {
     if (this->width == Width::unknown)
     {
-        std::printf("[EEPROM] updating width to %u\n", std::to_underlying(new_width));
+        log::print_info(gba, log::Type::EEPROM, "updating width to %u\n", std::to_underlying(new_width));
         this->width = new_width;
     }
     else
     {
         if (this->width != new_width)
         {
-            // std::printf("[EEPROM] width size changed. ignoring for now... old: %u new: %u\n", std::to_underlying(this->width), std::to_underlying(new_width));
+            log::print_warn(gba, log::Type::EEPROM, "width size changed. ignoring for now... old: %u new: %u\n", std::to_underlying(this->width), std::to_underlying(new_width));
             // assert(this->width == new_width && "[EEPROM] width changed somehow");
         }
     }

@@ -42,6 +42,8 @@ auto push_pop_registers(Gba& gba, const u16 opcode) -> void
         }
 
         set_sp(gba, addr);
+
+        gba.scheduler.tick(1); // todo: verify
     }
     else // push
     {

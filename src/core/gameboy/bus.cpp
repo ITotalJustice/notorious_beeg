@@ -9,7 +9,6 @@
 
 #include <array>
 #include <cassert>
-#include <cstdio>
 
 namespace gba::gb {
 namespace {

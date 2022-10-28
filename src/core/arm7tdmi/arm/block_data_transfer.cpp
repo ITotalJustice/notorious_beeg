@@ -5,9 +5,13 @@
 #include "bit.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
+#include "log.hpp"
+#include <bit>
 
 namespace gba::arm7tdmi::arm {
 namespace {
+
+// TODO: N+S needs to be handled here (Page 86)
 
 // I don't template this function because it's mostly very unnecessary
 // because rlist=0 is not very common case, thus, its a waste of
@@ -79,7 +83,7 @@ auto block_data_transfer(Gba& gba, const u32 opcode) -> void
     if (!Rlist)
     {
         // this just simplifies stuff
-        gba_log("\tempty rlist in block_data_transfer\n");
+        log::print_info(gba, log::Type::ARM, "empty rlist in block_data_transfer\n");
         block_data_transfer_empty_rlist(gba, opcode);
         return;
     }
@@ -144,13 +148,15 @@ auto block_data_transfer(Gba& gba, const u32 opcode) -> void
 
             addr += pre;
             const auto value = mem::read32(gba, addr);
-            gba_log("\treading reg: %u from: 0x%08X value: 0x%08X\n", reg_index, addr, value);
 
             set_reg(gba, reg_index, value);
 
             addr += post;
             Rlist &= ~(1 << reg_index);
         }
+
+        // Page 86
+        gba.scheduler.tick(1);
     }
     else
     {
@@ -177,7 +183,6 @@ auto block_data_transfer(Gba& gba, const u32 opcode) -> void
             }
 
             addr += pre;
-            gba_log("\twriting reg: %u to: 0x%08X value: 0x%08X\n", reg_index, addr, get_reg(gba, reg_index));
             mem::write32(gba, addr, value);
             addr += post;
 

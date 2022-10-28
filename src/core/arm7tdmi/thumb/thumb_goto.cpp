@@ -22,9 +22,9 @@
 #include "software_interrupt.cpp"
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "gba.hpp"
+#include "log.hpp"
 #include <cassert>
 #include <cstdint>
-#include <cstdio>
 #include <array>
 
 namespace gba::arm7tdmi::thumb {
@@ -32,7 +32,7 @@ namespace {
 
 auto undefined(gba::Gba& gba, u16 opcode) -> void
 {
-    std::printf("[THUMB] undefined %04X\n", opcode);
+	log::print_fatal(gba, log::Type::THUMB, "undefined %04X\n", opcode);
     assert(!"[THUMB] undefined instruction hit");
 }
 
@@ -56,13 +56,10 @@ inline auto computed_goto(Gba& gba)
 		goto *table[(opcode>>6)&0x3FF];
 
 	#define DISPATCH \
-		gba.scheduler.cycles += gba.scheduler.elapsed; \
-		gba.scheduler.elapsed = 0; \
-		\
-		if (gba.scheduler.next_event_cycles <= gba.scheduler.cycles) \
+		if (gba.scheduler.should_fire()) \
 		{ \
-			scheduler::fire(gba); \
-			if (gba.scheduler.frame_end) [[unlikely]] /* check if we are at end of frame */ \
+			gba.scheduler.fire(); \
+			if (gba.frame_end) [[unlikely]] /* check if we are at end of frame */ \
 			{ \
 				return; \
 			} \

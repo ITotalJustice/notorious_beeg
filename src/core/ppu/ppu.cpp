@@ -4,36 +4,35 @@
 // credit to tonc for all of the below info.
 // most of the very detailed comments are directly copied from tonc.
 #include "ppu.hpp"
+#include "arm7tdmi/arm7tdmi.hpp"
 #include "render.hpp"
 #include "mem.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
 #include "scheduler.hpp"
+#include "log.hpp"
 
 #include <cassert>
 #include <cstddef>
-#include <cstdio>
 #include <cstring>
 #include <utility>
 
 namespace gba::ppu {
 namespace {
 
-auto add_event(Gba& gba, u16 cycles)
+auto add_event(Gba& gba, s32 cycles)
 {
-    scheduler::add(gba, scheduler::Event::PPU, on_event, cycles);
+    gba.scheduler.add(scheduler::ID::PPU, cycles, on_event, &gba);
 }
 
-#define PPU gba.ppu
-
-auto update_period_cycles(Gba& gba) -> u16
+auto update_period_cycles(Gba& gba) -> s32
 {
-    switch (PPU.period)
+    // TODO: verify if rendering lasts for 960 cycles
+    // and instead dma and hblank bit is delayed by 56 cycles
+    switch (gba.ppu.period)
     {
-        case Period::hdraw: return 960;
-        case Period::hblank: return 272;
-        case Period::vdraw: return 960;
-        case Period::vblank: return 272;
+        case Period::draw: return 1006;
+        case Period::blank: return 226;
     }
 
     std::unreachable();
@@ -43,6 +42,8 @@ auto update_period_cycles(Gba& gba) -> u16
 // this means that this is called during vblank as well
 auto on_hblank(Gba& gba)
 {
+    log::print_info(gba, log::Type::PPU, "entered hblank\n");
+
     REG_DISPSTAT = bit::set<1>(REG_DISPSTAT);
 
     if (bit::is_set<4>(REG_DISPSTAT))
@@ -50,7 +51,7 @@ auto on_hblank(Gba& gba)
         arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::HBlank);
     }
 
-    if (PPU.period == Period::hblank)
+    if (REG_VCOUNT < 160)
     {
         render(gba);
         dma::on_hblank(gba);
@@ -65,6 +66,8 @@ auto on_hblank(Gba& gba)
 // called on line 160
 auto on_vblank(Gba& gba)
 {
+    log::print_info(gba, log::Type::PPU, "entered hblank\n");
+
     REG_DISPSTAT = bit::set<0>(REG_DISPSTAT);
 
     if (bit::is_set<3>(REG_DISPSTAT))
@@ -86,6 +89,11 @@ auto on_vcount_update(Gba& gba, const u16 new_vcount)
     REG_VCOUNT = new_vcount;
     const auto lyc = bit::get_range<8, 15>(REG_DISPSTAT);
 
+    if (REG_VCOUNT >= 2 && REG_VCOUNT <= 162)
+    {
+        dma::on_dma3_special(gba);
+    }
+
     if (REG_VCOUNT == lyc)
     {
         REG_DISPSTAT = bit::set<2>(REG_DISPSTAT);
@@ -102,54 +110,43 @@ auto on_vcount_update(Gba& gba, const u16 new_vcount)
 
 auto change_period(Gba& gba)
 {
-    switch (PPU.period)
+    switch (gba.ppu.period)
     {
-        case Period::hdraw:
-            PPU.period = Period::hblank;
+        case Period::draw:
+            gba.ppu.period = Period::blank;
             on_hblank(gba);
             break;
 
-        case Period::hblank:
+        case Period::blank:
+            gba.ppu.period = Period::draw;
             on_vcount_update(gba, REG_VCOUNT + 1);
             REG_DISPSTAT = bit::unset<1>(REG_DISPSTAT);
-            PPU.period = Period::hdraw;
-            if (REG_VCOUNT == 160)
-            {
-                PPU.period = Period::vdraw;
-                on_vblank(gba);
-            }
-            else
+
+            if (REG_VCOUNT < 160)
             {
                 // incremented at the end of every visible scanline
-                PPU.bg2x = bit::sign_extend<27>(PPU.bg2x + static_cast<s16>(REG_BG2PB));
-                PPU.bg2y = bit::sign_extend<27>(PPU.bg2y + static_cast<s16>(REG_BG2PD));
-                PPU.bg3x = bit::sign_extend<27>(PPU.bg3x + static_cast<s16>(REG_BG3PB));
-                PPU.bg3y = bit::sign_extend<27>(PPU.bg3y + static_cast<s16>(REG_BG3PD));
+                gba.ppu.bg2x = bit::sign_extend<27>(gba.ppu.bg2x + static_cast<s16>(REG_BG2PB));
+                gba.ppu.bg2y = bit::sign_extend<27>(gba.ppu.bg2y + static_cast<s16>(REG_BG2PD));
+                gba.ppu.bg3x = bit::sign_extend<27>(gba.ppu.bg3x + static_cast<s16>(REG_BG3PB));
+                gba.ppu.bg3y = bit::sign_extend<27>(gba.ppu.bg3y + static_cast<s16>(REG_BG3PD));
             }
-            break;
-
-        case Period::vdraw:
-            on_hblank(gba);
-            PPU.period = Period::vblank;
-            break;
-
-        case Period::vblank:
-            on_vcount_update(gba, REG_VCOUNT + 1);
-            PPU.period = Period::vdraw;
-            if (REG_VCOUNT == 227)
+            else if (REG_VCOUNT == 160)
+            {
+                on_vblank(gba);
+            }
+            else if (REG_VCOUNT == 227)
             {
                 REG_DISPSTAT = bit::unset<0>(REG_DISPSTAT);
             }
-            if (REG_VCOUNT == 228)
+            else if (REG_VCOUNT == 228)
             {
                 // reload the affine regs at the end of vblank
-                PPU.bg2x = bit::sign_extend<27>((REG_BG2X_HI << 16) | REG_BG2X_LO);
-                PPU.bg2y = bit::sign_extend<27>((REG_BG2Y_HI << 16) | REG_BG2Y_LO);
-                PPU.bg3x = bit::sign_extend<27>((REG_BG3X_HI << 16) | REG_BG3X_LO);
-                PPU.bg3y = bit::sign_extend<27>((REG_BG3Y_HI << 16) | REG_BG3Y_LO);
+                gba.ppu.bg2x = bit::sign_extend<27>((REG_BG2X_HI << 16) | REG_BG2X_LO);
+                gba.ppu.bg2y = bit::sign_extend<27>((REG_BG2Y_HI << 16) | REG_BG2Y_LO);
+                gba.ppu.bg3x = bit::sign_extend<27>((REG_BG3X_HI << 16) | REG_BG3X_LO);
+                gba.ppu.bg3y = bit::sign_extend<27>((REG_BG3Y_HI << 16) | REG_BG3Y_LO);
 
                 on_vcount_update(gba, 0);
-                PPU.period = Period::hdraw;
             }
             break;
     }
@@ -192,14 +189,14 @@ auto is_screen_blanked(Gba& gba) -> bool
 
 auto is_screen_visible(Gba& gba) -> bool
 {
-    return !is_screen_blanked(gba) && gba.ppu.period == Period::hdraw;
+    return !is_screen_blanked(gba) && REG_VCOUNT < 160 && gba.ppu.period == Period::draw;
 }
 
 auto reset(Gba& gba, bool skip_bios) -> void
 {
     gba.ppu = {};
 
-    PPU.period = Period::hdraw;
+    gba.ppu.period = Period::draw;
     const auto cycles = update_period_cycles(gba);
     add_event(gba, cycles);
 
@@ -236,13 +233,14 @@ auto write_BG3Y(Gba& gba, u32 addr, u16 value) -> void
     write_BGX(gba.ppu.bg3y, value, addr & 2);
 }
 
-#undef PPU
-
-auto on_event(Gba& gba) -> void
+auto on_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
+    gba.delta.add(id, late);
+
     change_period(gba);
     const auto cycles = update_period_cycles(gba);
-    add_event(gba, cycles);
+    add_event(gba, gba.delta.get(id, cycles));
 }
 
 } // namespace gba::ppu

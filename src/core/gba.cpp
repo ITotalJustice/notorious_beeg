@@ -8,14 +8,103 @@
 #include "backup/eeprom.hpp"
 #include "backup/flash.hpp"
 #include "gameboy/gb.hpp"
+#include "key.hpp"
 #include "mem.hpp"
 #include "scheduler.hpp"
 #include "bios.hpp"
+#include "gameboy/internal.hpp"
+#include "gameboy/ppu/ppu.hpp"
 
 #include <cassert>
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
 #include <numeric>
+#include <utility>
+
+namespace scheduler {
+
+void State::on_savestate(const gba::Gba& gba)
+{
+    for (s32 i = 0; i < ID::END; i++)
+    {
+        // see if we have this event in queue, if we do, it's enabled
+        if (gba.scheduler.has_event(i))
+        {
+            entries[i].enabled = true;
+            entries[i].cycles = gba.scheduler.get_event_cycles_absolute(i);
+        }
+        else
+        {
+            entries[i].enabled = false;
+            entries[i].cycles = 0;
+        }
+    }
+
+    std::memcpy(&delta, &gba.delta, sizeof(delta));
+    scheduler_cycles = gba.scheduler.get_ticks();
+}
+
+void State::on_loadstate(gba::Gba& gba) const
+{
+    gba.scheduler.reset(scheduler_cycles);
+    std::memcpy(&gba.delta, &delta, sizeof(gba.delta));
+
+    for (s32 i = 0; i < ID::END; i++)
+    {
+        if (entries[i].enabled)
+        {
+            if (gba.is_gba())
+            {
+                switch (i)
+                {
+                    case ID::PPU: gba.scheduler.add_absolute(i, entries[i].cycles, gba::ppu::on_event, &gba); break;
+                    case ID::APU_SQUARE0: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_square0_event, &gba);  break;
+                    case ID::APU_SQUARE1: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_square1_event, &gba);  break;
+                    case ID::APU_WAVE: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_wave_event, &gba);  break;
+                    case ID::APU_NOISE: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_noise_event, &gba);  break;
+                    case ID::APU_FRAME_SEQUENCER: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_frame_sequencer_event, &gba); break;
+                    case ID::TIMER0: [[fallthrough]];
+                    case ID::TIMER1: [[fallthrough]];
+                    case ID::TIMER2: [[fallthrough]];
+                    case ID::TIMER3: gba.scheduler.add_absolute(i, entries[i].cycles, gba::timer::on_timer_event, &gba); break;
+                    case ID::DMA: gba.scheduler.add_absolute(i, entries[i].cycles, gba::dma::on_event, &gba); break;
+                    case ID::INTERRUPT: gba.scheduler.add_absolute(i, entries[i].cycles, gba::arm7tdmi::on_interrupt_event, &gba); break;
+                    case ID::HALT: gba.scheduler.add_absolute(i, entries[i].cycles, gba::arm7tdmi::on_halt_event, &gba); break;
+                }
+            }
+            else
+            {
+                switch (i)
+                {
+                    case ID::PPU: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_ppu_event, &gba); break;
+                    case ID::APU_SQUARE0: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_square0_event, &gba); break;
+                    case ID::APU_SQUARE1: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_square1_event, &gba); break;
+                    case ID::APU_WAVE: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_wave_event, &gba); break;
+                    case ID::APU_NOISE: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_noise_event, &gba); break;
+                    case ID::TIMER0: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_timer_event, &gba); break;
+                    case ID::TIMER1: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_div_event, &gba); break;
+                    case ID::TIMER2: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_timer_reload_event, &gba); break;
+                    case ID::INTERRUPT: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_interrupt_event, &gba); break;
+                    case ID::HALT: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_halt_event, &gba); break;
+                }
+            }
+        }
+    }
+
+    // special case for sample event
+    // SEE: https://github.com/ITotalJustice/notorious_beeg/issues/85
+    if (gba.sample_data.empty() || !gba.sample_rate_calculated)
+    {
+        gba.scheduler.remove(ID::APU_SAMPLE);
+    }
+    else
+    {
+        gba.scheduler.add(ID::APU_SAMPLE, gba.sample_rate_calculated, gba::apu::on_sample_event, &gba);
+    }
+}
+
+} // namespace scheduler
 
 namespace gba {
 namespace {
@@ -50,37 +139,7 @@ auto set_buttons_gb(Gba& gba, u16 buttons, bool down)
 
 auto set_buttons_gba(Gba& gba, u16 buttons, bool down)
 {
-    // the pins go LOW when pressed!
-    if (down)
-    {
-        REG_KEY &= ~buttons;
-
-    }
-    else
-    {
-        REG_KEY |= buttons;
-    }
-
-    // this can be better optimised at some point
-    if (down && ((buttons & DIRECTIONAL) != 0))
-    {
-        if ((buttons & RIGHT) != 0)
-        {
-            REG_KEY |= LEFT;
-        }
-        if ((buttons & LEFT) != 0)
-        {
-            REG_KEY |= RIGHT;
-        }
-        if ((buttons & UP) != 0)
-        {
-            REG_KEY |= DOWN;
-        }
-        if ((buttons & DOWN) != 0)
-        {
-            REG_KEY |= UP;
-        }
-    }
+    key::set_key(gba, buttons, down);
 }
 
 auto loadsave_gb(Gba& gba, std::span<const u8> new_save) -> bool
@@ -104,15 +163,15 @@ auto loadsave_gba(Gba& gba, std::span<const u8> new_save) -> bool
         case EEPROM: [[fallthrough]];
         case EEPROM512: [[fallthrough]];
         case EEPROM8K:
-            return gba.backup.eeprom.load_data(new_save);
+            return gba.backup.eeprom.load_data(gba, new_save);
 
         case SRAM:
-            return gba.backup.sram.load_data(new_save);
+            return gba.backup.sram.load_data(gba, new_save);
 
         case FLASH: [[fallthrough]];
         case FLASH512: [[fallthrough]];
         case FLASH1M:
-            return gba.backup.flash.load_data(new_save);
+            return gba.backup.flash.load_data(gba, new_save);
     }
 
     std::unreachable();
@@ -183,14 +242,21 @@ auto run_gb(Gba& gba, u32 cycles)
     gb::run(gba, cycles / 4);
 }
 
+void on_frame_end_event(void* user, s32 id, s32 late)
+{
+    auto& gba = *static_cast<Gba*>(user);
+    gba.delta.add(id, late);
+    gba.frame_end = true;
+}
+
 auto run_gba(Gba& gba, u32 cycles)
 {
-    gba.scheduler.frame_end = false;
-    scheduler::add(gba, scheduler::Event::FRAME, [](Gba& _gba){ _gba.scheduler.frame_end = true; }, cycles);
+    gba.frame_end = false;
+    gba.scheduler.add(scheduler::ID::FRAME, gba.delta.get(scheduler::ID::FRAME, cycles), on_frame_end_event, &gba);
 
     if (gba.cpu.halted) [[unlikely]]
     {
-        arm7tdmi::on_halt_event(gba);
+        arm7tdmi::on_halt_event(&gba);
 
         // lets say the gba needs to run for 100 cycles and is halted somewhere
         // in those cycles.
@@ -198,32 +264,29 @@ auto run_gba(Gba& gba, u32 cycles)
         // will enter and stop after 100 cycles, possibly still within halt.
         // without the below if, the for(;;) loop will enter and tick the cpu
         // at least once even though it's halted!
-        if (gba.scheduler.frame_end)
+        if (gba.frame_end)
         {
             return;
         }
     }
 
     #if INTERPRETER == INTERPRETER_GOTO
-    while (!gba.scheduler.frame_end) [[likely]]
+    while (!gba.frame_end) [[likely]]
     {
         arm7tdmi::run(gba);
     }
     #else
-    if (!gba.scheduler.frame_end)
+    if (!gba.frame_end)
     {
         for (;;)
         {
             arm7tdmi::run(gba);
 
-            gba.scheduler.cycles += gba.scheduler.elapsed;
-            gba.scheduler.elapsed = 0;
-
-            if (gba.scheduler.next_event_cycles <= gba.scheduler.cycles)
+            if (gba.scheduler.should_fire())
             {
-                scheduler::fire(gba);
+                gba.scheduler.fire();
 
-                if (gba.scheduler.frame_end) [[unlikely]]
+                if (gba.frame_end) [[unlikely]]
                 {
                     break;
                 }
@@ -269,13 +332,13 @@ auto Header::validate_all() const -> bool
 {
     if (!validate_checksum())
     {
-        std::printf("failed to validate checksum\n");
+        std::printf("[GBA-HEADER] failed to validate checksum\n");
         return false;
     }
 
     if (!validate_fixed_value())
     {
-        std::printf("failed to validate fixed value\n");
+        std::printf("[GBA-HEADER] failed to validate fixed value\n");
         return false;
     }
 
@@ -292,7 +355,8 @@ auto Gba::reset() -> void
 
     bool skip_bios = true;
 
-    scheduler::reset(*this);
+    this->scheduler.reset();
+    this->delta.reset();
     mem::reset(*this, skip_bios); // this needed to be before arm::reset because memtables
     ppu::reset(*this, skip_bios);
     apu::reset(*this, skip_bios);
@@ -344,12 +408,12 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
 
         case EEPROM512:
             this->backup.eeprom.init(*this);
-            this->backup.eeprom.set_width(backup::eeprom::Width::small);
+            this->backup.eeprom.set_width(*this, backup::eeprom::Width::small);
             break;
 
         case EEPROM8K:
             this->backup.eeprom.init(*this);
-            this->backup.eeprom.set_width(backup::eeprom::Width::beeg);
+            this->backup.eeprom.set_width(*this, backup::eeprom::Width::beeg);
             break;
 
         case SRAM:
@@ -425,11 +489,11 @@ auto Gba::set_audio_callback(AudioCallback cb, std::span<s16> data, u32 _sample_
 
     if (this->audio_callback && !this->sample_data.empty() && this->sample_rate_calculated)
     {
-        scheduler::add(*this, scheduler::Event::APU_SAMPLE, apu::on_sample_event, this->sample_rate_calculated);
+        scheduler.add(scheduler::ID::APU_SAMPLE, this->sample_rate_calculated, apu::on_sample_event, this);
     }
     else
     {
-        scheduler::remove(*this, scheduler::Event::APU_SAMPLE);
+        scheduler.remove(scheduler::ID::APU_SAMPLE);
     }
 }
 
@@ -476,7 +540,6 @@ auto Gba::loadstate(const State& state) -> bool
         return false;
     }
 
-    this->scheduler = state.scheduler;
     this->cpu = state.cpu;
     this->apu = state.apu;
     this->ppu = state.ppu;
@@ -499,7 +562,7 @@ auto Gba::loadstate(const State& state) -> bool
     }
 
     mem::setup_tables(*this);
-    scheduler::on_loadstate(*this);
+    state.scheduler.on_loadstate(*this);
 
     return true;
 }
@@ -511,7 +574,7 @@ auto Gba::savestate(State& state) const -> bool
     state.size = StateMeta::SIZE;
     state.crc = 0;
 
-    state.scheduler = this->scheduler;
+    state.scheduler.on_savestate(*this);
     state.cpu = this->cpu;
     state.apu = this->apu;
     state.ppu = this->ppu;

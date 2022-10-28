@@ -9,7 +9,13 @@
 #include "bit.hpp"
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "scheduler.hpp"
+#include "log.hpp"
 #include <utility> // for std::unreachable c++23
+
+// tick scheduler after every dma transfer
+// there's a few ways to speed this up but none have been
+// expored yet.
+#define ACCURATE_BUT_SLOW_DMA_TIMING 1
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#DMA%20Source%20Registers
 // https://problemkaputt.de/gbatek.htm#gbadmatransfers
@@ -18,6 +24,14 @@ namespace {
 
 constexpr auto INTERNAL_MEMORY_RANGE = 0x07FFFFFF;
 constexpr auto ANY_MEMORY_RANGE = 0x0FFFFFFF;
+
+constexpr log::Type LOG_TYPE[4] =
+{
+    log::Type::DMA0,
+    log::Type::DMA1,
+    log::Type::DMA2,
+    log::Type::DMA3,
+};
 
 constexpr arm7tdmi::Interrupt INTERRUPTS[4] =
 {
@@ -64,9 +78,34 @@ auto get_channel_registers(Gba& gba, const u8 channel_num) -> Registers
     std::unreachable();
 }
 
+void disable_channel(Gba& gba, u8 channel_num)
+{
+    switch (channel_num)
+    {
+        case 0: REG_DMA0CNT_H = bit::unset<15>(REG_DMA0CNT_H); break;
+        case 1: REG_DMA1CNT_H = bit::unset<15>(REG_DMA1CNT_H); break;
+        case 2: REG_DMA2CNT_H = bit::unset<15>(REG_DMA2CNT_H); break;
+        case 3: REG_DMA3CNT_H = bit::unset<15>(REG_DMA3CNT_H); break;
+    }
+
+    gba.dma[channel_num].enabled = false;
+}
+
+void advance_scheduler([[maybe_unused]] Gba& gba)
+{
+    #if ACCURATE_BUT_SLOW_DMA_TIMING
+    if (gba.scheduler.should_fire())
+    {
+        gba.scheduler.fire();
+    }
+    #endif
+}
+
 template<bool Special = false>
 auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
 {
+    log::print_info(gba, LOG_TYPE[channel_num], "firing dma from: 0x%08X to: 0x%08X len: 0x%04X\n", dma.src_addr, dma.dst_addr, dma.len, dma.size_type);
+
     const auto len = dma.len;
     // const auto src = dma.src_addr;
     const auto dst = dma.dst_addr;
@@ -81,9 +120,12 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
             dma.dst_addr &= DST_MASK[channel_num];
 
             const auto value = mem::read32(gba, dma.src_addr);
-            gba.scheduler.tick(1); // for fifo write
             apu::on_fifo_write32(gba, value, channel_num-1);
+            gba.scheduler.tick(1); // for fifo write
+
             dma.src_addr += dma.src_increment;
+
+            advance_scheduler(gba);
         }
     }
     else
@@ -102,11 +144,11 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
                     // 73: exact number of bits to setup and complete an eeprom write (gaunlet uses this)
                     if (dma.len == 17 || dma.len == 81)
                     {
-                        gba.backup.eeprom.set_width(backup::eeprom::Width::beeg);
+                        gba.backup.eeprom.set_width(gba, backup::eeprom::Width::beeg);
                     }
                     else if (dma.len == 9 || dma.len == 73)
                     {
-                        gba.backup.eeprom.set_width(backup::eeprom::Width::small);
+                        gba.backup.eeprom.set_width(gba, backup::eeprom::Width::small);
                     }
                     else
                     {
@@ -129,6 +171,8 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
 
                     dma.src_addr += dma.src_increment;
                     dma.dst_addr += dma.dst_increment;
+
+                    advance_scheduler(gba);
                 }
                 break;
 
@@ -143,6 +187,8 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
 
                     dma.src_addr += dma.src_increment;
                     dma.dst_addr += dma.dst_increment;
+
+                    advance_scheduler(gba);
                 }
                 break;
         }
@@ -174,14 +220,7 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
     }
     else
     {
-        switch (channel_num)
-        {
-            case 0: REG_DMA0CNT_H = bit::unset<15>(REG_DMA0CNT_H); break;
-            case 1: REG_DMA1CNT_H = bit::unset<15>(REG_DMA1CNT_H); break;
-            case 2: REG_DMA2CNT_H = bit::unset<15>(REG_DMA2CNT_H); break;
-            case 3: REG_DMA3CNT_H = bit::unset<15>(REG_DMA3CNT_H); break;
-        }
-        dma.enabled = false;
+        disable_channel(gba, channel_num);
     }
 }
 
@@ -193,7 +232,7 @@ auto on_hblank(Gba& gba) -> void
     {
         if (gba.dma[i].enabled && gba.dma[i].mode == Mode::hblank)
         {
-            // std::printf("firing hdma: %u len: %08X dst: %08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
+            log::print_info(gba, LOG_TYPE[i], "firing hdma: %u len: 0x%08X dst: 0x%08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
             start_dma(gba, gba.dma[i], i); // i think we only handle 1 dma at a time?
         }
     }
@@ -205,8 +244,26 @@ auto on_vblank(Gba& gba) -> void
     {
         if (gba.dma[i].enabled && gba.dma[i].mode == Mode::vblank)
         {
-            // std::printf("firing vdma: %u len: %08X dst: %08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
+            log::print_info(gba, LOG_TYPE[i], "firing vdma: %u len: 0x%08X dst: 0x%08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", i, gba.dma[i].len, gba.dma[i].dst_addr, gba.dma[i].src_addr, gba.dma[i].dst_increment, gba.dma[i].src_increment, gba.dma[i].repeat);
             start_dma(gba, gba.dma[i], i); // i think we only handle 1 dma at a time?
+        }
+    }
+}
+
+auto on_dma3_special(Gba& gba) -> void
+{
+    constexpr auto dma3 = 3;
+
+    if (gba.dma[dma3].enabled && gba.dma[dma3].mode == Mode::special)
+    {
+        if (REG_VCOUNT == 162)
+        {
+            disable_channel(gba, dma3);
+        }
+        else
+        {
+            log::print_info(gba, LOG_TYPE[dma3], "firing dma3-special len: 0x%08X dst: 0x%08X src: 0x%08X dst_inc: %d src_inc: %d R: %u\n", gba.dma[dma3].len, gba.dma[dma3].dst_addr, gba.dma[dma3].src_addr, gba.dma[dma3].dst_increment, gba.dma[dma3].src_increment, gba.dma[dma3].repeat);
+            start_dma(gba, gba.dma[dma3], dma3);
         }
     }
 }
@@ -217,13 +274,13 @@ auto on_fifo_empty(Gba& gba, u8 num) -> void
 
     if (num == 1 && gba.dma[num].dst_addr != mem::IO_FIFO_A_L && gba.dma[num].mode == Mode::special)
     {
-        gba_log("addr: 0x%08X\n", gba.dma[num].dst_addr);
+        log::print_warn(gba, log::Type::DMA1, "bad fifo addr: 0x%08X\n", gba.dma[num].dst_addr);
         assert(0);
         return;
     }
     if (num == 2 && gba.dma[num].dst_addr != mem::IO_FIFO_B_L && gba.dma[num].mode == Mode::special)
     {
-        gba_log("addr: 0x%08X\n", gba.dma[num].dst_addr);
+        log::print_warn(gba, log::Type::DMA2, "bad fifo addr: 0x%08X\n", gba.dma[num].dst_addr);
         assert(0);
         return;
     }
@@ -235,8 +292,10 @@ auto on_fifo_empty(Gba& gba, u8 num) -> void
     }
 }
 
-auto on_event(Gba& gba) -> void
+auto on_event(void* user, s32 id, s32 late) -> void
 {
+    auto& gba = *static_cast<Gba*>(user);
+
     for (auto i = 0; i < 4; i++)
     {
         if (gba.dma[i].enabled && gba.dma[i].mode == Mode::immediate)
@@ -273,6 +332,15 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
 
     // update the dma enabled flag
     dma.enabled = dma_enable;
+
+    if (!was_enabled && dma.enabled)
+    {
+        log::print_info(gba, LOG_TYPE[channel_num], "enabling dma\n");
+    }
+    else if (was_enabled && !dma.enabled)
+    {
+        log::print_info(gba, LOG_TYPE[channel_num], "disabling dma\n");
+    }
 
     // dma only updates internal registers on enable bit 0->1 transition(?)
     // i think immediate dmas are only fired on 0->1 as well(?)
@@ -311,11 +379,26 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
 
     if (dma.mode == Mode::special)
     {
-        dma.len = 4;
-        // forced to word, openlara needs this
-        dma.size_type = SizeType::word;
-        dma.dst_increment_type = IncrementType::special;
-        dma.dst_increment = 0;
+        switch (channel_num)
+        {
+            case 0:
+                break;
+
+            // fifo dma
+            case 1: case 2:
+                dma.len = 4;
+                // forced to word, openlara needs this
+                dma.size_type = SizeType::word;
+                dma.dst_increment_type = IncrementType::special;
+                dma.dst_increment = 0;
+                break;
+
+            // video transfer dma
+            case 3:
+                // assert(!"DMA3 special transfer not implemented!");
+                assert(dma.repeat && "repeat bit not set for DMA3 special");
+                break;
+        }
     }
 
     // sort increments and force alignment of src/dst addr
@@ -374,7 +457,8 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
     {
         // dmas are delayed
         // start_dma(gba, dma, channel_num);
-        scheduler::add_relative(gba, scheduler::Event::DMA, on_event, 3);
+        gba.scheduler.add(scheduler::ID::DMA, 3, on_event, &gba);
+        // gba.scheduler.add(scheduler::ID::DMA, 2, on_event, &gba);
     }
 }
 

@@ -23,8 +23,8 @@
 #include "software_interrupt.cpp"
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "gba.hpp"
+#include "log.hpp"
 #include <cassert>
-#include <cstdio>
 #include <array>
 
 namespace gba::arm7tdmi::thumb {
@@ -201,7 +201,7 @@ consteval auto decode(const u16 opcode) -> Instruction
 
 auto undefined([[maybe_unused]] gba::Gba &gba, u16 opcode) -> void
 {
-    std::printf("[THUMB] undefined %04X\n", opcode);
+    log::print_fatal(gba, log::Type::THUMB, "undefined %04X\n", opcode);
     assert(!"[THUMB] undefined instruction hit");
 }
 

@@ -4,6 +4,7 @@
 #include "sram.hpp"
 #include "gba.hpp"
 #include "mem.hpp"
+#include "log.hpp"
 #include <cstring>
 
 namespace gba::backup::sram {
@@ -13,7 +14,7 @@ auto Sram::init([[maybe_unused]] Gba& gba) -> void
     std::memset(this->data, 0xFF, sizeof(this->data));
 }
 
-auto Sram::load_data(std::span<const u8> new_data) -> bool
+auto Sram::load_data(Gba& gba, std::span<const u8> new_data) -> bool
 {
     if (new_data.size() <= std::size(this->data))
     {
@@ -22,7 +23,7 @@ auto Sram::load_data(std::span<const u8> new_data) -> bool
     }
     else
     {
-        std::printf("[SRAM] tried loading bad save data: %zu\n", new_data.size());
+        log::print_error(gba, log::Type::SRAM, "tried loading bad save data: %zu\n", new_data.size());
         return false;
     }
 }

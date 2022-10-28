@@ -13,6 +13,9 @@ namespace frontend::sdl2 {
 
 Sdl2Base::Sdl2Base(int argc, char** argv) : frontend::Base{argc, argv}
 {
+    // https://github.com/mosra/magnum/issues/184#issuecomment-425952900
+    SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+
     if (SDL_Init(SDL_INIT_VIDEO))
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", SDL_GetError(), nullptr);

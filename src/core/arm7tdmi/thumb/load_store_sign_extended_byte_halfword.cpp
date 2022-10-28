@@ -10,9 +10,14 @@
 namespace gba::arm7tdmi::thumb {
 namespace {
 
+// S=0,H=0=STRH (store halfword)
+// S=0,H=1=LDRH (load halfword)
+// S=1,H=0=LDSB (load byte sign-extended)
+// S=1,H=1=LDSH (load halfword sign-extended)
+
 // page 126 (5.8)
 template<
-    bool H, // 0=STR, 1=LDR
+    bool H, // see above truth table
     bool S  // 0=normal, 1=sign-extended
 >
 auto load_store_sign_extended_byte_halfword(Gba& gba, const u16 opcode) -> void
@@ -37,6 +42,8 @@ auto load_store_sign_extended_byte_halfword(Gba& gba, const u16 opcode) -> void
             u32 result = mem::read16(gba, addr);
             result = std::rotr(result, (addr & 0x1) * 8);
             set_reg_thumb(gba, Rd, result);
+
+            gba.scheduler.tick(1); // todo: verify
         }
     }
     else
@@ -64,6 +71,8 @@ auto load_store_sign_extended_byte_halfword(Gba& gba, const u16 opcode) -> void
         }
 
         set_reg_thumb(gba, Rd, result);
+
+        gba.scheduler.tick(1); // todo: verify
     }
 }
 

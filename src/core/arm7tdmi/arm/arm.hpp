@@ -7,6 +7,6 @@
 
 namespace gba::arm7tdmi::arm {
 
-STATIC_INLINE auto execute(Gba& gba) -> void;
+auto execute(Gba& gba) -> void;
 
 } // namespace gba::arm7tdmi::arm

@@ -15,7 +15,83 @@
 #include "backup/backup.hpp"
 #include "gpio.hpp"
 #include "fwd.hpp"
+#include <cassert>
 #include <span>
+
+namespace scheduler {
+
+enum ID : s32
+{
+    PPU,
+    // todo: profile removing the apu channel events
+    APU_SQUARE0,
+    APU_SQUARE1,
+    APU_WAVE,
+    APU_NOISE,
+    APU_FRAME_SEQUENCER,
+    APU_SAMPLE,
+    TIMER0,
+    TIMER1,
+    TIMER2,
+    TIMER3,
+    DMA,
+    INTERRUPT,
+    HALT,
+
+    // special event to indicate the end of a frame.
+    // the cycles is set by the user in run();
+    FRAME,
+
+    // not an actual event, it just keeps track of the size
+    END,
+};
+
+struct DeltaManager
+{
+    s32 deltas[ID::END]{};
+
+    constexpr void reset()
+    {
+        for (auto& delta : deltas) { delta = 0; }
+    }
+
+    constexpr void add(s32 id, s32 delta)
+    {
+        assert(id < 15);
+        assert(delta <= 0);
+        deltas[id] = delta;
+    }
+
+    constexpr void remove(s32 id)
+    {
+        assert(id < 15);
+        deltas[id] = 0;
+    }
+
+    [[nodiscard]] constexpr auto get(s32 id, s32 time) -> s32
+    {
+        assert(id < 15);
+        return time + deltas[id];
+    }
+};
+
+struct State
+{
+    struct Entry
+    {
+        s32 enabled;
+        s32 cycles;
+    };
+
+    Entry entries[ID::END];
+    DeltaManager delta;
+    s32 scheduler_cycles;
+
+    void on_savestate(const gba::Gba& gba);
+    void on_loadstate(gba::Gba& gba) const;
+};
+
+} // namespace scheduler
 
 namespace gba {
 
@@ -83,6 +159,7 @@ using VblankCallback = void(*)(void* user);
 using HblankCallback = void(*)(void* user, u16 line);
 using ColourCallback = u32(*)(void* user, Colour colour);
 using FatFlushCallback = void(*)(void* user, u64 offset, u64 size);
+using LogCallback = void(*)(void* user, u8 type, u8 level, const char* str);
 
 struct Gba
 {
@@ -98,7 +175,12 @@ struct Gba
     mem::WriteFunction<u16> wfuncmap_16[16];
     mem::WriteFunction<u32> wfuncmap_32[16];
 
+    u8 timing_table_16[2][0x10];
+    u8 timing_table_32[2][0x10];
+    u8 last_region;
+
     scheduler::Scheduler scheduler;
+    scheduler::DeltaManager delta;
     arm7tdmi::Arm7tdmi cpu;
     mem::Mem mem;
     ppu::Ppu ppu;
@@ -146,6 +228,7 @@ struct Gba
     void set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
     void set_colour_callback(ColourCallback cb) { this->colour_callback = cb; }
     void set_fat_flush_callback(FatFlushCallback cb) { this->fat_flush_callback = cb; }
+    void set_log_callback(LogCallback cb) { this->log_callback = cb; }
 
     // set the pixels that the game will render to
     // IMPORTANT: if pixels == NULL, then no rendering will happen!
@@ -169,6 +252,9 @@ struct Gba
     System system;
 
     bool bit_crushing{false};
+    bool frame_end;
+    // controlled by the rom writing to [IO_LOG_CONTROL]
+    bool rom_logging{false};
 
     u8* fat32_data;
     u64 fat32_data_size;
@@ -183,11 +269,17 @@ struct Gba
     u32 stride;
     u8 bpp;
 
+    char log_buffer[0x101]{};
+    u32 log_buffer_index{};
+    u64 log_type{};
+    u64 log_level{};
+
     AudioCallback audio_callback{};
     VblankCallback vblank_callback{};
     HblankCallback hblank_callback{};
     ColourCallback colour_callback{};
     FatFlushCallback fat_flush_callback{};
+    LogCallback log_callback{};
 };
 
 struct State
@@ -197,7 +289,7 @@ struct State
     u32 size; // see StateMeta::SIZE
     u32 crc; // crc of game
 
-    scheduler::Scheduler scheduler;
+    scheduler::State scheduler;
     arm7tdmi::Arm7tdmi cpu;
     mem::Mem mem;
     apu::Apu apu;
