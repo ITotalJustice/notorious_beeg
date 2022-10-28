@@ -116,7 +116,6 @@ auto Div(Gba& gba) -> bool
     arm7tdmi::set_reg(gba, 1, result.rem);
     arm7tdmi::set_reg(gba, 3, result.quot * is_signed);
 
-    gba_log("[DIV] number: %d denom: %d q: %d r: %d\n", number, denom, result.quot, result.rem);
     return true;
 }
 

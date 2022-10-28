@@ -680,7 +680,6 @@ auto on_nr52_write(Gba& gba, u8 value)
     {
         if (!master_enable)
         {
-            gba_log("\tapu disabled\n");
             apu_on_disabled(gba);
         }
     }
@@ -688,7 +687,6 @@ auto on_nr52_write(Gba& gba, u8 value)
     {
         if (master_enable)
         {
-            gba_log("\tapu enabled\n");
             apu_on_enabled(gba);
         }
     }

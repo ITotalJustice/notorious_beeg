@@ -51,6 +51,19 @@ constexpr auto get_timer_num_from_event(s32 id) -> u8
     std::unreachable();
 }
 
+auto read_timer_from_scheduler(Gba& gba, Timer& timer, u8 num) -> u16
+{
+    const auto delta = (gba.scheduler.get_ticks() - gba.scheduler.get_event_cycles_absolute(EVENTS[num])) / timer.freq;
+
+    // handles rare case where the timer is read after 0/1 cycle(s)
+    if (delta < timer.counter - 0x10000) [[unlikely]]
+    {
+        return timer.counter;
+    }
+
+    return delta;
+}
+
 auto add_timer_event(Gba& gba, Timer& timer, u8 num, u8 offset) -> void
 {
     // don't add timer if cascade is enabled (and not timer0)
@@ -59,40 +72,41 @@ auto add_timer_event(Gba& gba, Timer& timer, u8 num, u8 offset) -> void
         return;
     }
 
-    const auto value = (0x10000 - timer.counter) * timer.freq;
+    const auto value = ((0x10000 - timer.counter) * timer.freq) + offset;
+    gba.scheduler.add(EVENTS[num], gba.delta.get(EVENTS[num], value), on_timer_event, &gba);
 
-    assert(value >= 1);
-    assert(timer.counter <= 0xFFFF);
-
-    gba.scheduler.add(EVENTS[num], gba.delta.get(EVENTS[num], value + offset), on_timer_event, &gba);
-    timer.event_time = gba.scheduler.get_event_cycles(EVENTS[num]);
+    log::print_info(gba, LOG_TYPE[num], "timestamp: %d adding timer[%u] counter: 0x%04X value: 0x%04X delta %d\n", gba.scheduler.get_ticks(), num, timer.counter, value, gba.delta.get(EVENTS[num], 0));
 }
 
-auto on_overflow(Gba& gba, u8 number) -> void
+auto on_overflow(Gba& gba, u8 num) -> void
 {
-    auto& timer = gba.timer[number];
+    auto& timer = gba.timer[num];
     timer.counter = timer.reload;
 
+    log::print_info(gba, LOG_TYPE[num], "timestamp: %d overflow, reloading: 0x%04X\n", gba.scheduler.get_ticks(), timer.counter);
+
     // these are audio fifo timers
-    if (number == 0 || number == 1)
+    if (num == 0 || num == 1)
     {
-        apu::on_timer_overflow(gba, number);
+        apu::on_timer_overflow(gba, num);
     }
 
     // tick cascade timer when the timer above overflows
     // eg, if timer2 overflows, cascade timer1 would be ticked
     // because of this, timer0 cascade is ignored due to
     // there not being a timer above it!
-    if (number < 3)
+    if (num < 3)
     {
-        auto& cascade_timer = gba.timer[number+1];
+        auto& cascade_timer = gba.timer[num+1];
 
-        if (cascade_timer.cascade)
+        if (cascade_timer.enable && cascade_timer.cascade)
         {
             cascade_timer.counter++;
+            log::print_info(gba, LOG_TYPE[num+1], "clocking cascade timer: 0x%04X\n", gba.scheduler.get_ticks(), cascade_timer.counter);
+
             if (cascade_timer.counter == 0)
             {
-                on_overflow(gba, number+1);
+                on_overflow(gba, num+1);
             }
         }
     }
@@ -100,10 +114,11 @@ auto on_overflow(Gba& gba, u8 number) -> void
     // check if we should fire an irq
     if (timer.irq)
     {
-        arm7tdmi::fire_interrupt(gba, INTERRUPT[number]);
+        log::print_info(gba, LOG_TYPE[num], "timestamp: %d firing timer irq\n", gba.scheduler.get_ticks());
+        arm7tdmi::fire_interrupt(gba, INTERRUPT[num]);
     }
 
-    add_timer_event(gba, timer, number, 0);
+    add_timer_event(gba, timer, num, 0);
 }
 
 auto get_tmxcnt(Gba& gba, const u8 num)
@@ -146,12 +161,18 @@ auto on_cnt_write(Gba& gba, const u8 num) -> void
     // if timer is now enabled, reload
     if (!was_enabled && E)
     {
-        log::print_info(gba, LOG_TYPE[num], "enabling timer\n");
+        log::print_info(gba, LOG_TYPE[num], "timestamp: %d enabling timer\n", gba.scheduler.get_ticks());
         timer.counter = timer.reload;
     }
     else if (was_enabled && !E)
     {
-        log::print_info(gba, LOG_TYPE[num], "disabling timer\n");
+        log::print_info(gba, LOG_TYPE[num], "timestamp: %d disabling timer\n", gba.scheduler.get_ticks());
+
+        if (num == 0 || !timer.cascade)
+        {
+            timer.counter = read_timer_from_scheduler(gba, timer, num);
+        }
+
         gba.delta.remove(EVENTS[num]);
         gba.scheduler.remove(EVENTS[num]);
         return;
@@ -173,20 +194,38 @@ void on_timer_event(void* user, s32 id, s32 late)
 auto read_timer(Gba& gba, u8 num) -> u16
 {
     auto& timer = gba.timer[num];
+    u16 result;
 
     if (!timer.enable)
     {
-        return timer.reload;
+        result = timer.counter;
+        log::print_info(gba, LOG_TYPE[num], "timestamp: %d reading disabled timer: result: 0x%04X vcount: %u ppu_cycles: %d counter: 0x%04X\n", gba.scheduler.get_ticks(), result, REG_VCOUNT, gba.scheduler.get_event_cycles(scheduler::ID::PPU), timer.counter);
     }
     else if (timer.cascade)
     {
-        return timer.counter;
+        gba.scheduler.fire(); // may break stuff but needed for ags countup
+        result = timer.counter;
+        log::print_info(gba, LOG_TYPE[num], "timestamp: %d reading cascade timer: result: 0x%04X vcount: %u ppu_cycles: %d counter: 0x%04X\n", gba.scheduler.get_ticks(), result, REG_VCOUNT, gba.scheduler.get_event_cycles(scheduler::ID::PPU), timer.counter);
     }
     else
     {
-        const auto delta = (gba.scheduler.get_ticks() - gba.scheduler.get_event_cycles(EVENTS[num])) / timer.freq;
-        return timer.counter + delta;
+        result = read_timer_from_scheduler(gba, timer, num);
+        log::print_info(gba, LOG_TYPE[num], "timestamp: %d reading normal timer: result: 0x%04X vcount: %u ppu_cycles: %d counter: 0x%04X\n", gba.scheduler.get_ticks(), result, REG_VCOUNT, gba.scheduler.get_event_cycles(scheduler::ID::PPU), timer.counter);
     }
+
+    return result;
+}
+
+void write_timer(Gba& gba, u16 value, u8 num)
+{
+    auto& timer = gba.timer[num];
+
+    timer.reload = value;
+    if (!timer.enable)
+    {
+        timer.counter = timer.reload;
+    }
+    gba.timer[0].reload = value;
 }
 
 } // namespace gba::timer

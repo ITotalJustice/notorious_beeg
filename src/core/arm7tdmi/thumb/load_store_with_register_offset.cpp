@@ -40,6 +40,8 @@ auto load_store_with_register_offset(Gba& gba, const u16 opcode) -> void
         }
 
         set_reg_thumb(gba, Rd, result);
+
+        gba.scheduler.tick(1); // todo: verify
     }
     else // STR
     {

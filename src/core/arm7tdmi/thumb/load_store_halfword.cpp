@@ -33,6 +33,8 @@ auto load_store_halfword(Gba& gba, const u16 opcode) -> void
         u32 result = mem::read16(gba, addr);
         result = std::rotr(result, (addr & 0x1) * 8);
         set_reg_thumb(gba, Rd, result);
+
+        gba.scheduler.tick(1); // todo: verify
     }
 }
 

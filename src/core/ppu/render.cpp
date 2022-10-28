@@ -12,11 +12,11 @@
 #include "render.hpp"
 #include "gba.hpp"
 #include "bit.hpp"
+#include "log.hpp"
 #include "mem.hpp"
 
 #include <cassert>
 #include <cstddef>
-#include <cstdio>
 #include <cstring>
 #include <span>
 #include <utility>
@@ -1529,10 +1529,8 @@ auto render(Gba& gba) -> void
         case 5: render_mode5(gba); break;
 
         default:
-            #ifndef NDEBUG
+            log::print_error(gba, log::Type::PPU, "unhandled ppu mode: %u\n", mode);
             assert(!"unhandled ppu mode!");
-            std::printf("unhandled ppu mode: %u\n", mode);
-            #endif
             break;
     }
 }

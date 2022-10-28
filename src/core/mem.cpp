@@ -15,16 +15,10 @@
 #include "log.hpp"
 
 #include <cassert>
-#include <cstdint>
-#include <cstdio>
 #include <cstring>
-#include <iterator>
-#include <span>
 #include <type_traits>
 #include <bit>
 #include <utility>
-
-#define MEM gba.mem
 
 namespace gba::mem {
 namespace {
@@ -35,18 +29,45 @@ constexpr auto mirror_address(const u32 addr) -> u32
     return addr & 0x0FFFFFFF;
 }
 
-[[nodiscard]]
-inline auto get_memory_timing(const u8 index, const u32 addr) -> u8
+inline auto is_new_region(u8 old_region, u8 new_region) -> bool
 {
-    // https://problemkaputt.de/gbatek.htm#gbamemorymap
-    static constexpr u8 timings[3][0x10] = // this has to be static otherwise it's slow
+    switch (new_region)
     {
-        { 1, 1, 3, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 5, 1, },
-        { 1, 1, 3, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 5, 1, },
-        { 1, 1, 6, 1, 1, 2, 2, 1, 4, 4, 4, 4, 4, 4, 8, 1, },
-    };
+        case 0x8:
+        case 0x9:
+            return old_region != 0x8 && old_region != 0x9;
 
-    return timings[index & 3][(addr >> 24) & 0xF];
+        case 0xA:
+        case 0xB:
+            return old_region != 0xA && old_region != 0xB;
+
+        case 0xC:
+        case 0xD:
+            return old_region != 0xC && old_region != 0xD;
+
+        case 0xE:
+        case 0xF:
+            return old_region != 0xE && old_region != 0xF;
+
+        default:
+            return old_region != new_region;
+    }
+}
+
+template<typename T>
+[[nodiscard]] inline auto get_memory_timing(Gba& gba, const u8 region) -> u8
+{
+    const auto new_region = is_new_region(gba.last_region, region);
+    gba.last_region = region;
+
+    if constexpr(std::is_same<T, u8>() || std::is_same<T, u16>())
+    {
+        return gba.timing_table_16[new_region][region];
+    }
+    else if constexpr(std::is_same<T, u32>())
+    {
+        return gba.timing_table_32[new_region][region];
+    }
 }
 
 // ----- helpers for rw arrays (alignment and endianness are handled) -----
@@ -84,7 +105,7 @@ inline auto write_array(u8* array, u32 mask, u32 addr, T v) -> void
 template<typename T>
 inline auto openbus(Gba& gba, const u32 addr) -> T
 {
-    // std::printf("openbus read: 0x%08X v1: 0x%08X v2: 0x%08X\n", addr, gba.cpu.pipeline[0], gba.cpu.pipeline[1]);
+    log::print_warn(gba, log::Type::MEMORY, "openbus read: 0x%08X pipeline[0]: 0x%08X pipeline[1]: 0x%08X\n", addr, gba.cpu.pipeline[0], gba.cpu.pipeline[1]);
 
     if (addr <= 0x00003FFF)
     {
@@ -114,14 +135,174 @@ inline auto openbus(Gba& gba, const u32 addr) -> T
 template<typename T>
 inline auto empty_write([[maybe_unused]] Gba& gba, [[maybe_unused]] u32 addr, [[maybe_unused]] T value) -> void
 {
-    #if 0
-    std::printf("empty write to: 0x%08X value: 0x%08X\n", addr, value);
-    #endif
+    log::print_warn(gba, log::Type::MEMORY, "empty write to: 0x%08X value: 0x%08X\n", addr, value);
+}
+
+void update_wscnt_table(Gba& gba)
+{
+    const auto sram = bit::get_range<0, 1>(REG_WSCNT);
+    const auto ws0_nseq = bit::get_range<2, 3>(REG_WSCNT);
+    const auto ws1_nseq = bit::get_range<5, 6>(REG_WSCNT);
+    const auto ws2_nseq = bit::get_range<8, 9>(REG_WSCNT);
+    const auto ws0_seq = bit::is_set<4>(REG_WSCNT);
+    const auto ws1_seq = bit::is_set<7>(REG_WSCNT);
+    const auto ws2_seq = bit::is_set<10>(REG_WSCNT);
+
+    static constexpr u8 WS0_SEQ[2] = { 2+1, 1+1 };
+    static constexpr u8 WS1_SEQ[2] = { 4+1, 1+1 };
+    static constexpr u8 WS2_SEQ[2] = { 8+1, 1+1 };
+    static constexpr u8 WS0_NSEQ[4] = { 4+1,3+1,2+1,8+1 };
+    static constexpr u8 WS1_NSEQ[4] = { 4+1,3+1,2+1,8+1 };
+    static constexpr u8 WS2_NSEQ[4] = { 4+1,3+1,2+1,8+1 };
+    static constexpr u8 SRAM[4] = { 4+1,3+1,2+1,8+1 };
+
+    gba.timing_table_16[SEQ][0x8] = WS0_SEQ[ws0_seq];
+    gba.timing_table_16[SEQ][0x9] = WS0_SEQ[ws0_seq];
+    gba.timing_table_16[SEQ][0xA] = WS1_SEQ[ws1_seq];
+    gba.timing_table_16[SEQ][0xB] = WS1_SEQ[ws1_seq];
+    gba.timing_table_16[SEQ][0xC] = WS2_SEQ[ws2_seq];
+    gba.timing_table_16[SEQ][0xD] = WS2_SEQ[ws2_seq];
+
+    gba.timing_table_16[NSEQ][0x8] = WS0_NSEQ[ws0_nseq];
+    gba.timing_table_16[NSEQ][0x9] = WS0_NSEQ[ws0_nseq];
+    gba.timing_table_16[NSEQ][0xA] = WS1_NSEQ[ws1_nseq];
+    gba.timing_table_16[NSEQ][0xB] = WS1_NSEQ[ws1_nseq];
+    gba.timing_table_16[NSEQ][0xC] = WS2_NSEQ[ws2_nseq];
+    gba.timing_table_16[NSEQ][0xD] = WS2_NSEQ[ws2_nseq];
+
+    // 32bit access simply 2 16bit accesses.
+    gba.timing_table_32[SEQ][0x8] = WS0_SEQ[ws0_seq] * 2;
+    gba.timing_table_32[SEQ][0x9] = WS0_SEQ[ws0_seq] * 2;
+    gba.timing_table_32[SEQ][0xA] = WS1_SEQ[ws1_seq] * 2;
+    gba.timing_table_32[SEQ][0xB] = WS1_SEQ[ws1_seq] * 2;
+    gba.timing_table_32[SEQ][0xC] = WS2_SEQ[ws2_seq] * 2;
+    gba.timing_table_32[SEQ][0xD] = WS2_SEQ[ws2_seq] * 2;
+
+    // for nseq access, the second 16bit access is seq
+    gba.timing_table_32[NSEQ][0x8] = WS0_NSEQ[ws0_nseq] + WS0_SEQ[ws0_seq];
+    gba.timing_table_32[NSEQ][0x9] = WS0_NSEQ[ws0_nseq] + WS0_SEQ[ws0_seq];
+    gba.timing_table_32[NSEQ][0xA] = WS1_NSEQ[ws1_nseq] + WS1_SEQ[ws1_seq];
+    gba.timing_table_32[NSEQ][0xB] = WS1_NSEQ[ws1_nseq] + WS1_SEQ[ws1_seq];
+    gba.timing_table_32[NSEQ][0xC] = WS2_NSEQ[ws2_nseq] + WS2_SEQ[ws2_seq];
+    gba.timing_table_32[NSEQ][0xD] = WS2_NSEQ[ws2_nseq] + WS2_SEQ[ws2_seq];
+
+    // timing seems to same regardless of access size
+    // i think this is because on 8bit access is valid from
+    // this range, so, 16/32 bit access just does a single 8bit access.
+    gba.timing_table_16[SEQ][0xE] = SRAM[sram];
+    gba.timing_table_32[SEQ][0xF] = SRAM[sram];
+    gba.timing_table_16[NSEQ][0xE] = SRAM[sram];
+    gba.timing_table_32[NSEQ][0xF] = SRAM[sram];
+}
+
+void update_wram_table(Gba& gba)
+{
+    const auto ewram = bit::get_range<8, 11>(REG_IMC_H);
+
+    // this would be waitstate 0, which is invalid
+    // TODO: is this invalid on ds, 3ds, gamecube gba player?
+    if (ewram == 15)
+    {
+        return;
+    }
+
+    // NOTE: minimum waitstate for gba micro is 2 (3/3/6)
+    static constexpr u8 EWRAM[0x10] = { 15+1, 14+1, 13+1, 12+1, 11+1, 10+1, 9+1, 8+1, 7+1, 6+1, 5+1, 4+1, 3+1, 2+1, 1+1, 0+1 };
+
+    gba.timing_table_16[SEQ][0x2] = EWRAM[ewram];
+    gba.timing_table_16[NSEQ][0x2] = EWRAM[ewram];
+    gba.timing_table_32[SEQ][0x2] = EWRAM[ewram] * 2;
+    gba.timing_table_32[NSEQ][0x2] = EWRAM[ewram] * 2;
+}
+
+void setup_timing_table(Gba& gba)
+{
+    constexpr u8 TIMING_UNMAPPED = 1;
+    constexpr u8 TIMING_BIOS = 1;
+    constexpr u8 TIMING_IWRAM = 1;
+    constexpr u8 TIMING_IO = 1;
+    constexpr u8 TIMING_PRAM = 1;
+    constexpr u8 TIMING_VRAM = 1;
+    constexpr u8 TIMING_OAM = 1;
+
+    auto& seq_16 = gba.timing_table_16[SEQ];
+    auto& seq_32 = gba.timing_table_32[SEQ];
+    auto& nseq_16 = gba.timing_table_16[NSEQ];
+    auto& nseq_32 = gba.timing_table_32[NSEQ];
+
+    // TODO: wram can be unmapped which i imagine effects waitstates
+    // also, ewram can be unmapped and have mirror of iwram instead
+    // which might use 1/1/1 timing instead.
+    seq_16[0x0] = nseq_16[0x0] = TIMING_BIOS;
+    seq_16[0x1] = nseq_16[0x1] = TIMING_UNMAPPED;
+    seq_16[0x3] = nseq_16[0x3] = TIMING_IWRAM;
+    seq_16[0x4] = nseq_16[0x4] = TIMING_IO;
+    seq_16[0x5] = nseq_16[0x5] = TIMING_PRAM;
+    seq_16[0x6] = nseq_16[0x6] = TIMING_VRAM;
+    seq_16[0x7] = nseq_16[0x7] = TIMING_OAM;
+
+    seq_32[0x0] = nseq_32[0x0] = TIMING_BIOS;
+    seq_32[0x1] = nseq_32[0x1] = TIMING_UNMAPPED;
+    seq_32[0x3] = nseq_32[0x3] = TIMING_IWRAM;
+    seq_32[0x4] = nseq_32[0x4] = TIMING_IO;
+    seq_32[0x5] = nseq_32[0x5] = TIMING_PRAM * 2;
+    seq_32[0x6] = nseq_32[0x6] = TIMING_VRAM * 2;
+    seq_32[0x7] = nseq_32[0x7] = TIMING_OAM; // todo: verify it's 1 cycle
+
+    update_wscnt_table(gba);
+    update_wram_table(gba);
+}
+
+void on_wscnt_write(Gba& gba, u16 value)
+{
+    const auto old_value = bit::get_range<0, 14>(REG_WSCNT);
+    const auto new_value = bit::get_range<0, 14>(value);
+
+    REG_WSCNT = new_value;
+
+    if (old_value != new_value)
+    {
+        update_wscnt_table(gba);
+    }
+}
+
+void on_imcl_write(Gba& gba, u16 value)
+{
+    const auto disable_wram = bit::is_set<0>(value);
+    const auto enable_ewram = bit::is_set<5>(value);
+
+    // assert(bit::is_set<5>(REG_IMC_L) && "when bit 5 is unset, locks up gba");
+    REG_IMC_L = value;
+
+    if (disable_wram)
+    {
+        log::print_warn(gba, log::Type::MEMORY, "IMC_H disabled wram, this is not emulated yet!");
+        assert(!disable_wram);
+    }
+
+    if (!enable_ewram)
+    {
+        log::print_warn(gba, log::Type::MEMORY, "IMC_H disabled ewram, this is not emulated yet!");
+        assert(enable_ewram && "need to mirror iwram over this range, easy to do tbh");
+    }
+}
+
+void on_imch_write(Gba& gba, u16 value)
+{
+    const auto old_value = bit::get_range<8, 11>(REG_IMC_H);
+    const auto new_value = bit::get_range<8, 11>(value);
+
+    REG_IMC_H = value;
+
+    if (old_value != new_value)
+    {
+        update_wram_table(gba);
+    }
 }
 
 void log_write(Gba& gba, char c)
 {
-    if (gba.log_buffer_index < 0x100)
+    if (gba.log_buffer_index < sizeof(gba.log_buffer) - 1)
     {
         gba.log_buffer[gba.log_buffer_index] = c;
         gba.log_buffer_index++;
@@ -130,12 +311,13 @@ void log_write(Gba& gba, char c)
 
 void log_flag_write(Gba& gba, u16 value)
 {
-    u8 level = value & 7;
-    bool flush = bit::is_set<8>(value);
+    const auto level = value & 7;
+    const auto flush = bit::is_set<8>(value);
 
-    if (flush)
+    if (flush && gba.log_buffer_index) // only flush if we have anything in buffer
     {
-        gba.log_buffer[gba.log_buffer_index + 1] = '\0';
+        gba.log_buffer[gba.log_buffer_index - 1] = '\n'; // ensure there's a newline
+        gba.log_buffer[gba.log_buffer_index] = '\0'; // null terminate
         log::print(gba, log::Type::GAME, level, gba.log_buffer);
         gba.log_buffer_index = 0;
     }
@@ -431,19 +613,19 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
     switch (addr)
     {
         case IO_TM0D:
-            gba.timer[0].reload = value;
+            timer::write_timer(gba, value, 0);
             break;
 
         case IO_TM1D:
-            gba.timer[1].reload = value;
+            timer::write_timer(gba, value, 1);
             break;
 
         case IO_TM2D:
-            gba.timer[2].reload = value;
+            timer::write_timer(gba, value, 2);
             break;
 
         case IO_TM3D:
-            gba.timer[3].reload = value;
+            timer::write_timer(gba, value, 3);
             break;
 
         case IO_IF:
@@ -454,18 +636,9 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
             REG_DISPSTAT = (REG_DISPSTAT & 0x7) | (value & ~0x7);
             break;
 
-        case IO_WSCNT: {
-            const auto old_value = REG_WSCNT;
-            const auto new_value = value;
-
-            // std::printf("[IO_WSCNT] 0x%04X\n", value);
-            REG_WSCNT = value;
-
-            if (old_value != new_value)
-            {
-                // assert(!"IO_WSCNT waitstate updated!");
-            }
-        } break;
+        case IO_WSCNT:
+            on_wscnt_write(gba, value);
+            break;
 
         case IO_DISPCNT:
         case IO_BG0CNT:
@@ -693,16 +866,16 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
             if (value == IO_LOG_ON)
             {
                 gba.rom_logging = true;
-                std::printf("[LOG] logging enabled\n");
+                log::print_info(gba, log::Type::MEMORY, "[LOG] logging enabled\n");
             }
             else if (value == IO_LOG_OFF)
             {
                 gba.rom_logging = false;
-                std::printf("[LOG] logging disabled\n");
+                log::print_info(gba, log::Type::MEMORY, "[LOG] logging disabled\n");
             }
             else
             {
-                std::printf("[LOG] invalid write to [IO_MGBA_CONTROL]: 0x%04X\n", value);
+                log::print_error(gba, log::Type::MEMORY, "[LOG] invalid write to [IO_MGBA_CONTROL]: 0x%04X\n", value);
             }
             break;
 
@@ -720,24 +893,13 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
                 log_write(gba, (value >> 8) & 0xFF);
             }
             // the only mirrored reg
-            if ((addr & 0xFFF) == (IO_IMC_L & 0xFFF))
+            else if ((addr & 0xFFF) == (IO_IMC_L & 0xFFF))
             {
-                assert(bit::is_set<5>(REG_IMC_L) && "when bit 5 is unset, locks up gba");
-                REG_IMC_L = value;
+                on_imcl_write(gba, value);
             }
             else if ((addr & 0xFFF) == (IO_IMC_H & 0xFFF))
             {
-                const auto old_value = bit::get_range<0x8, 0xB>(REG_IMC_H);
-                const auto new_value = bit::get_range<0x8, 0xB>(value);
-                assert((new_value == 0b1101 || new_value == 0b1110) && "invalid wram waitstate");
-
-                REG_IMC_H = value;
-
-                if (old_value != new_value)
-                {
-                    // todo: update waitstate!
-                    assert(!"wram waitstate updated!");
-                }
+                on_imch_write(gba, value);
             }
             break;
     }
@@ -862,7 +1024,7 @@ inline auto write_io8(Gba& gba, const u32 addr, const u8 value) -> void
             }
 
             u16 actual_value = value;
-            const u16 old_value = MEM.io[(addr & 0x3FF) >> 1];
+            const u16 old_value = gba.mem.io[(addr & 0x3FF) >> 1];
 
             if (addr & 1)
             {
@@ -940,7 +1102,7 @@ auto write_oam_region(Gba& gba, const u32 addr, const T value) -> void
     // only non-byte writes are allowed
     if constexpr(!std::is_same<T, u8>())
     {
-        write_array<T>(MEM.oam, OAM_MASK, addr, value);
+        write_array<T>(gba.mem.oam, OAM_MASK, addr, value);
     }
 }
 
@@ -971,14 +1133,14 @@ auto write_gpio(Gba& gba, const u32 addr, const T value)
     switch (addr)
     {
         case GPIO_DATA: // I/O Port Data (rw or W)
-            // std::printf("[GPIO] data: 0x%02X\n", value);
+            log::print_info(gba, log::Type::GPIO, "data: 0x%02X\n", value);
             gba.gpio.data = value & gba.gpio.write_mask;
             gba.gpio.rtc.write(gba, addr, value & gba.gpio.write_mask);
             // gba.gpio.data = value & gba.gpio.write_mask;
             break;
 
         case GPIO_DIRECTION: // I/O Port Direction (rw or W)
-            // std::printf("[GPIO] direction: 0x%02X\n", value);
+            log::print_info(gba, log::Type::GPIO, "direction: 0x%02X\n", value);
             // the direction port acts as a mask for r/w bits
             // bitX = 0, read only (in)
             // bitX = 1, write only (out)
@@ -989,7 +1151,7 @@ auto write_gpio(Gba& gba, const u32 addr, const T value)
         case GPIO_CONTROL: // I/O Port Control (rw or W)
             gba.gpio.rw = bit::is_set<0>(value);
 
-            std::printf("[GPIO] control: %s\n", gba.gpio.rw ? "rw" : "w only");
+            log::print_info(gba, log::Type::GPIO, "control: %s\n", gba.gpio.rw ? "rw" : "w only");
             if (gba.gpio.rw)
             {
                 // for speed, unmap the rom from [0x8]
@@ -1001,7 +1163,6 @@ auto write_gpio(Gba& gba, const u32 addr, const T value)
             {
                 // gpio is now write only
                 // remap rom array for faster reads
-                std::printf("unammped rom handler\n");
                 gba.rmap[0x8] = {gba.rom, ROM_MASK, Access_ALL};
             }
             break;
@@ -1031,7 +1192,7 @@ auto read_vram_region(Gba& gba, u32 addr) -> T
         addr -= 0x8000;
     }
 
-    return read_array<T>(MEM.vram, VRAM_MASK, addr);
+    return read_array<T>(gba.mem.vram, VRAM_MASK, addr);
 }
 
 template<typename T>
@@ -1059,12 +1220,12 @@ auto write_vram_region(Gba& gba, u32 addr, const T value) -> void
         if (addr <= end_region)
         {
             const u16 new_value = (value << 8) | value;
-            write_array<u16>(MEM.vram, VRAM_MASK, addr, new_value);
+            write_array<u16>(gba.mem.vram, VRAM_MASK, addr, new_value);
         }
     }
     else
     {
-        write_array<T>(MEM.vram, VRAM_MASK, addr, value);
+        write_array<T>(gba.mem.vram, VRAM_MASK, addr, value);
     }
 }
 
@@ -1074,7 +1235,7 @@ auto write_pram_region(Gba& gba, u32 addr, const T value) -> void
     if constexpr(std::is_same<T, u8>())
     {
         const u16 new_value = (value << 8) | value;
-        write_array<u16>(MEM.pram, PRAM_MASK, addr, new_value);
+        write_array<u16>(gba.mem.pram, PRAM_MASK, addr, new_value);
     }
 }
 
@@ -1124,7 +1285,7 @@ auto write_eeprom_region(Gba& gba, const u32 addr, const T value) -> void
         if constexpr(std::is_same<T, u32>())
         {
             assert(!"32bit write to eeprom");
-            std::printf("32bit write to eeprom\n");
+            log::print_warn(gba, log::Type::EEPROM, "32bit write, is this 2 8 bit writes?\n");
             gba.backup.eeprom.write(gba, addr+0, value>>0);
             gba.backup.eeprom.write(gba, addr+1, value>>16);
         }
@@ -1169,7 +1330,7 @@ auto read_sram_region(Gba& gba, const u32 addr) -> T
 template<typename T>
 auto write_sram_region(Gba& gba, const u32 addr, T value) -> void
 {
-    if (addr > 0x0E00FFFF) [[unlikely]]
+    if ((addr & 0xFFFFFF) > 0x00FFFF) [[unlikely]]
     {
         return;
     }
@@ -1224,10 +1385,11 @@ inline auto read_internal(Gba& gba, u32 addr) -> T
         /*[0xF] =*/ read_sram_region<T>,
     };
 
-    gba.elapsed_cycles += (get_memory_timing(sizeof(T) >> 1, addr));
-
     addr = mirror_address(addr);
-    const auto& entry = gba.rmap[addr >> 24];
+    const auto region = addr >> 24;
+    gba.scheduler.tick(get_memory_timing<T>(gba, region));
+
+    const auto& entry = gba.rmap[region];
 
     if (entry.access & sizeof(T)) [[likely]]
     {
@@ -1235,7 +1397,7 @@ inline auto read_internal(Gba& gba, u32 addr) -> T
     }
     else
     {
-        return READ_FUNCTION[addr >> 24](gba, addr);
+        return READ_FUNCTION[region](gba, addr);
     }
 }
 
@@ -1262,10 +1424,11 @@ inline auto write_internal(Gba& gba, u32 addr, T value)
         /*[0xF] =*/ write_sram_region<T>,
     };
 
-    gba.elapsed_cycles += (get_memory_timing(sizeof(T) >> 1, addr));
-
     addr = mirror_address(addr);
-    const auto& entry = gba.wmap[addr >> 24];
+    const auto region = addr >> 24;
+    gba.scheduler.tick(get_memory_timing<T>(gba, region));
+
+    const auto& entry = gba.wmap[region];
 
     if (entry.access & sizeof(T)) // don't mark likely as vram,pram,io writes are common
     {
@@ -1273,7 +1436,7 @@ inline auto write_internal(Gba& gba, u32 addr, T value)
     }
     else
     {
-        WRITE_FUNCTION[addr >> 24](gba, addr, value);
+        WRITE_FUNCTION[region](gba, addr, value);
     }
 }
 
@@ -1313,6 +1476,8 @@ auto setup_tables(Gba& gba) -> void
         gba.rmap[0xD] = {};
         gba.wmap[0xD] = {};
     }
+
+    setup_timing_table(gba);
 }
 
 auto reset(Gba& gba, bool skip_bios) -> void

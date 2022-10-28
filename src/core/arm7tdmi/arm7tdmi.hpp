@@ -112,56 +112,56 @@ struct Arm7tdmi
 
 #define CPU gba.cpu
 
-STATIC auto reset(Gba& gba, bool skip_bios) -> void;
+auto reset(Gba& gba, bool skip_bios) -> void;
 
-STATIC auto refill_pipeline(Gba& gba) -> void;
+auto refill_pipeline(Gba& gba) -> void;
 
-STATIC auto software_interrupt(Gba& gba, u8 comment_field) -> void;
+auto software_interrupt(Gba& gba, u8 comment_field) -> void;
 
-STATIC auto schedule_interrupt(Gba& gba) -> void;
-STATIC auto fire_interrupt(Gba& gba, Interrupt i) -> void;
-STATIC auto disable_interrupts(Gba& gba) -> void;
+auto schedule_interrupt(Gba& gba) -> void;
+auto fire_interrupt(Gba& gba, Interrupt i) -> void;
+auto disable_interrupts(Gba& gba) -> void;
 
-STATIC auto change_mode(Gba& gba, u8 old_mode, u8 new_mode) -> void;
-STATIC auto load_spsr_mode_into_cpsr(Gba& gba) -> void;
-STATIC auto load_spsr_into_cpsr(Gba& gba) -> void;
+auto change_mode(Gba& gba, u8 old_mode, u8 new_mode) -> void;
+auto load_spsr_mode_into_cpsr(Gba& gba) -> void;
+auto load_spsr_into_cpsr(Gba& gba) -> void;
 [[nodiscard]]
-STATIC auto get_u32_from_cpsr(Gba& gba) -> u32;
+auto get_u32_from_cpsr(Gba& gba) -> u32;
 [[nodiscard]]
-STATIC auto get_u32_from_spsr(Gba& gba) -> u32;
-STATIC auto set_cpsr_from_u32(Gba& gba, u32 value, bool flag_write, bool control_write) -> void;
-STATIC auto set_spsr_from_u32(Gba& gba, u32 value, bool flag_write, bool control_write) -> void;
-
-[[nodiscard]]
-STATIC_INLINE auto get_mode(const Gba& gba) -> u8;
+auto get_u32_from_spsr(Gba& gba) -> u32;
+auto set_cpsr_from_u32(Gba& gba, u32 value, bool flag_write, bool control_write) -> void;
+auto set_spsr_from_u32(Gba& gba, u32 value, bool flag_write, bool control_write) -> void;
 
 [[nodiscard]]
-STATIC_INLINE auto get_state(const Gba& gba) -> State;
-[[nodiscard]]
-STATIC_INLINE auto check_cond(const Gba& gba, u8 cond) -> bool;
+auto get_mode(const Gba& gba) -> u8;
 
 [[nodiscard]]
-STATIC_INLINE auto get_lr(const Gba& gba) -> u32;
+auto get_state(const Gba& gba) -> State;
 [[nodiscard]]
-STATIC_INLINE auto get_sp(const Gba& gba) -> u32;
-[[nodiscard]]
-STATIC_INLINE auto get_pc(const Gba& gba) -> u32;
-
-STATIC_INLINE auto set_lr(Gba& gba, u32 value) -> void;
-STATIC_INLINE auto set_sp(Gba& gba, u32 value) -> void;
-STATIC_INLINE auto set_pc(Gba& gba, u32 value) -> void;
+auto check_cond(const Gba& gba, u8 cond) -> bool;
 
 [[nodiscard]]
-STATIC_INLINE auto get_reg(const Gba& gba, u8 reg) -> u32;
-STATIC_INLINE auto set_reg(Gba& gba, u8 reg, u32 value) -> void;
-STATIC_INLINE auto set_reg_data_processing(Gba& gba, u8 reg, u32 value) -> void;
-STATIC_INLINE auto set_reg_thumb(Gba& gba, u8 reg, u32 value) -> void;
+auto get_lr(const Gba& gba) -> u32;
+[[nodiscard]]
+auto get_sp(const Gba& gba) -> u32;
+[[nodiscard]]
+auto get_pc(const Gba& gba) -> u32;
+
+auto set_lr(Gba& gba, u32 value) -> void;
+auto set_sp(Gba& gba, u32 value) -> void;
+auto set_pc(Gba& gba, u32 value) -> void;
+
+[[nodiscard]]
+auto get_reg(const Gba& gba, u8 reg) -> u32;
+auto set_reg(Gba& gba, u8 reg, u32 value) -> void;
+auto set_reg_data_processing(Gba& gba, u8 reg, u32 value) -> void;
+auto set_reg_thumb(Gba& gba, u8 reg, u32 value) -> void;
 
 // the pc is aligned based on the new mode.
 // eg, for thumb, pc = new_pc & ~0x1.
-STATIC_INLINE auto change_state(Gba& gba, State new_state, u32 new_pc) -> void;
+auto change_state(Gba& gba, State new_state, u32 new_pc) -> void;
 
-STATIC_INLINE auto run(Gba& gba) -> void;
+auto run(Gba& gba) -> void;
 
 // on halt event
 enum class HaltType
@@ -177,8 +177,8 @@ enum class HaltType
     // hle_int_halt,
 };
 
-STATIC auto on_interrupt_event(void* user, s32 id, s32 late) -> void;
-STATIC auto on_halt_event(void* user, s32 id = 0, s32 late = 0) -> void;
-STATIC auto on_halt_trigger(Gba& gba, HaltType type) -> void;
+auto on_interrupt_event(void* user, s32 id, s32 late) -> void;
+auto on_halt_event(void* user, s32 id = 0, s32 late = 0) -> void;
+auto on_halt_trigger(Gba& gba, HaltType type) -> void;
 
 } // namespace gba::arm7tdmi

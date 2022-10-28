@@ -101,70 +101,70 @@ enum StatIntModes
     STAT_INT_MODE_COINCIDENCE   = 0x40
 };
 
-STATIC_INLINE auto read8(Gba& gba, u16 addr) -> u8;
-STATIC_INLINE void write8(Gba& gba, u16 addr, u8 value);
-STATIC_INLINE auto read16(Gba& gba, u16 addr) -> u16;
-STATIC_INLINE void write16(Gba& gba, u16 addr, u16 value);
+auto read8(Gba& gba, u16 addr) -> u8;
+void write8(Gba& gba, u16 addr, u8 value);
+auto read16(Gba& gba, u16 addr) -> u16;
+void write16(Gba& gba, u16 addr, u16 value);
 
-STATIC auto ffread8(Gba& gba, u8 addr) -> u8;
-STATIC void ffwrite8(Gba& gba, u8 addr, u8 value);
+auto ffread8(Gba& gba, u8 addr) -> u8;
+void ffwrite8(Gba& gba, u8 addr, u8 value);
 
-STATIC void on_lcdc_write(Gba& gba, u8 value);
-STATIC void on_stat_write(Gba& gba, u8 value);
+void on_lcdc_write(Gba& gba, u8 value);
+void on_stat_write(Gba& gba, u8 value);
 
-STATIC void div_write(Gba& gba, u8 value);
-STATIC void tima_write(Gba& gba, u8 value);
-STATIC void tma_write(Gba& gba, u8 value);
-STATIC void tac_write(Gba& gba, u8 value);
+void div_write(Gba& gba, u8 value);
+void tima_write(Gba& gba, u8 value);
+void tma_write(Gba& gba, u8 value);
+void tac_write(Gba& gba, u8 value);
 
-STATIC void bcpd_write(Gba& gba, u8 value);
-STATIC void ocpd_write(Gba& gba, u8 value);
-STATIC void GBC_on_bcpd_update(Gba& gba);
-STATIC void GBC_on_ocpd_update(Gba& gba);
-STATIC void hdma5_write(Gba& gba, u8 value);
+void bcpd_write(Gba& gba, u8 value);
+void ocpd_write(Gba& gba, u8 value);
+void GBC_on_bcpd_update(Gba& gba);
+void GBC_on_ocpd_update(Gba& gba);
+void hdma5_write(Gba& gba, u8 value);
 
 // these should also be static
-STATIC auto get_mbc_flags(u8 cart_type, u8* flags_out) -> bool;
-STATIC auto get_cart_ram_size(const struct CartHeader* header, u32* size) -> bool;
-STATIC auto setup_mbc(Gba& gba, const struct CartHeader* header) -> bool;
-STATIC void setup_mmap(Gba& gba);
-STATIC void update_rom_banks(Gba& gba);
-STATIC void update_ram_banks(Gba& gba);
-STATIC void update_vram_banks(Gba& gba);
-STATIC void update_wram_banks(Gba& gba);
+auto get_mbc_flags(u8 cart_type, u8* flags_out) -> bool;
+auto get_cart_ram_size(const struct CartHeader* header, u32* size) -> bool;
+auto setup_mbc(Gba& gba, const struct CartHeader* header) -> bool;
+void setup_mmap(Gba& gba);
+void update_rom_banks(Gba& gba);
+void update_ram_banks(Gba& gba);
+void update_vram_banks(Gba& gba);
+void update_wram_banks(Gba& gba);
 
 // used internally
-STATIC void DMA(Gba& gba);
-STATIC void draw_scanline(Gba& gba);
-STATIC void set_coincidence_flag(Gba& gba, bool n);
+void DMA(Gba& gba);
+void draw_scanline(Gba& gba);
+void set_coincidence_flag(Gba& gba, bool n);
 
-STATIC void set_status_mode(Gba& gba, u8 mode);
-STATIC auto get_status_mode(const Gba& gba) -> u8;
+void set_status_mode(Gba& gba, u8 mode);
+auto get_status_mode(const Gba& gba) -> u8;
 
-STATIC void compare_LYC(Gba& gba);
+void compare_LYC(Gba& gba);
 
-STATIC void joypad_write(Gba& gba, u8 value);
+void joypad_write(Gba& gba, u8 value);
 
-STATIC void enable_interrupt(Gba& gba, enum Interrupts interrupt);
-STATIC void disable_interrupt(Gba& gba, enum Interrupts interrupt);
+void enable_interrupt(Gba& gba, enum Interrupts interrupt);
+void disable_interrupt(Gba& gba, enum Interrupts interrupt);
 
 // used internally
-STATIC_INLINE void cpu_run(Gba& gba);
+void cpu_run(Gba& gba);
 #if !USE_SCHED
-STATIC void ppu_run(Gba& gba, u8 cycles);
+void ppu_run(Gba& gba, u8 cycles);
 #endif
 
-STATIC auto is_lcd_enabled(const Gba& gba) -> bool;
-STATIC auto is_win_enabled(const Gba& gba) -> bool;
-STATIC auto is_obj_enabled(const Gba& gba) -> bool;
-STATIC auto is_bg_enabled(const Gba& gba) -> bool;
+auto is_lcd_enabled(const Gba& gba) -> bool;
+auto is_win_enabled(const Gba& gba) -> bool;
+auto is_obj_enabled(const Gba& gba) -> bool;
+auto is_bg_enabled(const Gba& gba) -> bool;
 
-STATIC void on_timer_reload_event(void* user, s32 id = 0, s32 late = 0);
-STATIC void on_timer_event(void* user, s32 id = 0, s32 late = 0);
-STATIC void on_div_event(void* user, s32 id, s32 late);
+void on_timer_reload_event(void* user, s32 id = 0, s32 late = 0);
+void on_timer_event(void* user, s32 id = 0, s32 late = 0);
+void on_div_event(void* user, s32 id, s32 late);
 
-STATIC void on_halt_event(void* user, s32 id = 0, s32 late = 0);
-STATIC void on_interrupt_event(void* user, s32 id, s32 late);
-STATIC void schedule_interrupt(Gba& gba, u8 cycles_delay = 0);
+void on_halt_event(void* user, s32 id = 0, s32 late = 0);
+void on_interrupt_event(void* user, s32 id, s32 late);
+void schedule_interrupt(Gba& gba, u8 cycles_delay = 0);
 
 } // namespace gba::gb

@@ -39,8 +39,7 @@ inline auto is_timer_enabled(const Gba& gba) -> bool
 
 inline auto is_div16_bit_set(const Gba& gba, u8 freq_index) -> bool
 {
-    const auto event_cycles = gba.scheduler.get_event_cycles(scheduler::ID::TIMER1);
-    const u8 diff = 0x100 - (event_cycles - gba.scheduler.get_ticks());
+    const u8 diff = 0x100 - gba.scheduler.get_event_cycles(scheduler::ID::TIMER1);
 
     const auto bit_to_check = TAC_DIV_FALL_BIT[freq_index];
     const u16 div_16 = (IO_DIV << 8) | diff;
@@ -80,7 +79,7 @@ void on_timer_event(void* user, s32 id, s32 late)
         enable_interrupt(gba, INTERRUPT_TIMER); // interrupt isn't delayed, see numism.gb
         const auto reload_event_cycles = 4 >> gba.gameboy.cpu.double_speed;
         gba.scheduler.add(scheduler::ID::TIMER2, reload_event_cycles, on_timer_reload_event, &gba);
-        gba.gameboy.timer.tima_reload_timestamp = gba.scheduler.get_event_cycles(scheduler::ID::TIMER2);
+        gba.gameboy.timer.tima_reload_timestamp = gba.scheduler.get_event_cycles_absolute(scheduler::ID::TIMER2);
     }
     else
     {

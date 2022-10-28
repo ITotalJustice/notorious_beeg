@@ -50,11 +50,11 @@ struct Channel
 	bool enabled;
 };
 
-STATIC auto on_event(void* user, s32 id, s32 late) -> void;
-STATIC auto on_hblank(Gba& gba) -> void;
-STATIC auto on_vblank(Gba& gba) -> void;
-STATIC auto on_dma3_special(Gba& gba) -> void;
-STATIC auto on_fifo_empty(Gba& gba, u8 num) -> void;
-STATIC auto on_cnt_write(Gba& gba, u8 channel_num) -> void;
+auto on_event(void* user, s32 id, s32 late) -> void;
+auto on_hblank(Gba& gba) -> void;
+auto on_vblank(Gba& gba) -> void;
+auto on_dma3_special(Gba& gba) -> void;
+auto on_fifo_empty(Gba& gba, u8 num) -> void;
+auto on_cnt_write(Gba& gba, u8 channel_num) -> void;
 
 } // namespace gba::dma

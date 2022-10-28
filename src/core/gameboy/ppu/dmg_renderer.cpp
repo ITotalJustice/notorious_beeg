@@ -67,12 +67,9 @@ inline void on_dmg_palette_write(const Gba& gba, PalCache cache[20], bool* dirty
         return;
     }
 
-    const auto event_cycles = gba.scheduler.get_event_cycles(scheduler::ID::PPU);
-    const auto scheduler_cycles = gba.scheduler.get_ticks();
-    const auto cycles = event_cycles - scheduler_cycles;
+    const auto cycles = gba.scheduler.get_event_cycles(scheduler::ID::PPU);
 
     assert(cycles >= 0);
-    assert(event_cycles >= scheduler_cycles);
     #else
     const auto cycles = gba.gameboy.ppu.next_cycles;
     #endif

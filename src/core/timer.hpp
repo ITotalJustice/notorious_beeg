@@ -17,11 +17,11 @@ struct Timer
 	bool cascade;
 	bool irq;
 	bool enable;
-
 };
 
-STATIC auto on_timer_event(void* user, s32 id, s32 late) -> void;
-STATIC auto on_cnt_write(Gba& gba, u8 num) -> void;
-STATIC auto read_timer(Gba& gba, u8 num) -> u16;
+auto on_timer_event(void* user, s32 id, s32 late) -> void;
+auto on_cnt_write(Gba& gba, u8 num) -> void;
+auto read_timer(Gba& gba, u8 num) -> u16;
+void write_timer(Gba& gba, u16 value, u8 num);
 
 } // namespace gba::timer

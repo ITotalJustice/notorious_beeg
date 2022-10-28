@@ -165,7 +165,9 @@ struct Gba
     mem::ReadArray rmap[16];
     mem::WriteArray wmap[16];
 
-    s32 elapsed_cycles;
+    u8 timing_table_16[2][0x10];
+    u8 timing_table_32[2][0x10];
+    u8 last_region;
 
     scheduler::Scheduler scheduler;
     scheduler::DeltaManager delta;

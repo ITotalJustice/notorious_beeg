@@ -19,6 +19,8 @@ auto pc_relative_load(Gba& gba, const u16 opcode) -> void
 
     const auto result = mem::read32(gba, pc + Word8);
     set_reg_thumb(gba, Rd, result);
+
+    gba.scheduler.tick(1); // todo: verify
 }
 
 } // namespace

@@ -116,6 +116,9 @@ constexpr auto data_processing_reg_shift(Gba& gba, const u32 opcode, u32& oprand
 
     if constexpr(reg_shift)
     {
+        // Page 58
+        gba.scheduler.tick(1);
+
         if (Rm == PC_INDEX) [[unlikely]]
         {
             reg_to_shift += 4;
@@ -136,6 +139,59 @@ constexpr auto data_processing_reg_shift(Gba& gba, const u32 opcode, u32& oprand
         const auto shift_amount = bit::get_range<7, 11>(opcode);
         return barrel::shift_imm<shift_type>(reg_to_shift, shift_amount, old_carry);
     }
+}
+
+// Page 66 (MUL)
+// Page 68 (MULL)
+template<bool is_accumulate, bool is_signed>
+constexpr auto get_multiply_cycles(u32 Rs_reg) -> u8
+{
+    u8 cycles = 4; // default
+
+    if constexpr(is_signed)
+    {
+        u32 comp = 0xFFFFFFFF;
+
+        Rs_reg >>= 8; comp >>= 8;
+        if (!Rs_reg || Rs_reg == comp) // 7-31 all 0 | all 1
+        {
+            cycles = 1;
+        }
+
+        Rs_reg >>= 8; comp >>= 8;
+        if (!Rs_reg || Rs_reg == comp) // 15-31 all 0 | all 1
+        {
+            cycles = 2;
+        }
+
+        Rs_reg >>= 8; comp >>= 8;
+        if (!Rs_reg || Rs_reg == comp) // 23-31 all 0 | all 1
+        {
+            cycles = 3;
+        }
+    }
+    else
+    {
+        Rs_reg >>= 8;
+        if (!Rs_reg) // 7-31 all 0
+        {
+            cycles = 1;
+        }
+
+        Rs_reg >>= 8;
+        if (!Rs_reg) // 15-31 all 0
+        {
+            cycles = 2;
+        }
+
+        Rs_reg >>= 8;
+        if (!Rs_reg) // 23-31 all 0
+        {
+            cycles = 3;
+        }
+    }
+
+    return cycles + is_accumulate;
 }
 
 } // namespace gba::arm7tdmi

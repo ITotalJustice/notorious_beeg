@@ -538,6 +538,8 @@ auto on_interrupt_event(void* user, s32 id, s32 late) -> void
     on_interrupt(gba);
 }
 
+// todo: test if its possible for an irq to be set and then
+// cancelled within the 3 second window.
 auto schedule_interrupt(Gba& gba) -> void
 {
     if (REG_IE & REG_IF & 0b11'1111'1111'1111)
@@ -545,7 +547,22 @@ auto schedule_interrupt(Gba& gba) -> void
         CPU.halted = false;
         if (REG_IME&1 && !CPU.cpsr.I) [[likely]]
         {
-            gba.scheduler.add(scheduler::ID::INTERRUPT, 0, on_interrupt_event, &gba);
+            if (!gba.scheduler.has_event(scheduler::ID::INTERRUPT))
+            {
+                // TODO: fix me
+                #if 1
+                // delaying by 3 cycles breaks LOZMC :/
+                gba.scheduler.add(scheduler::ID::INTERRUPT, 2, on_interrupt_event, &gba);
+                #else
+                // irq is delayed by 3 cycles, who would've known!
+                // SOURCE: suite.gba timer-irq test
+                gba.scheduler.add(scheduler::ID::INTERRUPT, 3, on_interrupt_event, &gba);
+                #endif
+            }
+            else
+            {
+                log::print_warn(gba, log::Type::INTERRUPT, "skipping adding event: ticks: %d ev_ticks: %d\n", gba.scheduler.get_ticks(), gba.scheduler.get_event_cycles_absolute(scheduler::ID::INTERRUPT));
+            }
         }
     }
 }

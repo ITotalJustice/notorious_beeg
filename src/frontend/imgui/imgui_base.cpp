@@ -100,8 +100,10 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
     gameboy_advance.set_log_callback(on_log_callback);
     gameboy_advance.set_pixels(pixels, 240, 16);
 
-    gameboy_advance.log_level |= gba::log::LevelFlag::FLAG_INFO;
-    gameboy_advance.log_type |= gba::log::TypeFlag::FLAG_SIO;
+    // gameboy_advance.log_level |= gba::log::LevelFlag::FLAG_INFO;
+    // gameboy_advance.log_type |= gba::log::TypeFlag::FLAG_SIO;
+    // gameboy_advance.log_type |= gba::log::TypeFlag::FLAG_GAME;
+    // gameboy_advance.log_type |= gba::log::TypeFlag::FLAG_TIMER0;
 }
 
 ImguiBase::~ImguiBase()

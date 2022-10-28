@@ -20,8 +20,14 @@ add_executable(testing test_framework.cpp)
 
 target_link_libraries(testing PRIVATE frontend_base)
 target_link_libraries(testing PRIVATE stb)
-
 set_target_properties(testing PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    CXX_STANDARD 23
+)
+
+add_executable(timer_test timer_test.cpp)
+target_link_libraries(timer_test GBA)
+set_target_properties(timer_test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     CXX_STANDARD 23
 )
@@ -91,23 +97,23 @@ add_test(
 )
 add_test(
     NAME "armwrestler-gba-fixed/01-alu_tests_part_1"
-    COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "76" "0" "01-alu_tests_part_1" "START;61"
+    COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "106" "0" "01-alu_tests_part_1" "START;91"
 )
 add_test(
     NAME "armwrestler-gba-fixed/02-alu_pt_2_misc"
-    COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "91" "0" "02-alu_pt_2_misc" "START;61;START;76"
+    COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "166" "0" "02-alu_pt_2_misc" "START;91;START;151"
 )
 add_test(
     NAME "armwrestler-gba-fixed/03-load_tests_part_1"
-    COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "106" "0" "03-load_tests_part_1" "START;61;START;76;START;91"
+    COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "181" "0" "03-load_tests_part_1" "START;91;START;151;START;166"
 )
 add_test(
     NAME "armwrestler-gba-fixed/04-load_tests_part_2"
-    COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "121" "0" "04-load_tests_part_2" "START;61;START;76;START;91;START;106"
+    COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "211" "0" "04-load_tests_part_2" "START;91;START;151;START;166;START;196"
 )
 add_test(
     NAME "armwrestler-gba-fixed/05-ldm_stm_tests_1"
-    COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "136" "0" "05-ldm_stm_tests_1" "START;61;START;76;START;91;START;106;START;121"
+    COMMAND testing "${TEST_ROM_DIR}/armwrestler-gba-fixed/armwrestler-gba-fixed.zip" "226" "0" "05-ldm_stm_tests_1" "START;91;START;151;START;166;START;196;START;211"
 )
 
 
@@ -120,7 +126,7 @@ add_test(
 )
 # add_test(
 #     NAME "suite/01-memory-tests"
-#     COMMAND testing "${TEST_ROM_DIR}/suite/suite.zip" "120" "0" "01-memory-tests" "A;15"
+#     COMMAND testing "${TEST_ROM_DIR}/suite/suite.zip" "240" "0" "01-memory-tests" "A;15"
 # )
 add_test(
     NAME "suite/02-io-read-tests"
@@ -236,7 +242,7 @@ add_test( # fails on cgb/agb
 )
 add_test(
     NAME "oam_bug/3-non_causes"
-    COMMAND testing "${TEST_ROM_DIR}/oam_bug/3-non_causes.zip" "120" "1"
+    COMMAND testing "${TEST_ROM_DIR}/oam_bug/3-non_causes.zip" "120" "0"
 )
 add_test( # fails on cgb/agb
     NAME "oam_bug/4-scanline_timing"
@@ -248,11 +254,11 @@ add_test( # fails on cgb/agb
 )
 add_test(
     NAME "oam_bug/6-timing_no_bug"
-    COMMAND testing "${TEST_ROM_DIR}/oam_bug/6-timing_no_bug.zip" "120" "1"
+    COMMAND testing "${TEST_ROM_DIR}/oam_bug/6-timing_no_bug.zip" "120" "0"
 )
 add_test( # fails on cgb/agb
     NAME "oam_bug/7-timing_effect"
-    COMMAND testing "${TEST_ROM_DIR}/oam_bug/7-timing_effect.zip" "480" "1"
+    COMMAND testing "${TEST_ROM_DIR}/oam_bug/7-timing_effect.zip" "480" "0"
 )
 add_test( # fails on cgb/agb
     NAME "oam_bug/8-instr_effect"
@@ -794,4 +800,12 @@ add_test( # i fail this test due to mode3 length, but i have no plans to pass it
 add_test(
     NAME "numism/03"
     COMMAND testing "${TEST_ROM_DIR}/numism/numism.zip" "165" "0" "03" "RIGHT;120;RIGHT;135;RIGHT;150"
+)
+
+####################
+## timer_test.cpp ##
+####################
+add_test(
+    NAME "timer_test"
+    COMMAND timer_test
 )

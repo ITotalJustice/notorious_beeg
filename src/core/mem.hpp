@@ -22,6 +22,12 @@ enum Access : u8
     Access_NONE = 0,
 };
 
+enum
+{
+    SEQ = 0, // sequential access
+    NSEQ = 1, // non-sequential access
+};
+
 // packed to 32bit on x86 (struct == 8 bytes)
 // 4 bytes padding on x64 (struct == 16 bytes)
 struct ReadArray
@@ -469,19 +475,19 @@ enum LogAddr
 #define REG_IMC_L gba.mem.imc_l
 #define REG_IMC_H gba.mem.imc_h
 
-STATIC auto setup_tables(Gba& gba) -> void;
-STATIC auto reset(Gba& gba, bool skip_bios) -> void;
+auto setup_tables(Gba& gba) -> void;
+auto reset(Gba& gba, bool skip_bios) -> void;
 
 [[nodiscard]]
-STATIC_INLINE auto read8(Gba& gba, u32 addr) -> u8;
+auto read8(Gba& gba, u32 addr) -> u8;
 [[nodiscard]]
-STATIC_INLINE auto read16(Gba& gba, u32 addr) -> u16;
+auto read16(Gba& gba, u32 addr) -> u16;
 [[nodiscard]]
-STATIC_INLINE auto read32(Gba& gba, u32 addr) -> u32;
+auto read32(Gba& gba, u32 addr) -> u32;
 
-STATIC_INLINE auto write8(Gba& gba, u32 addr, u8 value) -> void;
-STATIC_INLINE auto write16(Gba& gba, u32 addr, u16 value) -> void;
-STATIC_INLINE auto write32(Gba& gba, u32 addr, u32 value) -> void;
+auto write8(Gba& gba, u32 addr, u8 value) -> void;
+auto write16(Gba& gba, u32 addr, u16 value) -> void;
+auto write32(Gba& gba, u32 addr, u32 value) -> void;
 
 template <typename T> [[nodiscard]]
 constexpr auto align(u32 addr) -> u32

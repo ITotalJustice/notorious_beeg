@@ -15,7 +15,7 @@
 // tick scheduler after every dma transfer
 // there's a few ways to speed this up but none have been
 // expored yet.
-#define ACCURATE_BUT_SLOW_DMA_TIMING 0
+#define ACCURATE_BUT_SLOW_DMA_TIMING 1
 
 // https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm#DMA%20Source%20Registers
 // https://problemkaputt.de/gbatek.htm#gbadmatransfers
@@ -91,9 +91,21 @@ void disable_channel(Gba& gba, u8 channel_num)
     gba.dma[channel_num].enabled = false;
 }
 
+void advance_scheduler([[maybe_unused]] Gba& gba)
+{
+    #if ACCURATE_BUT_SLOW_DMA_TIMING
+    if (gba.scheduler.should_fire())
+    {
+        gba.scheduler.fire();
+    }
+    #endif
+}
+
 template<bool Special = false>
 auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
 {
+    log::print_info(gba, LOG_TYPE[channel_num], "firing dma from: 0x%08X to: 0x%08X len: 0x%04X\n", dma.src_addr, dma.dst_addr, dma.len, dma.size_type);
+
     const auto len = dma.len;
     // const auto src = dma.src_addr;
     const auto dst = dma.dst_addr;
@@ -109,15 +121,11 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
 
             const auto value = mem::read32(gba, dma.src_addr);
             apu::on_fifo_write32(gba, value, channel_num-1);
-            gba.elapsed_cycles += 1; // for fifo write
-
-            #if ACCURATE_BUT_SLOW_DMA_TIMING
-            gba.scheduler.tick(gba.elapsed_cycles);
-            gba.elapsed_cycles = 0;
-            gba.scheduler.fire();
-            #endif
+            gba.scheduler.tick(1); // for fifo write
 
             dma.src_addr += dma.src_increment;
+
+            advance_scheduler(gba);
         }
     }
     else
@@ -136,11 +144,11 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
                     // 73: exact number of bits to setup and complete an eeprom write (gaunlet uses this)
                     if (dma.len == 17 || dma.len == 81)
                     {
-                        gba.backup.eeprom.set_width(backup::eeprom::Width::beeg);
+                        gba.backup.eeprom.set_width(gba, backup::eeprom::Width::beeg);
                     }
                     else if (dma.len == 9 || dma.len == 73)
                     {
-                        gba.backup.eeprom.set_width(backup::eeprom::Width::small);
+                        gba.backup.eeprom.set_width(gba, backup::eeprom::Width::small);
                     }
                     else
                     {
@@ -161,14 +169,10 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
                     const auto value = mem::read16(gba, dma.src_addr);
                     mem::write16(gba, dma.dst_addr, value);
 
-                    #if ACCURATE_BUT_SLOW_DMA_TIMING
-                    gba.scheduler.tick(gba.elapsed_cycles);
-                    gba.elapsed_cycles = 0;
-                    gba.scheduler.fire();
-                    #endif
-
                     dma.src_addr += dma.src_increment;
                     dma.dst_addr += dma.dst_increment;
+
+                    advance_scheduler(gba);
                 }
                 break;
 
@@ -181,14 +185,10 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
                     const auto value = mem::read32(gba, dma.src_addr);
                     mem::write32(gba, dma.dst_addr, value);
 
-                    #if ACCURATE_BUT_SLOW_DMA_TIMING
-                    gba.scheduler.tick(gba.elapsed_cycles);
-                    gba.elapsed_cycles = 0;
-                    gba.scheduler.fire();
-                    #endif
-
                     dma.src_addr += dma.src_increment;
                     dma.dst_addr += dma.dst_increment;
+
+                    advance_scheduler(gba);
                 }
                 break;
         }
@@ -458,7 +458,7 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
         // dmas are delayed
         // start_dma(gba, dma, channel_num);
         gba.scheduler.add(scheduler::ID::DMA, 3, on_event, &gba);
-        // gba.scheduler.add(gba, scheduler::Event::DMA, on_event, 3);
+        // gba.scheduler.add(scheduler::ID::DMA, 2, on_event, &gba);
     }
 }
 

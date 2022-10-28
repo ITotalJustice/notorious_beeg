@@ -11,6 +11,8 @@
 namespace gba::arm7tdmi::arm {
 namespace {
 
+// TODO: N+S needs to be handled here (Page 79)
+
 // [4.10] (LDRH/STRH/LDRSB/LDRSH) page 76
 template<
     bool P, // 0=post, 1=pre
@@ -83,6 +85,9 @@ auto halfword_data_transfer(Gba& gba, const u32 opcode, const u32 offset) -> voi
         }
 
         set_reg(gba, Rd, result);
+
+        // Page 79
+        gba.scheduler.tick(1);
     }
     else
     {

@@ -32,6 +32,8 @@ auto sp_relative_load_store(Gba& gba, const u16 opcode) -> void
         auto result = mem::read32(gba, mem::align<u32>(addr));
         result = std::rotr(result, (addr & 0x3) * 8);
         set_reg(gba, Rd, result);
+
+        gba.scheduler.tick(1); // todo: verify
     }
 }
 

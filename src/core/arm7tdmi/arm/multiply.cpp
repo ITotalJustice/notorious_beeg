@@ -4,6 +4,7 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "bit.hpp"
 #include "gba.hpp"
+#include "arm7tdmi/helper.hpp"
 #include <cassert>
 
 namespace gba::arm7tdmi::arm {
@@ -38,6 +39,8 @@ auto multiply(Gba& gba, const u32 opcode) -> void
     }
 
     set_reg(gba, Rd, result);
+
+    gba.scheduler.tick(get_multiply_cycles<A, true>(b));
 }
 
 } // namespace

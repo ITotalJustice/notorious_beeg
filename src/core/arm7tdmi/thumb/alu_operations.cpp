@@ -119,6 +119,7 @@ auto alu_operations(Gba& gba, const u16 opcode) -> void
         const auto result = oprand1 * oprand2;
         set_logical_flags_without_carry<true>(gba, result);
         set_reg_thumb(gba, Rd, result);
+        gba.scheduler.tick(get_multiply_cycles<false, true>(oprand1));
     }
     else if constexpr(Op == BIC)
     {

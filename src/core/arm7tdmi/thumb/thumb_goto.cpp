@@ -56,9 +56,6 @@ inline auto computed_goto(Gba& gba)
 		goto *table[(opcode>>6)&0x3FF];
 
 	#define DISPATCH \
-		gba.scheduler.tick(gba.elapsed_cycles); \
-		gba.elapsed_cycles = 0; \
-		\
 		if (gba.scheduler.should_fire()) \
 		{ \
 			gba.scheduler.fire(); \

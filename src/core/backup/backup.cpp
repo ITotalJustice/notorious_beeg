@@ -172,7 +172,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AXSJ",0x22},//0152 - ESPN X-Games Skateboarding(JP).zip
 {"ALBP",0x11},//0153 - LEGO Bionicle(EU).zip
 {"AMXE",0x00},//0154 - Monsters, Inc.(UE).zip
-{"ADME",0x22},//0155 - Doom(UE).zip
+{"ADME",0x21},//0155 - Doom(UE).zip
 {"AYAJ",0x11},//0156 - Dokodemo Taikyoku - Yakuman Advance(JP).zip
 {"ATAP",0x22},//0157 - Tang Tang(EU).zip
 {"ALLP",0x00},//0158 - Lucky Luke - Wanted!(EU).zip
@@ -1519,16 +1519,16 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BD4E",0x22},//1509 - Crash Bandicoot Purple - Ripto's Rampage(US).zip
 {"BSTE",0x22},//1510 - Spyro Orange - The Cortex Conspiracy(US).zip
 {"AA9E",0x22},//1511 - Duel Masters - Sempai Legends(US).zip
-{"FZLE",0x11},//1512 - Classic NES Series - The Legend of Zelda(UE).zip
+{"FZLE",0x22},//1512 - Classic NES Series - The Legend of Zelda(UE).zip
 {"BSBP",0x33},//1513 - Sonic Battle(EU).zip
-{"FSME",0x11},//1514 - Classic NES Series - Super Mario Bros.(UE).zip
+{"FSME",0x21},//1514 - Classic NES Series - Super Mario Bros.(UE).zip
 {"MSBE",0x00},//1515 - Game Boy Advance Video - Strawberry Shortcake - Volume 1(US).zip
-{"FBME",0x11},//1516 - Classic NES Series - Bomberman(UE).zip
-{"FEBE",0x11},//1517 - Classic NES Series - Excitebike(UE).zip
-{"FXVE",0x11},//1518 - Classic NES Series - Xevious(UE).zip
-{"FP7E",0x11},//1519 - Classic NES Series - Pac-Man(UE).zip
-{"FICE",0x11},//1520 - Classic NES Series - Ice Climber(UE).zip
-{"FDKE",0x11},//1521 - Classic NES Series - Donkey Kong(UE).zip
+{"FBME",0x21},//1516 - Classic NES Series - Bomberman(UE).zip
+{"FEBE",0x22},//1517 - Classic NES Series - Excitebike(UE).zip
+{"FXVE",0x21},//1518 - Classic NES Series - Xevious(UE).zip
+{"FP7E",0x21},//1519 - Classic NES Series - Pac-Man(UE).zip
+{"FICE",0x21},//1520 - Classic NES Series - Ice Climber(UE).zip
+{"FDKE",0x21},//1521 - Classic NES Series - Donkey Kong(UE).zip
 {"MFOE",0x00},//1522 - Game Boy Advance Video - Fairly Odd Parents!, The - Volume 1(US).zip
 {"BUCE",0x22},//1523 - Ultimate Card Games(UE).zip
 {"MGUE",0x00},//1524 - Game Boy Advance Video - All Grown Up! - Volume 1(US).zip
@@ -1749,10 +1749,10 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BGTP",0x22},//1742 - Grand Theft Auto Advance(EU).zip
 {"BZMJ",0x22},//1743 - Zelda no Densetsu - Fushigi no Boushi(JP).zip
 {"BXAE",0x00},//1744 - Texas Hold'em Poker(US).zip
-{"FLBE",0x11},//1745 - Classic NES Series - Zelda II - The Adventure of Link(UE).zip
-{"FADE",0x11},//1746 - Classic NES Series - Castlevania(UE).zip
-{"FDME",0x11},//1747 - Classic NES Series - Dr. Mario(UE).zip
-{"FMRE",0x11},//1748 - Classic NES Series - Metroid(UE).zip
+{"FLBE",0x22},//1745 - Classic NES Series - Zelda II - The Adventure of Link(UE).zip
+{"FADE",0x21},//1746 - Classic NES Series - Castlevania(UE).zip
+{"FDME",0x21},//1747 - Classic NES Series - Dr. Mario(UE).zip
+{"FMRE",0x21},//1748 - Classic NES Series - Metroid(UE).zip
 {"BICE",0x00},//1749 - Incredibles, The(UE).zip
 {"BELE",0x00},//1750 - Elf - The Movie(US).zip
 {"B3AE",0x22},//1751 - Lord of the Rings, The - The Third Age(UE).zip

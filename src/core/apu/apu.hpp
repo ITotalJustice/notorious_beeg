@@ -182,45 +182,45 @@ struct Apu
     bool enabled;
 };
 
-STATIC auto on_fifo_write8(Gba& gba, u8 value, u8 num) -> void;
-STATIC auto on_fifo_write16(Gba& gba, u16 value, u8 num) -> void;
-STATIC auto on_fifo_write32(Gba& gba, u32 value, u8 num) -> void;
-STATIC auto on_timer_overflow(Gba& gba, u8 timer_num) -> void;
-STATIC auto on_soundcnt_write(Gba& gba) -> void;
+auto on_fifo_write8(Gba& gba, u8 value, u8 num) -> void;
+auto on_fifo_write16(Gba& gba, u16 value, u8 num) -> void;
+auto on_fifo_write32(Gba& gba, u32 value, u8 num) -> void;
+auto on_timer_overflow(Gba& gba, u8 timer_num) -> void;
+auto on_soundcnt_write(Gba& gba) -> void;
 
-STATIC auto write_NR10(Gba& gba, u8 value) -> void;
-STATIC auto write_NR11(Gba& gba, u8 value) -> void;
-STATIC auto write_NR12(Gba& gba, u8 value) -> void;
-STATIC auto write_NR13(Gba& gba, u8 value) -> void;
-STATIC auto write_NR14(Gba& gba, u8 value) -> void;
-STATIC auto write_NR21(Gba& gba, u8 value) -> void;
-STATIC auto write_NR22(Gba& gba, u8 value) -> void;
-STATIC auto write_NR23(Gba& gba, u8 value) -> void;
-STATIC auto write_NR24(Gba& gba, u8 value) -> void;
-STATIC auto write_NR30(Gba& gba, u8 value) -> void;
-STATIC auto write_NR31(Gba& gba, u8 value) -> void;
-STATIC auto write_NR32(Gba& gba, u8 value) -> void;
-STATIC auto write_NR33(Gba& gba, u8 value) -> void;
-STATIC auto write_NR34(Gba& gba, u8 value) -> void;
-STATIC auto write_NR41(Gba& gba, u8 value) -> void;
-STATIC auto write_NR42(Gba& gba, u8 value) -> void;
-STATIC auto write_NR43(Gba& gba, u8 value) -> void;
-STATIC auto write_NR44(Gba& gba, u8 value) -> void;
-STATIC auto write_NR50(Gba& gba, u8 value) -> void;
-STATIC auto write_NR51(Gba& gba, u8 value) -> void;
-STATIC auto write_NR52(Gba& gba, u8 value) -> void;
-STATIC auto write_WAVE(Gba& gba, u8 addr, u8 value) -> void;
-STATIC auto read_WAVE(Gba& gba, u8 addr) -> u8;
+auto write_NR10(Gba& gba, u8 value) -> void;
+auto write_NR11(Gba& gba, u8 value) -> void;
+auto write_NR12(Gba& gba, u8 value) -> void;
+auto write_NR13(Gba& gba, u8 value) -> void;
+auto write_NR14(Gba& gba, u8 value) -> void;
+auto write_NR21(Gba& gba, u8 value) -> void;
+auto write_NR22(Gba& gba, u8 value) -> void;
+auto write_NR23(Gba& gba, u8 value) -> void;
+auto write_NR24(Gba& gba, u8 value) -> void;
+auto write_NR30(Gba& gba, u8 value) -> void;
+auto write_NR31(Gba& gba, u8 value) -> void;
+auto write_NR32(Gba& gba, u8 value) -> void;
+auto write_NR33(Gba& gba, u8 value) -> void;
+auto write_NR34(Gba& gba, u8 value) -> void;
+auto write_NR41(Gba& gba, u8 value) -> void;
+auto write_NR42(Gba& gba, u8 value) -> void;
+auto write_NR43(Gba& gba, u8 value) -> void;
+auto write_NR44(Gba& gba, u8 value) -> void;
+auto write_NR50(Gba& gba, u8 value) -> void;
+auto write_NR51(Gba& gba, u8 value) -> void;
+auto write_NR52(Gba& gba, u8 value) -> void;
+auto write_WAVE(Gba& gba, u8 addr, u8 value) -> void;
+auto read_WAVE(Gba& gba, u8 addr) -> u8;
 
-STATIC auto on_square0_event(void* user, s32 id, s32 late) -> void;
-STATIC auto on_square1_event(void* user, s32 id, s32 late) -> void;
-STATIC auto on_wave_event(void* user, s32 id, s32 late) -> void;
-STATIC auto on_noise_event(void* user, s32 id, s32 late) -> void;
-STATIC auto on_frame_sequencer_event(void* user, s32 id = 0, s32 late = 0) -> void;
-STATIC auto on_sample_event(void* user, s32 id, s32 late) -> void;
+auto on_square0_event(void* user, s32 id, s32 late) -> void;
+auto on_square1_event(void* user, s32 id, s32 late) -> void;
+auto on_wave_event(void* user, s32 id, s32 late) -> void;
+auto on_noise_event(void* user, s32 id, s32 late) -> void;
+auto on_frame_sequencer_event(void* user, s32 id = 0, s32 late = 0) -> void;
+auto on_sample_event(void* user, s32 id, s32 late) -> void;
 
-STATIC auto is_apu_enabled(Gba& gba) -> bool;
+auto is_apu_enabled(Gba& gba) -> bool;
 
-STATIC auto reset(Gba& gba, bool skip_bios) -> void;
+auto reset(Gba& gba, bool skip_bios) -> void;
 
 } // namespace gba::apu

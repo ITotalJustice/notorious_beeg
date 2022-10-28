@@ -22,6 +22,8 @@ auto multiple_load_store_empty_rlist(Gba& gba, const u16 opcode) -> void
     {
         const auto value = mem::read32(gba, addr);
         set_pc(gba, value);
+
+        gba.scheduler.tick(1); // todo: verify
     }
     else
     {
@@ -73,6 +75,8 @@ auto multiple_load_store(Gba& gba, const u16 opcode) -> void
         {
             set_reg(gba, Rb, addr);
         }
+
+        gba.scheduler.tick(1); // todo: verify
     }
     else // store
     {

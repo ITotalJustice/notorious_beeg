@@ -4,10 +4,10 @@
 #include "backup/flash.hpp"
 #include "fwd.hpp"
 #include "gba.hpp"
+#include "log.hpp"
 #include "mem.hpp"
 #include <utility>
 #include <cassert>
-#include <cstdio>
 #include <cstring>
 
 namespace gba::backup::flash {
@@ -25,7 +25,7 @@ auto Flash::init([[maybe_unused]] Gba& gba, Type new_type) -> void
     std::memset(this->data, 0xFF, sizeof(this->data));
 }
 
-auto Flash::load_data(std::span<const u8> new_data) -> bool
+auto Flash::load_data(Gba& gba, std::span<const u8> new_data) -> bool
 {
     if (new_data.size() == std::to_underlying(Type::Flash64))
     {
@@ -41,7 +41,7 @@ auto Flash::load_data(std::span<const u8> new_data) -> bool
     }
     else
     {
-        std::printf("[FLASH] tried loading bad save data: %zu\n", new_data.size());
+        log::print_error(gba, log::Type::FLASH, "tried loading bad save data: %zu\n", new_data.size());
         return false;
     }
 }
@@ -114,7 +114,7 @@ auto Flash::write(Gba& gba, u32 addr, u8 value) -> void
                 }
                 else
                 {
-                    std::printf("[FLASH] invalid bank set in flash64\n");
+                    log::print_error(gba, log::Type::FLASH, "invalid bank set in flash64\n");
                     assert(0);
                 }
             }
@@ -130,7 +130,7 @@ auto Flash::write(Gba& gba, u32 addr, u8 value) -> void
             // the second exit sequence is just writing 0xF0.
             else if (value != std::to_underlying(ChipID_Exit))
             {
-                std::printf("[FLASH] invalid ready\n");
+                log::print_error(gba, log::Type::FLASH, "invalid ready\n");
                 assert(0);
             }
             break;
@@ -142,7 +142,7 @@ auto Flash::write(Gba& gba, u32 addr, u8 value) -> void
             }
             else
             {
-                std::printf("[FLASH] invalid cmd1 write to 0x%08X value: 0x%02X\n", addr, value);
+                log::print_error(gba, log::Type::FLASH, "invalid cmd1 write to 0x%08X value: 0x%02X\n", addr, value);
                 this->state = State::READY;
                 assert(0);
             }
@@ -168,7 +168,7 @@ auto Flash::write(Gba& gba, u32 addr, u8 value) -> void
                         break;
 
                     default:
-                        std::printf("[FLASH] unknown command value: 0x%02X\n", value);
+                        log::print_error(gba, log::Type::FLASH, "unknown command value: 0x%02X\n", value);
                         break;
                 }
             }

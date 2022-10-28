@@ -32,7 +32,7 @@ void State::on_savestate(const gba::Gba& gba)
         if (gba.scheduler.has_event(i))
         {
             entries[i].enabled = true;
-            entries[i].cycles = gba.scheduler.get_event_cycles(i);
+            entries[i].cycles = gba.scheduler.get_event_cycles_absolute(i);
         }
         else
         {
@@ -163,15 +163,15 @@ auto loadsave_gba(Gba& gba, std::span<const u8> new_save) -> bool
         case EEPROM: [[fallthrough]];
         case EEPROM512: [[fallthrough]];
         case EEPROM8K:
-            return gba.backup.eeprom.load_data(new_save);
+            return gba.backup.eeprom.load_data(gba, new_save);
 
         case SRAM:
-            return gba.backup.sram.load_data(new_save);
+            return gba.backup.sram.load_data(gba, new_save);
 
         case FLASH: [[fallthrough]];
         case FLASH512: [[fallthrough]];
         case FLASH1M:
-            return gba.backup.flash.load_data(new_save);
+            return gba.backup.flash.load_data(gba, new_save);
     }
 
     std::unreachable();
@@ -282,10 +282,6 @@ auto run_gba(Gba& gba, u32 cycles)
         {
             arm7tdmi::run(gba);
 
-            assert(gba.elapsed_cycles > 0);
-            gba.scheduler.tick(gba.elapsed_cycles);
-            gba.elapsed_cycles = 0;
-
             if (gba.scheduler.should_fire())
             {
                 gba.scheduler.fire();
@@ -361,7 +357,6 @@ auto Gba::reset() -> void
 
     this->scheduler.reset();
     this->delta.reset();
-    elapsed_cycles = 0;
     mem::reset(*this, skip_bios); // this needed to be before arm::reset because memtables
     ppu::reset(*this, skip_bios);
     apu::reset(*this, skip_bios);
@@ -413,12 +408,12 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
 
         case EEPROM512:
             this->backup.eeprom.init(*this);
-            this->backup.eeprom.set_width(backup::eeprom::Width::small);
+            this->backup.eeprom.set_width(*this, backup::eeprom::Width::small);
             break;
 
         case EEPROM8K:
             this->backup.eeprom.init(*this);
-            this->backup.eeprom.set_width(backup::eeprom::Width::beeg);
+            this->backup.eeprom.set_width(*this, backup::eeprom::Width::beeg);
             break;
 
         case SRAM:

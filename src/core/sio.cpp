@@ -32,13 +32,8 @@ auto get_siocnt_rw_mode(Gba& gba) -> SiocntRWMode
 {
     const auto b12 = bit::is_set<12>(REG_SIOCNT);
     const auto b13 = bit::is_set<13>(REG_SIOCNT);
-    const auto b15 = bit::is_set<15>(REG_RCNT);
 
-    if (b15 == 1 && b13 == 0 && b12 == 1) // UART
-    {
-        return SiocntRWMode::UART;
-    }
-    else if (b13 == 0 && b12 == 0) // Normal 8bit
+    if (b13 == 0 && b12 == 0) // Normal 8bit
     {
         return SiocntRWMode::Normal_8bit;
     }
@@ -49,6 +44,10 @@ auto get_siocnt_rw_mode(Gba& gba) -> SiocntRWMode
     else if (b13 == 1 && b12 == 0) // MultiPlayer
     {
         return SiocntRWMode::MultiPlayer;
+    }
+    if (b13 == 1 && b12 == 1) // UART
+    {
+        return SiocntRWMode::UART;
     }
 
     std::unreachable();
@@ -171,7 +170,7 @@ auto get_mode(Gba& gba) -> Mode
     {
         return Mode::MultiPlayer;
     }
-    if (b15 == 1 && b13 == 0 && b12 == 1)
+    if (b15 == 0 && b13 == 1 && b12 == 1)
     {
         return Mode::UART;
     }
@@ -179,7 +178,7 @@ auto get_mode(Gba& gba) -> Mode
     {
         return Mode::General;
     }
-    if (b15 == 1 && b14 == 0)
+    if (b15 == 1 && b14 == 1)
     {
         return Mode::JOY_BUS;
     }

@@ -67,9 +67,6 @@ inline auto computed_goto(Gba& gba) -> void
 
 try_again:
     #define DISPATCH \
-        gba.scheduler.tick(gba.elapsed_cycles); \
-        gba.elapsed_cycles = 0; \
-        \
         if (gba.scheduler.should_fire()) \
         { \
             gba.scheduler.fire(); \
