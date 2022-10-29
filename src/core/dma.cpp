@@ -287,7 +287,6 @@ auto on_fifo_empty(Gba& gba, u8 num) -> void
 
     if (gba.dma[num].enabled && gba.dma[num].mode == Mode::special)
     {
-        // std::printf("firing dma in fifo: %u\n", num-1);
         start_dma<true>(gba, gba.dma[num], num); // i think we only handle 1 dma at a time?
     }
 }
@@ -322,8 +321,6 @@ auto on_cnt_write(Gba& gba, const u8 channel_num) -> void
     const auto src = sad; // address is masked on r/w
     const auto dst = dad; // address is masked on r/w
     const auto len = cnt_l;
-
-    // std::printf("[dma%u] src: 0x%08X dst: 0x%08X len: 0x%04X dst_increment_type: %u src_increment_type: %u repeat: %u size_type: %u mode: %u irq_enable: %u dma_enable: %u\n", channel_num, src, dst, len, (u8)dst_increment_type, (u8)src_increment_type, repeat, (u8)size_type, (u8)mode, irq_enable, dma_enable);
 
     // load data into registers
     auto& dma = gba.dma[channel_num];

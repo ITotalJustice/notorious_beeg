@@ -319,6 +319,8 @@ void reset(Gba& gba)
     #endif
     // timer should add this itself in reset!
     gba.scheduler.add(scheduler::ID::TIMER1, 256, on_div_event, &gba);
+
+    setup_mmap(gba);
 }
 
 auto get_rom_header_from_data(const u8* data, struct CartHeader* header) -> bool
@@ -527,7 +529,6 @@ auto loadrom(Gba& gba, std::span<const u8> rom) -> bool
     std::memcpy(gba.rom, rom.data(), rom.size());
 
     reset(gba);
-    setup_mmap(gba);
 
     // set the palette!
     if (!is_system_gbc(gba))

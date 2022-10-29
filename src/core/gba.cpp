@@ -122,6 +122,30 @@ constexpr auto fill_rom_oob_values(std::span<u8> rom, const u32 offset)
     }
 }
 
+void reset_gb(Gba& gba)
+{
+    gb::reset(gba);
+}
+
+void reset_gba(Gba& gba)
+{
+    // if the user did not load bios, then load builtin
+    if (!gba.has_bios)
+    {
+        gba::bios::load_normmatt_bios(gba);
+    }
+
+    bool skip_bios = true;
+
+    gba.scheduler.reset();
+    gba.delta.reset();
+    gpio::reset(gba, skip_bios); // this is needed before mem::reset because rw needs resetting
+    mem::reset(gba, skip_bios); // this needed to be before arm::reset because memtables
+    ppu::reset(gba, skip_bios);
+    apu::reset(gba, skip_bios);
+    arm7tdmi::reset(gba, skip_bios);
+}
+
 auto set_buttons_gb(Gba& gba, u16 buttons, bool down)
 {
     gb::set_buttons(gba, buttons, down);
@@ -347,21 +371,14 @@ auto Header::validate_all() const -> bool
 
 auto Gba::reset() -> void
 {
-    // if the user did not load bios, then load builtin
-    if (!this->has_bios)
+    if (is_gb())
     {
-        gba::bios::load_normmatt_bios(*this);
+        reset_gb(*this);
     }
-
-    bool skip_bios = true;
-
-    this->scheduler.reset();
-    this->delta.reset();
-    mem::reset(*this, skip_bios); // this needed to be before arm::reset because memtables
-    ppu::reset(*this, skip_bios);
-    apu::reset(*this, skip_bios);
-    gpio::reset(*this, skip_bios);
-    arm7tdmi::reset(*this, skip_bios);
+    else
+    {
+        reset_gba(*this);
+    }
 }
 
 auto Gba::loadrom(std::span<const u8> new_rom) -> bool
