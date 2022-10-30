@@ -134,7 +134,7 @@ void on_lcd_disable(Gba& gba)
 
 void on_lcd_enable(Gba& gba)
 {
-    printf("enabling ppu!\n");
+    log::print_info(gba, log::Type::GB_PPU, "enabling ppu!\n");
 
     // first frame is skipped as no vblank signal is sent to lcd
     gba.gameboy.ppu.first_frame_enabled = true;
