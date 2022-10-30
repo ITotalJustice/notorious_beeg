@@ -1,6 +1,7 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 #include "key.hpp"
+#include "arm7tdmi/arm7tdmi.hpp"
 #include "gba.hpp"
 #include "bit.hpp"
 #include <utility>
@@ -15,24 +16,39 @@ void check_key_interrupt(Gba& gba)
     const auto mode = bit::is_set<15>(REG_KEYCNT);
     const auto already_has_irq = REG_IF & std::to_underlying(arm7tdmi::Interrupt::Key);
 
-    // only check if we want and irq.
-    // also check if we already have an irq as not to spam irq requests.
-    if (irq_enable && !already_has_irq)
+    bool requirement_met = false;
+
+    if (mode == 0) // logical OR (any buttons)
     {
-        if (mode == 0) // logical OR (any buttons)
+        if (key_buttons & interrupt_buttons)
         {
-            assert(!"untested key irq logical OR mode");
-            if (key_buttons & interrupt_buttons)
-            {
-                arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::Key);
-            }
+            requirement_met = true;
         }
-        else // logical AND (only specific buttons)
+    }
+    else // logical AND (only specific buttons)
+    {
+        if ((key_buttons & interrupt_buttons) == interrupt_buttons)
         {
-            if ((key_buttons & interrupt_buttons) == interrupt_buttons)
-            {
-                arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::Key);
-            }
+            requirement_met = true;
+        }
+    }
+
+    if (requirement_met)
+    {
+        // only check if we want and irq.
+        // also check if we already have an irq as not to spam irq requests.
+        if (irq_enable && !already_has_irq)
+        {
+            arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::Key);
+        }
+
+        if (arm7tdmi::is_stop_mode(gba))
+        {
+            arm7tdmi::leave_stop_mode(gba, arm7tdmi::Interrupt::Key);
+        }
+        else if (irq_enable && !already_has_irq)
+        {
+            arm7tdmi::fire_interrupt(gba, arm7tdmi::Interrupt::Key);
         }
     }
 }

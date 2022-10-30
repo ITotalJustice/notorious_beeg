@@ -642,6 +642,10 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
             break;
 
         case IO_DISPCNT:
+            // don't modify cgb bit
+            REG_DISPCNT = (REG_DISPCNT & 0b1000) | (value & 0b11111111'11110111);
+            break;
+
         case IO_BG0CNT:
         case IO_BG1CNT:
         case IO_BG2CNT:

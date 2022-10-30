@@ -710,7 +710,7 @@ void ImguiBase::perf_window()
         ImGui::SetNextItemWidth(60);
         if (ImGui::InputInt("samples", &max_cycles_per_frame_entries, 0))
         {
-            max_cycles_per_frame_entries = std::clamp(max_cycles_per_frame_entries, 0, 10000);
+            max_cycles_per_frame_entries = std::clamp(max_cycles_per_frame_entries, 1, 10000);
         }
         HelpMarker("how many cycles per frame to record");
         ImGui::SameLine();

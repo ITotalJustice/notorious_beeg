@@ -523,34 +523,8 @@ auto software_interrupt(Gba& gba, const u8 comment_field) -> void
 
 auto fire_interrupt(Gba& gba, const Interrupt i) -> void
 {
-    const auto interrupt = std::to_underlying(i);
-
-    if (is_stop_mode(gba)) [[unlikely]]
-    {
-        if (interrupt & REG_IE & std::to_underlying(Interrupt::Serial))
-        {
-            log::print_info(gba, log::Type::ARM, "[STOP] leaving via Serial\n");
-            REG_HALTCNT = bit::unset<0xF>(REG_HALTCNT);
-            gba.cpu.stopped = false;
-        }
-        else if (interrupt & REG_IE & std::to_underlying(Interrupt::Key))
-        {
-            log::print_info(gba, log::Type::ARM, "[STOP] leaving via Key\n");
-            REG_HALTCNT = bit::unset<0xF>(REG_HALTCNT);
-            gba.cpu.stopped = false;
-        }
-        else if (interrupt & REG_IE & std::to_underlying(Interrupt::Cassette))
-        {
-            log::print_info(gba, log::Type::ARM, "[STOP] leaving via Cassette\n");
-            REG_HALTCNT = bit::unset<0xF>(REG_HALTCNT);
-            gba.cpu.stopped = false;
-        }
-    }
-    else
-    {
-        REG_IF |= interrupt;
-        schedule_interrupt(gba);
-    }
+    REG_IF |= std::to_underlying(i);
+    schedule_interrupt(gba);
 }
 
 auto disable_interrupts(Gba& gba) -> void
@@ -660,6 +634,34 @@ auto on_stop_event(void* user, s32 id, s32 late) -> void
 auto is_stop_mode(Gba& gba) -> bool
 {
     return gba.cpu.stopped;
+}
+
+void leave_stop_mode(Gba& gba, Interrupt i)
+{
+    const auto interrupt = std::to_underlying(i);
+
+    if (interrupt & REG_IE & std::to_underlying(Interrupt::Serial))
+    {
+        log::print_info(gba, log::Type::ARM, "[STOP] leaving via Serial\n");
+        REG_HALTCNT = bit::unset<0xF>(REG_HALTCNT);
+        gba.cpu.stopped = false;
+    }
+    else if (interrupt & REG_IE & std::to_underlying(Interrupt::Key))
+    {
+        log::print_info(gba, log::Type::ARM, "[STOP] leaving via Key\n");
+        REG_HALTCNT = bit::unset<0xF>(REG_HALTCNT);
+        gba.cpu.stopped = false;
+    }
+    else if (interrupt & REG_IE & std::to_underlying(Interrupt::Cassette))
+    {
+        log::print_info(gba, log::Type::ARM, "[STOP] leaving via Cassette\n");
+        REG_HALTCNT = bit::unset<0xF>(REG_HALTCNT);
+        gba.cpu.stopped = false;
+    }
+    else
+    {
+        log::print_error(gba, log::Type::ARM, "[STOP] invalid way of leaving: %u\n", interrupt);
+    }
 }
 
 auto on_halt_trigger(Gba& gba, const HaltType type) -> void

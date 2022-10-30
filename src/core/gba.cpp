@@ -279,6 +279,16 @@ auto run_gba(Gba& gba, u32 cycles)
     // being fired, such as sampling, hblank, vblank etc
     if (arm7tdmi::is_stop_mode(gba))
     {
+        // the keys are always "checked" on a real gba
+        // there is no point in doing this when emulating
+        // the gba, only exception is when in stop mode as
+        // it's possible to already hold keys down whilst entering
+        // stop mode and have it "immediately" exit.
+        // in LOZMC, this effect can be seen with sleep mode
+        // however the screen begins to fade completly and gets about
+        // 50% of the way there (depends how quick you release A button).
+        // this fade means the blanked lcd takes effect very quickly
+        key::check_key_interrupt(gba);
         return;
     }
 

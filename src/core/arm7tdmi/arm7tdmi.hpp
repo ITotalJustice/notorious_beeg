@@ -183,5 +183,6 @@ auto on_halt_event(void* user, s32 id = 0, s32 late = 0) -> void;
 auto on_stop_event(void* user, s32 id = 0, s32 late = 0) -> void;
 auto on_halt_trigger(Gba& gba, HaltType type) -> void;
 auto is_stop_mode(Gba& gba) -> bool;
+void leave_stop_mode(Gba& gba, Interrupt i);
 
 } // namespace gba::arm7tdmi
