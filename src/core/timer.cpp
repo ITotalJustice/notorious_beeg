@@ -225,7 +225,6 @@ void write_timer(Gba& gba, u16 value, u8 num)
     {
         timer.counter = timer.reload;
     }
-    gba.timer[0].reload = value;
 }
 
 } // namespace gba::timer
