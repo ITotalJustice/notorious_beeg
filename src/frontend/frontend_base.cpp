@@ -501,6 +501,37 @@ auto Base::filepicker() -> std::string
 #else // #if defined(_WIN32)
 auto Base::filepicker() -> std::string
 {
+    std::FILE* f{};
+
+    // try some common processes
+    if (!f) {
+        // https://develop.kde.org/deploy/kdialog/
+        f = popen("kdialog --title \"Select a File\" --getopenfilename .", "r");
+    }
+    if (!f) {
+        // https://help.gnome.org/users/zenity/stable/
+        f = popen("zenity --title=\"Select a File\" --file-selection", "r");
+    }
+    if (!f) {
+        // https://manpages.ubuntu.com/manpages/trusty/man1/matedialog.1.html
+        f = popen("matedialog --title=\"Select a File\" --file-selection", "r");
+    }
+
+    if (f) {
+        char buf[4096]{}; // 4096 is max path on linux
+        std::fgets(buf, sizeof(buf) - 1, f);
+        const auto rc = pclose(f);
+
+        if (rc != EXIT_SUCCESS) {
+            std::printf("got other rc: %d\n", rc);
+            return {};
+        }
+
+        // remove trailing newline
+        buf[std::strcspn(buf, "\n")] = '\0';
+        return buf;
+    }
+
     std::printf("todo: implement filepicker for target OS\n");
     return {};
 }
