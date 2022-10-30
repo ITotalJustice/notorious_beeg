@@ -45,14 +45,19 @@ public:
     Request request; // request type
     Width width;
 
+    bool dirty; // set when ram is modified
+
     auto init(Gba& gba) -> void;
     auto set_width(Gba& gba, Width new_width) -> void;
 
     auto load_data(Gba& gba, std::span<const u8> new_data) -> bool;
-    [[nodiscard]] auto get_data() const -> std::span<const u8>;
+    [[nodiscard]] auto get_data() const -> SaveData;
 
     auto read(Gba& gba, u32 addr) -> u8;
     auto write(Gba& gba, u32 addr, u8 value) -> void;
+
+    [[nodiscard]] auto is_dirty() const -> bool { return dirty; }
+    void clear_dirty_flag() { dirty = false; }
 
 private:
     auto on_state_change(State new_state) -> void;

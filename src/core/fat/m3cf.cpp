@@ -1,7 +1,9 @@
 // Copyright 2022 TotalJustice.
 // SPDX-License-Identifier: GPL-3.0-only
 
+#include "fat/fat.hpp"
 #include "gba.hpp"
+#include "log.hpp"
 #include "mem.hpp"
 #include "m3cf.hpp"
 
@@ -80,7 +82,7 @@ enum Commands
 auto M3cf::get_sector_offset() const -> u64
 {
     const u64 offset = ((REG_LBA4 & 0xF) << 24) | (REG_LBA3 << 16) | (REG_LBA2 << 8) | (REG_LBA1 << 0);
-    return offset * SECTOR_SIZE;
+    return offset * fat::SECTOR_SIZE;
 }
 
 void M3cf::set_mode(u32 new_mode)
@@ -91,6 +93,11 @@ void M3cf::set_mode(u32 new_mode)
 }
 
 void M3cf::init(Gba& gba)
+{
+    reset(gba);
+}
+
+void M3cf::reset(Gba& gba)
 {
     sector_offset = 0;
     REG_DATA = 0;
@@ -104,8 +111,10 @@ void M3cf::init(Gba& gba)
     REG_LBA4 = 0;
 }
 
-auto M3cf::read(Gba& gba, u32 addr) -> u32
+auto M3cf::read(Gba& gba, u32 addr, bool& handled) -> u16
 {
+    handled = true;
+
     switch (addr)
     {
         case RegAddr::STS:
@@ -137,7 +146,7 @@ auto M3cf::read(Gba& gba, u32 addr) -> u32
         case RegAddr::DATA:
         {
             assert(REG_CMD == CF_CMD_READ);
-            const auto result = read16(gba, sector_offset);
+            const auto result = fat::read16(gba, sector_offset);
             sector_offset += 2;
             return result;
         }
@@ -161,14 +170,24 @@ auto M3cf::read(Gba& gba, u32 addr) -> u32
             else if (addr == SEQ_11_ROM && mode_counter == 11) { mode_counter++; }
             else if (addr == SEQ_12_ROM && mode_counter == 12) { mode_counter++; }
             else if (addr == SEQ_13_ROM && mode_counter == 13) { set_mode(MODE_ROM); }
-            else { mode_counter = 0; }
-
-            return UNHANDLED_READ;
+            else
+            {
+                if (mode_counter)
+                {
+                    assert(!"bad mode sequence");
+                    mode_counter = 0;
+                }
+                handled = false;
+            }
     }
+
+    return 0x0;
 }
 
-void M3cf::write(Gba& gba, u32 addr, u16 value)
+void M3cf::write(Gba& gba, u32 addr, u16 value, bool& handled)
 {
+    handled = true;
+
     switch (addr)
     {
         case RegAddr::STS:
@@ -197,7 +216,7 @@ void M3cf::write(Gba& gba, u32 addr, u16 value)
                     break;
 
                 default:
-                    std::printf("invalid status command: 0x%02X\n", value);
+                    log::print_error(gba, log::Type::M3CF, "invalid status command: 0x%02X\n", value);
                     assert(0);
                     break;
             }
@@ -224,7 +243,7 @@ void M3cf::write(Gba& gba, u32 addr, u16 value)
                     break;
 
                 default:
-                    std::printf("invalid CF command: 0x%02X\n", value);
+                    log::print_error(gba, log::Type::M3CF, "invalid CF command: 0x%02X\n", value);
                     assert(0);
                     break;
             }
@@ -235,7 +254,7 @@ void M3cf::write(Gba& gba, u32 addr, u16 value)
             break;
 
         case RegAddr::SEC:
-            std::printf("[M3CF] number of sectors: %u %u\n", value, REG_SEC * SECTOR_SIZE);
+            log::print_info(gba, log::Type::M3CF, "[M3CF] number of sectors: %u %u\n", value, REG_SEC * fat::SECTOR_SIZE);
             REG_SEC = value;
             assert(REG_SEC > 0 && "impossible value, 0 should be set to 256!!!");
             break;
@@ -258,20 +277,21 @@ void M3cf::write(Gba& gba, u32 addr, u16 value)
 
         case RegAddr::DATA:
             assert(REG_CMD == CF_CMD_WRITE);
-            write16(gba, sector_offset, value);
+            fat::write16(gba, sector_offset, value);
             sector_offset += 2;
 
             // flush on every sector write
-            if (sector_offset == get_sector_offset() + REG_SEC * SECTOR_SIZE)
+            if (sector_offset == get_sector_offset() + REG_SEC * fat::SECTOR_SIZE)
             {
-                flush(gba, get_sector_offset(), REG_SEC * SECTOR_SIZE);
-                std::printf("[M3CF] dumping file offset: %zu size: %u\n", get_sector_offset(), REG_SEC * SECTOR_SIZE);
+                fat::flush(gba, get_sector_offset(), REG_SEC * fat::SECTOR_SIZE);
+                log::print_info(gba, log::Type::M3CF, "[M3CF] dumping file offset: %zu size: %u\n", get_sector_offset(), REG_SEC * fat::SECTOR_SIZE);
             }
             break;
 
         default:
-            // std::printf("invalid write to 0x%08X value: 0x%04X\n", addr, value);
+            // log::print_error(gba, log::Type::M3CF, "invalid write to 0x%08X value: 0x%04X\n", addr, value);
             // assert(0);
+            handled = false;
             break;
     }
 }

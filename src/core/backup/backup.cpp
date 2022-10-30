@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "backup.hpp"
+#include "gba.hpp"
 #include <string_view>
 #include <cstdio>
 #include <cassert>
+#include <utility>
 
 namespace gba::backup {
 namespace {
@@ -2839,6 +2841,177 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 
 } // namespace
 
+auto Backup::init(Gba& gba, Type new_type) -> bool
+{
+    this->type = new_type;
+
+    switch (this->type)
+    {
+        case Type::NONE:
+        case Type::EZFLASH_NONE:
+            break;
+
+        case Type::EEPROM:
+            this->eeprom.init(gba);
+            break;
+
+        case Type::EEPROM512:
+        case Type::EZFLASH_EEPROM512:
+            this->eeprom.init(gba);
+            this->eeprom.set_width(gba, backup::eeprom::Width::small);
+            break;
+
+        case Type::EEPROM8K:
+        case Type::EZFLASH_EEPROM8K:
+            this->eeprom.init(gba);
+            this->eeprom.set_width(gba, backup::eeprom::Width::beeg);
+            break;
+
+        case Type::SRAM:
+        case Type::EZFLASH_SRAM:
+            this->sram.init(gba);
+            break;
+
+        case Type::FLASH512:
+        case Type::EZFLASH_FLASH512:
+            this->flash.init(gba, flash::Type::Flash64);
+            break;
+
+        case Type::FLASH1M:
+        case Type::EZFLASH_FLASH1M:
+            this->flash.init(gba, flash::Type::Flash128);
+            break;
+    }
+
+    return true;
+}
+
+[[nodiscard]] auto Backup::is_dirty(Gba& gba) const -> bool
+{
+    switch (this->type)
+    {
+        case Type::NONE:
+            return false;
+
+        case Type::EEPROM:
+        case Type::EEPROM512:
+        case Type::EEPROM8K:
+            return this->eeprom.is_dirty();
+
+        case Type::SRAM:
+            return this->sram.is_dirty();
+
+        case Type::FLASH512:
+        case Type::FLASH1M:
+            return this->flash.is_dirty();
+
+        case Type::EZFLASH_NONE:
+        case Type::EZFLASH_EEPROM512:
+        case Type::EZFLASH_EEPROM8K:
+        case Type::EZFLASH_SRAM:
+        case Type::EZFLASH_FLASH512:
+        case Type::EZFLASH_FLASH1M:
+            return gba.fat_device.ezflash->is_dirty();
+    }
+
+    std::unreachable();
+}
+
+void Backup::clear_dirty_flag(Gba& gba)
+{
+    switch (this->type)
+    {
+        case Type::NONE:
+            break;
+
+        case Type::EEPROM:
+        case Type::EEPROM512:
+        case Type::EEPROM8K:
+            this->eeprom.clear_dirty_flag();
+            break;
+
+        case Type::SRAM:
+            this->sram.clear_dirty_flag();
+            break;
+
+        case Type::FLASH512:
+        case Type::FLASH1M:
+            this->flash.clear_dirty_flag();
+            break;
+
+        case Type::EZFLASH_NONE:
+        case Type::EZFLASH_EEPROM512:
+        case Type::EZFLASH_EEPROM8K:
+        case Type::EZFLASH_SRAM:
+        case Type::EZFLASH_FLASH512:
+        case Type::EZFLASH_FLASH1M:
+            gba.fat_device.ezflash->clear_dirty_flag();
+            break;
+    }
+}
+
+auto Backup::load_data(Gba& gba, std::span<const u8> new_data) -> bool
+{
+    switch (this->type)
+    {
+        case Type::NONE:
+            return false;
+
+        case Type::EEPROM: [[fallthrough]];
+        case Type::EEPROM512: [[fallthrough]];
+        case Type::EEPROM8K:
+            return this->eeprom.load_data(gba, new_data);
+
+        case Type::SRAM:
+            return this->sram.load_data(gba, new_data);
+
+        case Type::FLASH512: [[fallthrough]];
+        case Type::FLASH1M:
+            return this->flash.load_data(gba, new_data);
+
+        case Type::EZFLASH_NONE:
+        case Type::EZFLASH_EEPROM512:
+        case Type::EZFLASH_EEPROM8K:
+        case Type::EZFLASH_SRAM:
+        case Type::EZFLASH_FLASH512:
+        case Type::EZFLASH_FLASH1M:
+            return gba.fat_device.ezflash->load_data(new_data);
+    }
+
+    std::unreachable();
+}
+
+auto Backup::get_data(const Gba& gba) const -> SaveData
+{
+    switch (this->type)
+    {
+        case Type::NONE:
+            return {};
+
+        case Type::EEPROM: [[fallthrough]];
+        case Type::EEPROM512: [[fallthrough]];
+        case Type::EEPROM8K:
+            return this->eeprom.get_data();
+
+        case Type::SRAM:
+            return this->sram.get_data();
+
+        case Type::FLASH512: [[fallthrough]];
+        case Type::FLASH1M:
+            return this->flash.get_data();
+
+        case Type::EZFLASH_NONE:
+        case Type::EZFLASH_EEPROM512:
+        case Type::EZFLASH_EEPROM8K:
+        case Type::EZFLASH_SRAM:
+        case Type::EZFLASH_FLASH512:
+        case Type::EZFLASH_FLASH1M:
+            return gba.fat_device.ezflash->get_data();
+    }
+
+    std::unreachable();
+}
+
 auto find_type(std::span<const u8> rom) -> Type
 {
     const auto rom_string = std::string_view{reinterpret_cast<const char*>(rom.data()), rom.size()};
@@ -2872,7 +3045,7 @@ auto find_type(std::span<const u8> rom) -> Type
     {
         { .string = "EEPROM", .type = Type::EEPROM },
         { .string = "SRAM", .type = Type::SRAM },
-        { .string = "FLASH_", .type = Type::FLASH },
+        { .string = "FLASH_", .type = Type::FLASH512 },
         { .string = "FLASH512", .type = Type::FLASH512 },
         { .string = "FLASH1M", .type = Type::FLASH1M },
     };

@@ -135,7 +135,7 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
         {
             // order is important here because we dont want
             // to read from union if not eeprom as thats UB in C / C++.
-            if (gba.backup.type == backup::Type::EEPROM && dma.dst_addr >= 0x0D000000 && dma.dst_addr <= 0x0DFFFFFFF)
+            if (gba.backup.is_eeprom() && dma.dst_addr >= 0x0D000000 && dma.dst_addr <= 0x0DFFFFFFF)
             {
                 if (gba.backup.eeprom.width == backup::eeprom::Width::unknown)
                 {

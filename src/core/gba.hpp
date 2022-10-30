@@ -151,6 +151,32 @@ struct RomName
     char str[17]; // NULL terminanted
 };
 
+struct SaveData
+{
+    // collection of data to be saved.
+    // this should all b written to the same file
+    // starting from [0] ... [count-1].
+    // loading saves is simple, just load the data into one big file/
+    std::span<const u8> data[8];
+    // this is the number of entries filled out
+    u32 count{};
+
+    constexpr void write_entry(std::span<const u8> save_data)
+    {
+        if (count >= 8)
+        {
+            return;
+        }
+
+        data[count++] = save_data;
+    }
+
+    [[nodiscard]] constexpr auto empty() const -> bool
+    {
+        return count == 0;
+    }
+};
+
 struct State;
 struct Header;
 
@@ -163,6 +189,9 @@ using LogCallback = void(*)(void* user, u8 type, u8 level, const char* str);
 
 struct Gba
 {
+    Gba();
+    ~Gba();
+
     // at the top so no offset needed into struct on r/w access
     mem::ReadArray rmap[16];
     mem::WriteArray wmap[16];
@@ -217,7 +246,7 @@ struct Gba
     [[nodiscard]] auto is_save_dirty(bool auto_clear) -> bool;
     // returns empty span if the game doesn't have a save
     // call is_save_dirty() first to see if the game needs saving!
-    [[nodiscard]] auto getsave() const -> std::span<const u8>;
+    [[nodiscard]] auto getsave() const -> SaveData;
 
     // OR keys together
     auto setkeys(u16 buttons, bool down) -> void;
@@ -243,8 +272,8 @@ struct Gba
 
     [[nodiscard]] auto get_rom_name() const -> RomName;
 
-    [[nodiscard]] auto get_fat_device_type() const { return fat_device.type; }
-    void set_fat_device_type(fat::Type type) { fat_device.type = type; }
+     [[nodiscard]] auto get_fat_device_type() const { return fat_device.type; }
+    void set_fat_device_type(fat::Type type);
     //
     auto create_fat32_image(std::span<u8> data) -> bool;
     auto set_fat32_data(std::span<u8> data) -> bool;
@@ -256,8 +285,7 @@ struct Gba
     // controlled by the rom writing to [IO_LOG_CONTROL]
     bool rom_logging{false};
 
-    u8* fat32_data;
-    u64 fat32_data_size;
+    std::span<u8> fat32_data;
 
     void* userdata{};
     std::span<s16> sample_data;

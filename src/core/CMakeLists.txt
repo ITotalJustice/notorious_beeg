@@ -51,6 +51,9 @@ else ()
         fat/mpcf.cpp
         fat/m3cf.cpp
         fat/sccf.cpp
+        fat/ezflash.cpp
+        fat/ezflash/S71GL064A08.cpp
+        fat/ezflash/S98WS512PE0.cpp
 
         gameboy/gb.cpp
         gameboy/cpu.cpp

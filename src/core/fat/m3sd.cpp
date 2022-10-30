@@ -45,6 +45,11 @@ enum Commands
 
 void M3sd::init(Gba& gba)
 {
+    reset(gba);
+}
+
+void M3sd::reset(Gba& gba)
+{
     REG_DIR = 0;
     REG_DAT = 0;
     REG_CMD = 0;
@@ -53,8 +58,10 @@ void M3sd::init(Gba& gba)
     REG_STS = 0;
 }
 
-auto M3sd::read(Gba& gba, u32 addr) -> u32
+auto M3sd::read(Gba& gba, u32 addr, bool& handled) -> u16
 {
+    handled = true;
+
     switch (addr)
     {
         case RegAddr::DIR:
@@ -82,14 +89,17 @@ auto M3sd::read(Gba& gba, u32 addr) -> u32
             break;
 
         default:
-            return fat::UNHANDLED_READ;
+            handled = false;
+            break;
     }
 
-    return fat::UNHANDLED_READ;
+    return 0x0;
 }
 
-void M3sd::write(Gba& gba, u32 addr, u16 value)
+void M3sd::write(Gba& gba, u32 addr, u16 value, bool& handled)
 {
+    handled = true;
+
     switch (addr)
     {
         case RegAddr::DIR:
@@ -119,6 +129,7 @@ void M3sd::write(Gba& gba, u32 addr, u16 value)
         default:
             std::printf("[M3SD] invalid write to 0x%08X value: 0x%04X\n", addr, value);
             assert(0);
+            handled = false;
             break;
     }
 }

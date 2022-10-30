@@ -27,8 +27,10 @@ struct M3cf
     u8 mode_counter;
 
     void init(Gba& gba);
-    auto read(Gba& gba, u32 addr) -> u32;
-    void write(Gba& gba, u32 addr, u16 value);
+    void reset(Gba& gba);
+
+    auto read(Gba& gba, u32 addr, bool& handled) -> u16;
+    void write(Gba& gba, u32 addr, u16 value, bool& handled);
 
 private:
     [[nodiscard]] auto get_sector_offset() const -> u64;

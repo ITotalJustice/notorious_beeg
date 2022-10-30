@@ -58,6 +58,8 @@ protected:
     auto menubar_tab_help() -> void;
     auto menubar() -> void;
 
+    void load_fat_device(gba::fat::Type type);
+
     // debug
     auto im_debug_window() -> void;
     auto render_layers() -> void;

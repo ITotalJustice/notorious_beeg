@@ -3,11 +3,13 @@
 
 #include "imgui_base.hpp"
 #include "debugger_io.hpp"
+#include "fat/fat.hpp"
 #include "log.hpp"
 #include "mem.hpp"
 #include "sio.hpp"
 
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
@@ -66,9 +68,11 @@ auto on_hblank_callback(void* user, std::uint16_t line) -> void
 
 void on_fat_flush_callback(void* user, std::uint64_t offset, std::uint64_t size)
 {
+    if (!user) { return; }
+
     // this is UB because the actual ptr is whatever inherts the base
     auto app = static_cast<ImguiBase*>(user);
-    assert(offset + size < app->fat_sd_card.size());
+    assert(offset + size <= app->fat_sd_card.size());
 
     std::fstream fs{FAT32_PATH, std::ios_base::in | std::ios_base::out | std::ios_base::ate | std::ios_base::binary};
 
@@ -127,6 +131,12 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
     gameboy_advance.set_fat_flush_callback(on_fat_flush_callback);
     gameboy_advance.set_log_callback(on_log_callback);
     gameboy_advance.set_pixels(pixels, 240, 16);
+
+    // for quick testing
+    // todo: add cli commands support
+    #if 0
+    load_fat_device(gba::fat::Type::EZFLASH);
+    #endif
 
     // gameboy_advance.log_level |= gba::log::LevelFlag::FLAG_INFO;
     // gameboy_advance.log_type |= gba::log::TypeFlag::FLAG_SIO;
@@ -356,34 +366,15 @@ auto ImguiBase::menubar_tab_emulation() -> void
 
     if (ImGui::BeginMenu("FatDevice"))
     {
-        static const char* items[] = { "NONE", "MPCF", "M3CF", "SCCF", };
+        auto types = gba::fat::get_type_str();
 
-        for (auto i = 0; i < 4; i++)
+        for (std::size_t i = 0; i < types.size(); i++)
         {
             const auto type = static_cast<gba::fat::Type>(i);
 
-            if (ImGui::MenuItem(items[i], nullptr, type == gameboy_advance.fat_device.type))
+            if (ImGui::MenuItem(types[i], nullptr, type == gameboy_advance.fat_device.type))
             {
-                gameboy_advance.fat_device.type = type;
-
-                // create new sd card if one is not found
-                if (type != gba::fat::Type::NONE && fat_sd_card.empty())
-                {
-                    fat_sd_card = loadfile(FAT32_PATH);
-
-                    if (fat_sd_card.empty())
-                    {
-                        fat_sd_card.resize(512ULL * 1024ULL * 1024ULL);
-                        gameboy_advance.create_fat32_image(fat_sd_card);
-                        gameboy_advance.set_fat32_data(fat_sd_card);
-                        // do initial flush of sd card
-                        dumpfile(FAT32_PATH, fat_sd_card);
-                    }
-                    else
-                    {
-                        gameboy_advance.set_fat32_data(fat_sd_card);
-                    }
-                }
+                load_fat_device(type);
             }
         }
         ImGui::EndMenu();
@@ -506,6 +497,45 @@ auto ImguiBase::menubar() -> void
         }
         ImGui::EndMainMenuBar();
     }
+}
+
+void ImguiBase::load_fat_device(gba::fat::Type type)
+{
+    gameboy_advance.set_fat_device_type(type);
+
+    if (type == gba::fat::Type::NONE)
+    {
+        return;
+    }
+
+    // create new sd card if one is not found
+    if (fat_sd_card.empty())
+    {
+        fat_sd_card = loadfile(FAT32_PATH);
+
+        if (fat_sd_card.empty())
+        {
+            fat_sd_card.resize(512ULL * 1024ULL * 1024ULL);
+            gameboy_advance.create_fat32_image(fat_sd_card);
+            gameboy_advance.set_fat32_data(fat_sd_card);
+            // do initial flush of sd card
+            dumpfile(FAT32_PATH, fat_sd_card);
+        }
+        else
+        {
+            gameboy_advance.set_fat32_data(fat_sd_card);
+        }
+    }
+    else
+    {
+        std::printf("empty\n");
+    }
+
+    // reset gba
+    gameboy_advance.reset();
+
+    // load save data (if any)
+    loadsave(rom_path);
 }
 
 auto ImguiBase::im_debug_window() -> void

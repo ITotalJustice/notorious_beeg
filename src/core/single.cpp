@@ -44,6 +44,9 @@
     #include "fat/mpcf.cpp"
     #include "fat/m3cf.cpp"
     #include "fat/sccf.cpp"
+    #include "fat/ezflash.cpp"
+    #include "fat/ezflash/S71GL064A08.cpp"
+    #include "fat/ezflash/S98WS512PE0.cpp"
 
     #include "gameboy/gb.cpp"
     #include "gameboy/cpu.cpp"

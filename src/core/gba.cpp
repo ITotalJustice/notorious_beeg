@@ -154,27 +154,7 @@ auto loadsave_gb(Gba& gba, std::span<const u8> new_save) -> bool
 
 auto loadsave_gba(Gba& gba, std::span<const u8> new_save) -> bool
 {
-    using enum backup::Type;
-    switch (gba.backup.type)
-    {
-        case NONE:
-            return false;
-
-        case EEPROM: [[fallthrough]];
-        case EEPROM512: [[fallthrough]];
-        case EEPROM8K:
-            return gba.backup.eeprom.load_data(gba, new_save);
-
-        case SRAM:
-            return gba.backup.sram.load_data(gba, new_save);
-
-        case FLASH: [[fallthrough]];
-        case FLASH512: [[fallthrough]];
-        case FLASH1M:
-            return gba.backup.flash.load_data(gba, new_save);
-    }
-
-    std::unreachable();
+    return gba.backup.load_data(gba, new_save);
 }
 
 auto is_save_dirty_gb(Gba& gba, bool auto_clear) -> bool
@@ -191,50 +171,35 @@ auto is_save_dirty_gb(Gba& gba, bool auto_clear) -> bool
 
 auto is_save_dirty_gba(Gba& gba, bool auto_clear) -> bool
 {
-    const auto result = gba.backup.dirty_ram;
+    const auto result = gba.backup.is_dirty(gba);
 
     if (auto_clear)
     {
-        gba.backup.dirty_ram = false;
+        gba.backup.clear_dirty_flag(gba);
     }
 
     return result;
 }
 
-auto get_save_gb(const Gba& gba) -> std::span<const u8>
+auto get_save_gb(const Gba& gba) -> SaveData
 {
     if (gb::has_save(gba))
     {
         const auto size = gb::calculate_savedata_size(gba);
-        return { gba.gameboy.ram, size };
+        if (size)
+        {
+            SaveData save;
+            save.write_entry({ gba.gameboy.ram, size });
+            return save;
+        }
     }
 
     return {};
 }
 
-auto get_save_gba(const Gba& gba) -> std::span<const u8>
+auto get_save_gba(const Gba& gba) -> SaveData
 {
-    using enum backup::Type;
-    switch (gba.backup.type)
-    {
-        case NONE:
-            return {};
-
-        case EEPROM: [[fallthrough]];
-        case EEPROM512: [[fallthrough]];
-        case EEPROM8K:
-            return gba.backup.eeprom.get_data();
-
-        case SRAM:
-            return gba.backup.sram.get_data();
-
-        case FLASH: [[fallthrough]];
-        case FLASH512: [[fallthrough]];
-        case FLASH1M:
-            return gba.backup.flash.get_data();
-    }
-
-    std::unreachable();
+    return gba.backup.get_data(gba);
 }
 
 auto run_gb(Gba& gba, u32 cycles)
@@ -345,6 +310,25 @@ auto Header::validate_all() const -> bool
     return true;
 }
 
+Gba::Gba()
+{
+    // log_type = 0;
+    // log_type |= log::FLAG_TYPE_ALL_APU;
+    // log_type |= log::FLAG_TYPE_ALL_ARM;
+    // log_type |= log::FLAG_TYPE_ALL_BACKUP;
+    // log_type |= log::FLAG_TYPE_ALL_FAT;
+    // log_type |= log::FLAG_TYPE_ALL_GB;
+    // log_type |= log::FLAG_GAME;
+}
+
+Gba::~Gba()
+{
+    delete fat_device.mpcf;
+    delete fat_device.m3cf;
+    delete fat_device.sccf;
+    delete fat_device.ezflash;
+}
+
 auto Gba::reset() -> void
 {
     // if the user did not load bios, then load builtin
@@ -357,6 +341,7 @@ auto Gba::reset() -> void
 
     this->scheduler.reset();
     this->delta.reset();
+    fat::reset(*this);
     mem::reset(*this, skip_bios); // this needed to be before arm::reset because memtables
     ppu::reset(*this, skip_bios);
     apu::reset(*this, skip_bios);
@@ -394,40 +379,10 @@ auto Gba::loadrom(std::span<const u8> new_rom) -> bool
     // todo: handle if the user has already set / loaded sram for the game
     // or maybe it should always be like this, load game, then load backup
     const auto backup_type = backup::find_type(new_rom);
-    this->backup.type = backup_type;
-    using enum backup::Type;
 
-    switch (this->backup.type)
+    if (!this->backup.init(*this, backup_type))
     {
-        case NONE:
-            break;
-
-        case EEPROM:
-            this->backup.eeprom.init(*this);
-            break;
-
-        case EEPROM512:
-            this->backup.eeprom.init(*this);
-            this->backup.eeprom.set_width(*this, backup::eeprom::Width::small);
-            break;
-
-        case EEPROM8K:
-            this->backup.eeprom.init(*this);
-            this->backup.eeprom.set_width(*this, backup::eeprom::Width::beeg);
-            break;
-
-        case SRAM:
-            this->backup.sram.init(*this);
-            break;
-
-        case FLASH: [[fallthrough]]; // these are aliases for each other
-        case FLASH512:
-            this->backup.flash.init(*this, backup::flash::Type::Flash64);
-            break;
-
-        case FLASH1M:
-            this->backup.flash.init(*this, backup::flash::Type::Flash128);
-            break;
+        // return false;
     }
 
     // pre-calc the OOB rom read values, which is addr >> 1
@@ -623,7 +578,7 @@ auto Gba::is_save_dirty(bool auto_clear) -> bool
     }
 }
 
-auto Gba::getsave() const -> std::span<const u8>
+auto Gba::getsave() const -> SaveData
 {
     if (is_gb())
     {
@@ -648,10 +603,15 @@ auto Gba::get_rom_name() const -> RomName
     else
     {
         const Header header{this->rom};
-        std::strncpy(name.str, header.game_title, sizeof(header.game_title));
+        std::strcpy(name.str, header.game_title);
     }
 
     return name;
+}
+
+void Gba::set_fat_device_type(fat::Type type)
+{
+    fat::init(*this, type);
 }
 
 auto Gba::create_fat32_image(std::span<u8> data) -> bool
@@ -663,8 +623,7 @@ auto Gba::set_fat32_data(std::span<u8> data) -> bool
 {
     if (data.size() == 512 * 1024 * 1024)
     {
-        fat32_data = data.data();
-        fat32_data_size = data.size();
+        fat32_data = data;
         return true;
     }
 

@@ -5,6 +5,7 @@
 #include "gba.hpp"
 #include "mem.hpp"
 #include "sccf.hpp"
+#include "log.hpp"
 
 #include <cstdio>
 #include <cassert>
@@ -66,7 +67,7 @@ auto is_mode_valid(u16 mode) -> bool
 auto Sccf::get_sector_offset() const -> u64
 {
     const u64 offset = ((REG_LBA4 & 0xF) << 24) | (REG_LBA3 << 16) | (REG_LBA2 << 8) | (REG_LBA1 << 0);
-    return offset * SECTOR_SIZE;
+    return offset * fat::SECTOR_SIZE;
 }
 
 void Sccf::on_unlock_addr_write(u16 value)
@@ -98,6 +99,11 @@ void Sccf::on_unlock_addr_write(u16 value)
 
 void Sccf::init(Gba& gba)
 {
+    reset(gba);
+}
+
+void Sccf::reset(Gba& gba)
+{
     sector_offset = 0;
 
     REG_DATA = 0;
@@ -114,11 +120,14 @@ void Sccf::init(Gba& gba)
     locked = true;
 }
 
-auto Sccf::read(Gba& gba, u32 addr) -> u32
+auto Sccf::read(Gba& gba, u32 addr, bool& handled) -> u16
 {
+    handled = true;
+
     if (locked)
     {
-        return UNHANDLED_READ;
+        handled = false;
+        return 0x0;
     }
 
     switch (addr)
@@ -152,23 +161,30 @@ auto Sccf::read(Gba& gba, u32 addr) -> u32
         case RegAddr::DATA:
         {
             assert(REG_CMD == CF_CMD_READ);
-            const auto result = read16(gba, sector_offset);
+            const auto result = fat::read16(gba, sector_offset);
             sector_offset += 2;
             return result;
         }
 
         default:
-            return UNHANDLED_READ;
+            handled = false;
+            return 0x0;
     }
 }
 
-void Sccf::write(Gba& gba, u32 addr, u16 value)
+void Sccf::write(Gba& gba, u32 addr, u16 value, bool& handled)
 {
+    handled = true;
+
     if (locked)
     {
         if (addr == RegAddr::UNLOCK)
         {
             on_unlock_addr_write(value);
+        }
+        else
+        {
+            handled = false;
         }
 
         return;
@@ -202,7 +218,7 @@ void Sccf::write(Gba& gba, u32 addr, u16 value)
                     break;
 
                 default:
-                    std::printf("[SCCF] invalid status command: 0x%02X\n", value);
+                    log::print_error(gba, log::Type::SCCF, "[SCCF] invalid status command: 0x%02X\n", value);
                     assert(0);
                     break;
             }
@@ -230,7 +246,7 @@ void Sccf::write(Gba& gba, u32 addr, u16 value)
                     break;
 
                 default:
-                    std::printf("[SCCF] invalid CF command: 0x%02X\n", value);
+                    log::print_error(gba, log::Type::SCCF, "[SCCF] invalid CF command: 0x%02X\n", value);
                     assert(0);
                     break;
             }
@@ -241,7 +257,7 @@ void Sccf::write(Gba& gba, u32 addr, u16 value)
             break;
 
         case RegAddr::SEC:
-            std::printf("[SCCF] number of sectors: %u %u\n", value, REG_SEC * SECTOR_SIZE);
+            log::print_info(gba, log::Type::SCCF, "[SCCF] number of sectors: %u %u\n", value, REG_SEC * fat::SECTOR_SIZE);
             REG_SEC = value;
             assert(REG_SEC > 0 && "impossible value, 0 should be set to 256!!!");
             break;
@@ -265,14 +281,14 @@ void Sccf::write(Gba& gba, u32 addr, u16 value)
         case RegAddr::DATA:
             assert(mode != MODE_RAM_RO);
             assert(REG_CMD == CF_CMD_WRITE);
-            write16(gba, sector_offset, value);
+            fat::write16(gba, sector_offset, value);
             sector_offset += 2;
 
             // flush on every sector write
-            if (sector_offset == get_sector_offset() + REG_SEC * SECTOR_SIZE)
+            if (sector_offset == get_sector_offset() + REG_SEC * fat::SECTOR_SIZE)
             {
-                flush(gba, get_sector_offset(), REG_SEC * SECTOR_SIZE);
-                std::printf("[SCCF] dumping file offset: %zu size: %u\n", get_sector_offset(), REG_SEC * SECTOR_SIZE);
+                fat::flush(gba, get_sector_offset(), REG_SEC * fat::SECTOR_SIZE);
+                log::print_info(gba, log::Type::SCCF, "[SCCF] dumping file offset: %zu size: %u\n", get_sector_offset(), REG_SEC * fat::SECTOR_SIZE);
             }
             break;
 
@@ -282,8 +298,9 @@ void Sccf::write(Gba& gba, u32 addr, u16 value)
             break;
 
         default:
-            // std::printf("invalid write to 0x%08X value: 0x%04X\n", addr, value);
+            // log::print_error(gba, log::Type::SCCF, "invalid write to 0x%08X value: 0x%04X\n", addr, value);
             // assert(0);
+            handled = false;
             break;
     }
 }

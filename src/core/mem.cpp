@@ -1164,7 +1164,8 @@ auto write_gpio(Gba& gba, const u32 addr, const T value)
             {
                 // gpio is now write only
                 // remap rom array for faster reads
-                gba.rmap[0x8] = {gba.rom, ROM_MASK, Access_ALL};
+                mem::setup_tables(gba);
+                // gba.rmap[0x8] = {gba.rom, ROM_MASK, Access_ALL};
             }
             break;
     }
@@ -1238,58 +1239,6 @@ auto write_pram_region(Gba& gba, u32 addr, const T value) -> void
         const u16 new_value = (value << 8) | value;
         write_array<u16>(gba.mem.pram, PRAM_MASK, addr, new_value);
     }
-}
-
-template<typename T> [[nodiscard]]
-inline auto read_fat_region_helper(Gba& gba, const u32 addr, u32 result) -> T
-{
-    if (result == fat::UNHANDLED_READ)
-    {
-        return read_array<T>(gba.rom, ROM_MASK, addr);
-    }
-    else
-    {
-        return result;
-    }
-}
-
-template<typename T> [[nodiscard]]
-auto read_fat_mpcf_region(Gba& gba, const u32 addr) -> T
-{
-    const auto result = gba.fat_device.mpcf.read(gba, addr);
-    return read_fat_region_helper<T>(gba, addr, result);
-}
-
-template<typename T> [[nodiscard]]
-auto read_fat_m3cf_region(Gba& gba, const u32 addr) -> T
-{
-    const auto result = gba.fat_device.m3cf.read(gba, addr);
-    return read_fat_region_helper<T>(gba, addr, result);
-}
-
-template<typename T> [[nodiscard]]
-auto read_fat_sccf_region(Gba& gba, const u32 addr) -> T
-{
-    const auto result = gba.fat_device.sccf.read(gba, addr);
-    return read_fat_region_helper<T>(gba, addr, result);
-}
-
-template<typename T>
-auto write_fat_mpcf_region(Gba& gba, const u32 addr, T value) -> void
-{
-    gba.fat_device.mpcf.write(gba, addr, value);
-}
-
-template<typename T>
-auto write_fat_m3cf_region(Gba& gba, const u32 addr, T value) -> void
-{
-    gba.fat_device.m3cf.write(gba, addr, value);
-}
-
-template<typename T>
-auto write_fat_sccf_region(Gba& gba, const u32 addr, T value) -> void
-{
-    gba.fat_device.sccf.write(gba, addr, value);
 }
 
 template<typename T> [[nodiscard]]
@@ -1399,6 +1348,146 @@ auto write_sram_region(Gba& gba, const u32 addr, T value) -> void
 }
 
 template<typename T> [[nodiscard]]
+inline auto read_fat_region_helper(Gba& gba, const u32 addr, T result, bool handled) -> T
+{
+    if (handled)
+    {
+        return result;
+    }
+
+    const auto region = (addr >> 24) & 0xF;
+
+    switch (region)
+    {
+        case 0x8:
+            if (gba.gpio.rw)
+            {
+                return read_gpio<T>(gba, addr);
+            }
+            else
+            {
+                return read_array<T>(gba.rom, ROM_MASK, addr);
+            }
+
+        case 0x9:
+        case 0xA:
+        case 0xB:
+        case 0xC:
+            return read_array<T>(gba.rom, ROM_MASK, addr);
+
+        case 0xD:
+            if (gba.backup.is_eeprom())
+            {
+                return read_eeprom_region<T>(gba, addr);
+            }
+            break;
+
+        case 0xE:
+        case 0xF:
+            return read_sram_region<T>(gba, addr);
+    }
+
+    return ~0;
+}
+
+template<typename T>
+inline auto write_fat_region_helper(Gba& gba, const u32 addr, u32 value, bool handled) -> void
+{
+    if (handled)
+    {
+        return;
+    }
+
+    const auto region = (addr >> 24) & 0xF;
+
+    switch (region)
+    {
+        case 0x8:
+            write_gpio<T>(gba, addr, value);
+            break;
+
+        case 0xD:
+            if (gba.backup.is_eeprom())
+            {
+                write_eeprom_region<T>(gba, addr, value);
+            }
+            break;
+
+        case 0xE:
+        case 0xF:
+            if (gba.backup.is_flash() || gba.backup.is_sram())
+            {
+                write_sram_region<T>(gba, addr, value);
+            }
+            break;
+    }
+}
+
+template<typename T> [[nodiscard]]
+auto read_fat_mpcf_region(Gba& gba, const u32 addr) -> T
+{
+    bool handled;
+    const auto result = gba.fat_device.mpcf->read(gba, addr, handled);
+    return read_fat_region_helper<T>(gba, addr, result, handled);
+}
+
+template<typename T> [[nodiscard]]
+auto read_fat_m3cf_region(Gba& gba, const u32 addr) -> T
+{
+    bool handled;
+    const auto result = gba.fat_device.m3cf->read(gba, addr, handled);
+    return read_fat_region_helper<T>(gba, addr, result, handled);
+}
+
+template<typename T> [[nodiscard]]
+auto read_fat_sccf_region(Gba& gba, const u32 addr) -> T
+{
+    bool handled;
+    const auto result = gba.fat_device.sccf->read(gba, addr, handled);
+    return read_fat_region_helper<T>(gba, addr, result, handled);
+}
+
+template<typename T> [[nodiscard]]
+auto read_fat_ezflash_region(Gba& gba, const u32 addr) -> T
+{
+    bool handled;
+    const auto result = gba.fat_device.ezflash->read<T>(gba, addr, handled);
+    return read_fat_region_helper<T>(gba, addr, result, handled);
+}
+
+template<typename T>
+auto write_fat_mpcf_region(Gba& gba, const u32 addr, T value) -> void
+{
+    bool handled;
+    gba.fat_device.mpcf->write(gba, addr, value, handled);
+    write_fat_region_helper<T>(gba, addr, value, handled);
+}
+
+template<typename T>
+auto write_fat_m3cf_region(Gba& gba, const u32 addr, T value) -> void
+{
+    bool handled;
+    gba.fat_device.m3cf->write(gba, addr, value, handled);
+    write_fat_region_helper<T>(gba, addr, value, handled);
+}
+
+template<typename T>
+auto write_fat_sccf_region(Gba& gba, const u32 addr, T value) -> void
+{
+    bool handled;
+    gba.fat_device.sccf->write(gba, addr, value, handled);
+    write_fat_region_helper<T>(gba, addr, value, handled);
+}
+
+template<typename T>
+auto write_fat_ezflash_region(Gba& gba, const u32 addr, T value) -> void
+{
+    bool handled;
+    gba.fat_device.ezflash->write<T>(gba, addr, value, handled);
+    write_fat_region_helper<T>(gba, addr, value, handled);
+}
+
+template<typename T> [[nodiscard]]
 inline auto read_internal(Gba& gba, u32 addr) -> T
 {
     addr = mirror_address(addr);
@@ -1458,14 +1547,14 @@ inline auto write_internal(Gba& gba, u32 addr, T value)
     }
 }
 
-auto set_read_function(Gba& gba, u8 index, ReadFunction<u8> f8, ReadFunction<u16> f16, ReadFunction<u32> f32)
+void set_read_function(Gba& gba, u8 index, ReadFunction<u8> f8, ReadFunction<u16> f16, ReadFunction<u32> f32)
 {
     gba.rfuncmap_8[index] = f8;
     gba.rfuncmap_16[index] = f16;
     gba.rfuncmap_32[index] = f32;
 }
 
-auto set_write_function(Gba& gba, u8 index, WriteFunction<u8> f8, WriteFunction<u16> f16, WriteFunction<u32> f32)
+void set_write_function(Gba& gba, u8 index, WriteFunction<u8> f8, WriteFunction<u16> f16, WriteFunction<u32> f32)
 {
     gba.wfuncmap_8[index] = f8;
     gba.wfuncmap_16[index] = f16;
@@ -1568,16 +1657,17 @@ auto setup_tables(Gba& gba) -> void
             break;
 
         case fat::Type::MPCF:
-            gba.fat_device.mpcf.init(gba);
             gba.rmap[0x9] = {};
+            gba.wmap[0x9] = {};
             SET_READ_FUNCTION(gba, 0x9, read_fat_mpcf_region);
             SET_WRITE_FUNCTION(gba, 0x9, write_fat_mpcf_region);
             break;
 
         case fat::Type::M3CF:
-            gba.fat_device.m3cf.init(gba);
             gba.rmap[0x8] = {};
             gba.rmap[0x9] = {};
+            gba.wmap[0x8] = {};
+            gba.wmap[0x9] = {};
             SET_READ_FUNCTION(gba, 0x8, read_fat_m3cf_region);
             SET_READ_FUNCTION(gba, 0x9, read_fat_m3cf_region);
             SET_WRITE_FUNCTION(gba, 0x8, write_fat_m3cf_region);
@@ -1585,10 +1675,21 @@ auto setup_tables(Gba& gba) -> void
             break;
 
         case fat::Type::SCCF:
-            gba.fat_device.sccf.init(gba);
             gba.rmap[0x9] = {};
+            gba.wmap[0x9] = {};
             SET_READ_FUNCTION(gba, 0x9, read_fat_sccf_region);
             SET_WRITE_FUNCTION(gba, 0x9, write_fat_sccf_region);
+            break;
+
+        case fat::Type::EZFLASH:
+        case fat::Type::EZFLASH_DE:
+            for (u8 i = 0x8; i < 0x10; i++)
+            {
+                gba.rmap[i] = {};
+                gba.wmap[i] = {};
+                SET_READ_FUNCTION(gba, i, read_fat_ezflash_region);
+                SET_WRITE_FUNCTION(gba, i, write_fat_ezflash_region);
+            }
             break;
     }
 

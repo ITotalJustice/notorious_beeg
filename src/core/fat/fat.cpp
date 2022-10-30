@@ -4,6 +4,7 @@
 #include "gba.hpp"
 
 #include <cassert>
+#include <cstdio>
 #include <cstring>
 #include <span>
 
@@ -96,6 +97,75 @@ inline auto write32(u8* data, u32 value) -> void
 }
 
 } // namespace
+
+void init(Gba& gba, Type new_type)
+{
+    printf("fat init called\n");
+    delete gba.fat_device.mpcf;
+    delete gba.fat_device.m3cf;
+    delete gba.fat_device.sccf;
+    delete gba.fat_device.ezflash;
+
+    gba.fat_device.type = new_type;
+
+    switch (gba.fat_device.type)
+    {
+        case Type::NONE:
+            break;
+
+        case Type::MPCF:
+            gba.fat_device.mpcf = new mpcf::Mpcf;
+            gba.fat_device.mpcf->init(gba);
+            break;
+
+        case Type::M3CF:
+            gba.fat_device.m3cf = new m3cf::M3cf;
+            gba.fat_device.m3cf->init(gba);
+            break;
+
+        case Type::SCCF:
+            gba.fat_device.sccf = new sccf::Sccf;
+            gba.fat_device.sccf->init(gba);
+            break;
+
+        case Type::EZFLASH:
+            gba.fat_device.ezflash = new ezflash::Ezflash;
+            gba.fat_device.ezflash->init(gba, ezflash::Type::OMEGA);
+            break;
+
+        case Type::EZFLASH_DE:
+            gba.fat_device.ezflash = new ezflash::Ezflash;
+            gba.fat_device.ezflash->init(gba, ezflash::Type::OMEGA_DE);
+            break;
+    }
+}
+
+void reset(Gba& gba)
+{
+    printf("fat reset called\n");
+    switch (gba.fat_device.type)
+    {
+        case Type::NONE:
+            break;
+
+        case Type::MPCF:
+            gba.fat_device.mpcf->reset(gba);
+            break;
+
+        case Type::M3CF:
+            gba.fat_device.m3cf->reset(gba);
+            break;
+
+        case Type::SCCF:
+            gba.fat_device.sccf->reset(gba);
+            break;
+
+        case Type::EZFLASH:
+        case Type::EZFLASH_DE:
+            gba.fat_device.ezflash->reset(gba);
+            break;
+    }
+}
 
 auto create_image(std::span<u8> data) -> bool
 {
@@ -202,6 +272,11 @@ auto create_image(std::span<u8> data) -> bool
 
 auto flush(Gba& gba, u64 offset, u64 size) -> bool
 {
+    if (gba.fat32_data.empty() || gba.fat32_data.size() <= offset + size)
+    {
+        return false;
+    }
+
     if (gba.fat_flush_callback)
     {
         gba.fat_flush_callback(gba.userdata, offset, size);
@@ -212,12 +287,35 @@ auto flush(Gba& gba, u64 offset, u64 size) -> bool
 
 auto read16(Gba& gba, u64 addr) -> u16
 {
-    return read16(gba.fat32_data + addr);
+    if (gba.fat32_data.empty() || gba.fat32_data.size() <= addr)
+    {
+        return 0;
+    }
+    return read16(gba.fat32_data.data() + addr);
 }
 
 void write16(Gba& gba, u64 addr, u16 value)
 {
-    write16(gba.fat32_data + addr, value);
+    if (gba.fat32_data.empty() || gba.fat32_data.size() <= addr)
+    {
+        return;
+    }
+    write16(gba.fat32_data.data() + addr, value);
+}
+
+auto get_type_str() -> std::span<const char*>
+{
+    static const char* str[] =
+    {
+        "NONE",
+        "MPCF",
+        "M3CF",
+        "SCCF",
+        "EZFLASH",
+        "EZFLASH_DE",
+    };
+
+    return str;
 }
 
 } // namespace gba::fat

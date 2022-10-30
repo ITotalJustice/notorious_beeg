@@ -23,6 +23,7 @@ public:
     virtual auto loop() -> void = 0;
 
     static auto dumpfile(const std::string& path, std::span<const std::uint8_t> data) -> bool;
+    static auto dumpsave(const std::string& path, gba::SaveData save) -> bool;
     static auto zipall(const std::string& folder, const std::string& output) -> std::size_t;
     #if 0
     static auto zipall_mem(const std::string& folder) -> std::vector<std::uint8_t>;
