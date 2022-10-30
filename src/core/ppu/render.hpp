@@ -9,4 +9,9 @@ namespace gba::ppu {
 
 auto render(Gba& gba) -> void;
 
+// memset line. max value is 159
+void clear_line(Gba& gba, u16 line);
+// memset entire screen 0...159
+void clear_screen(Gba& gba);
+
 } // namespace gba::ppu

@@ -345,9 +345,10 @@ inline auto read_io16(Gba& gba, const u32 addr) -> u16
         case IO_IF:
         case IO_WSCNT:
         case IO_IME:
-        case IO_HALTCNT_L:
-        case IO_HALTCNT_H:
             return gba.mem.io[(addr & IO_MASK) >> 1];
+
+        case IO_HALTCNT_L:
+            return REG_HALTCNT & 0xFF;
 
         case IO_WAVE_RAM0_L:
         case IO_WAVE_RAM0_H:
@@ -839,7 +840,14 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
 
         case IO_HALTCNT_L:
             gba.mem.io[(addr & IO_MASK) >> 1] = value;
-            arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
+            if (bit::is_set<0xF>(value))
+            {
+                gba.scheduler.add(scheduler::ID::STOP, 0, arm7tdmi::on_stop_event, &gba);
+            }
+            else
+            {
+                arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
+            }
             break;
 
         case IO_IE:
@@ -1013,7 +1021,16 @@ inline auto write_io8(Gba& gba, const u32 addr, const u8 value) -> void
             break;
 
         case IO_HALTCNT_H:
-            arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
+            gba.mem.io[(addr & IO_MASK) >> 1] &= 0x00FF;
+            gba.mem.io[(addr & IO_MASK) >> 1] |= value << 8;
+            if (bit::is_set<7>(value))
+            {
+                gba.scheduler.add(scheduler::ID::STOP, 0, arm7tdmi::on_stop_event, &gba);
+            }
+            else
+            {
+                arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
+            }
             break;
 
         default: {

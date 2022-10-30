@@ -472,6 +472,10 @@ enum LogAddr
 #define REG_WSCNT gba.mem.io[(gba::mem::IO_WSCNT & 0x3FF) >> 1]
 #define REG_IME gba.mem.io[(gba::mem::IO_IME & 0x3FF) >> 1]
 
+// note: this is actually 2 8bit registers but only the upper 8 bits
+// are really used for halt and stop.
+#define REG_HALTCNT gba.mem.io[(gba::mem::IO_HALTCNT_L & 0x3FF) >> 1]
+
 #define REG_IMC_L gba.mem.imc_l
 #define REG_IMC_H gba.mem.imc_h
 

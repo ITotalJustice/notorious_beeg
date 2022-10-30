@@ -36,6 +36,7 @@ enum ID : s32
     DMA,
     INTERRUPT,
     HALT,
+    STOP,
 
     // special event to indicate the end of a frame.
     // the cycles is set by the user in run();
@@ -56,20 +57,20 @@ struct DeltaManager
 
     constexpr void add(s32 id, s32 delta)
     {
-        assert(id < 15);
+        assert(id < END);
         assert(delta <= 0);
         deltas[id] = delta;
     }
 
     constexpr void remove(s32 id)
     {
-        assert(id < 15);
+        assert(id < END);
         deltas[id] = 0;
     }
 
     [[nodiscard]] constexpr auto get(s32 id, s32 time) -> s32
     {
-        assert(id < 15);
+        assert(id < END);
         return time + deltas[id];
     }
 };

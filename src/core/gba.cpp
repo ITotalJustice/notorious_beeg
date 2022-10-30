@@ -275,6 +275,13 @@ void on_frame_end_event(void* user, s32 id, s32 late)
 
 auto run_gba(Gba& gba, u32 cycles)
 {
+    // this needs better impl because some events will rely on
+    // being fired, such as sampling, hblank, vblank etc
+    if (arm7tdmi::is_stop_mode(gba))
+    {
+        return;
+    }
+
     gba.frame_end = false;
     gba.scheduler.add(scheduler::ID::FRAME, gba.delta.get(scheduler::ID::FRAME, cycles), on_frame_end_event, &gba);
 
