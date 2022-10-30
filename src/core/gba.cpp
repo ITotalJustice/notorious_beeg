@@ -507,7 +507,7 @@ auto Gba::set_audio_callback(AudioCallback cb, std::span<s16> data, u32 _sample_
         }
         else
         {
-            this->sample_rate_calculated = 280896 * 60 / sample_rate;
+            this->sample_rate_calculated = CYCLES_PER_FRAME * 60 / sample_rate;
         }
     }
 

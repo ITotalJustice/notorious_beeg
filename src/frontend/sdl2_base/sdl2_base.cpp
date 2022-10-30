@@ -378,7 +378,7 @@ auto Sdl2Base::run(double delta) -> void
     // ie, filedialog, then cap the max delta to something reasonable!
     // maybe keep track of deltas here to get an average?
     delta = std::min(delta, 1.333333);
-    auto cycles = 280896 * delta;
+    auto cycles = gba::CYCLES_PER_FRAME * delta;
     if (emu_fast_forward)
     {
         cycles *= 2;

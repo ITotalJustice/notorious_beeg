@@ -600,6 +600,11 @@ auto on_halt_event(void* user, s32 id, s32 late) -> void
 
     while (CPU.halted && !gba.frame_end)
     {
+        const auto event_cycles = gba.scheduler.get_next_event_cycles();
+        if (event_cycles > 0)
+        {
+            gba.cycles_spent_in_halt += event_cycles;
+        }
         gba.scheduler.advance_to_next_event();
         gba.scheduler.fire();
     }

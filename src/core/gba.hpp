@@ -95,6 +95,8 @@ struct State
 
 namespace gba {
 
+enum : u32 { CYCLES_PER_FRAME = 280896 };
+
 enum Button : u16
 {
     A       = 1 << 0,
@@ -157,6 +159,7 @@ struct Header;
 using AudioCallback = void(*)(void* user);
 using VblankCallback = void(*)(void* user);
 using HblankCallback = void(*)(void* user, u16 line);
+using FrameCallback = void(*)(void* user, u32 cycles_in_frame, u32 cycles_in_halt);
 using ColourCallback = u32(*)(void* user, Colour colour);
 using LogCallback = void(*)(void* user, u8 type, u8 level, const char* str);
 
@@ -195,7 +198,7 @@ struct Gba
     auto reset() -> void;
     [[nodiscard]] auto loadrom(std::span<const u8> new_rom) -> bool;
     [[nodiscard]] auto loadbios(std::span<const u8> new_bios) -> bool;
-    auto run(u32 cycles = 280896) -> void;
+    auto run(u32 cycles = CYCLES_PER_FRAME) -> void;
 
     [[nodiscard]] auto loadstate(const State& state) -> bool;
     [[nodiscard]] auto savestate(State& state) const -> bool;
@@ -216,6 +219,7 @@ struct Gba
     void set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate = 65536);
     void set_vblank_callback(VblankCallback cb) { this->vblank_callback = cb; }
     void set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
+    void set_frame_callback(FrameCallback cb) { this->frame_callback = cb; }
     void set_colour_callback(ColourCallback cb) { this->colour_callback = cb; }
     void set_log_callback(LogCallback cb) { this->log_callback = cb; }
 
@@ -233,6 +237,9 @@ struct Gba
     [[nodiscard]] auto get_rom_name() const -> RomName;
 
     System system;
+
+    // number of cycles spent in halt
+    u32 cycles_spent_in_halt;
 
     bool bit_crushing{false};
     bool frame_end;
@@ -257,6 +264,7 @@ struct Gba
     AudioCallback audio_callback{};
     VblankCallback vblank_callback{};
     HblankCallback hblank_callback{};
+    FrameCallback frame_callback{};
     ColourCallback colour_callback{};
     LogCallback log_callback{};
 };

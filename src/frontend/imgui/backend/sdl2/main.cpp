@@ -363,6 +363,10 @@ auto App::on_key_event(const SDL_KeyboardEvent& e) -> void
                     show_log_window ^= 1;
                     break;
 
+                case SDL_SCANCODE_K:
+                    show_perf_window ^= 1;
+                    break;
+
                 default: break; // silence enum warning
             }
         }

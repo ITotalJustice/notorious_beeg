@@ -146,6 +146,15 @@ auto change_period(Gba& gba)
                 gba.ppu.bg3x = bit::sign_extend<27>((REG_BG3X_HI << 16) | REG_BG3X_LO);
                 gba.ppu.bg3y = bit::sign_extend<27>((REG_BG3Y_HI << 16) | REG_BG3Y_LO);
 
+                // update cycles
+                const auto cycles_spent_in_frame = CYCLES_PER_FRAME - gba.cycles_spent_in_halt;
+                if (gba.frame_callback)
+                {
+                    gba.frame_callback(gba.userdata, cycles_spent_in_frame, gba.cycles_spent_in_halt);
+                }
+                gba.cycles_spent_in_halt = 0;
+
+                // go back to scanline 0
                 on_vcount_update(gba, 0);
             }
             break;
