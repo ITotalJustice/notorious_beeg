@@ -8,7 +8,6 @@
 #include "mem.hpp"
 #include "sio.hpp"
 
-#include <trim_font.hpp>
 #include <imgui.h>
 #include <imgui_memory_editor.h>
 
@@ -116,18 +115,6 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
 {
     scale = 4;
 
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsClassic();
-
-    io.Fonts->AddFontFromMemoryCompressedTTF(trim_font_compressed_data, trim_font_compressed_size, 20);
-
     gameboy_advance.set_hblank_callback(on_hblank_callback);
     gameboy_advance.set_frame_callback(on_frame_callback);
     gameboy_advance.set_log_callback(on_log_callback);
@@ -141,7 +128,6 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
 
 ImguiBase::~ImguiBase()
 {
-    ImGui::DestroyContext();
 }
 
 auto ImguiBase::set_button(gba::Button button, bool down) -> void
@@ -235,29 +221,49 @@ auto ImguiBase::emu_update_texture() -> void
 
 auto ImguiBase::emu_render() -> void
 {
-    const auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBringToFrontOnFocus;
-    ImGui::SetNextWindowPos(ImVec2(0, emu_rect.y));
-    ImGui::SetNextWindowSize(ImVec2(emu_rect.w, emu_rect.h));
-    ImGui::SetNextWindowSizeConstraints({0, 0}, ImVec2(emu_rect.w, emu_rect.h));
+    const auto& io = ImGui::GetIO();
+    const auto is_viewport = io.BackendFlags & ImGuiBackendFlags_RendererHasViewports && io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0F);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0F);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0F);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 0.0F);
-    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 0.0F);
+    auto flags = 0;
 
-    ImGui::Begin("emu window", nullptr, flags);
+    if (is_viewport)
+    {
+        flags = 0;
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+    }
+    else
+    {
+        flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+        ImGui::SetNextWindowPos(ImVec2(0, emu_rect.y));
+        ImGui::SetNextWindowSize(ImVec2(emu_rect.w, emu_rect.h));
+        ImGui::SetNextWindowSizeConstraints({0, 0}, ImVec2(emu_rect.w, emu_rect.h));
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0,0));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(0,0));
+        ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0,0));
+        ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 0.0F);
+    }
+
+    if (ImGui::Begin("emu window", nullptr, flags))
     {
         inside_emu_window = ImGui::IsWindowFocused();
 
         ImVec2 p = ImGui::GetCursorScreenPos();
-        ImGui::Image(get_texture(TextureID::emu), ImVec2(emu_rect.w, emu_rect.h));
+        auto size = ImVec2(emu_rect.w, emu_rect.h);
+        if (is_viewport)
+        {
+            size = ImGui::GetContentRegionAvail();
+        }
+        ImGui::Image(get_texture(TextureID::emu), size);
 
         if (show_grid)
         {
@@ -267,7 +273,14 @@ auto ImguiBase::emu_render() -> void
     }
     ImGui::End();
 
-    ImGui::PopStyleVar(11);
+    if (is_viewport)
+    {
+        ImGui::PopStyleVar(1);
+    }
+    else
+    {
+        ImGui::PopStyleVar(11);
+    }
 }
 
 auto ImguiBase::menubar_tab_file() -> void
