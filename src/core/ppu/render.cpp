@@ -992,7 +992,7 @@ auto render_bitmap5_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, 
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
     const auto vram = std::span{gba.mem.vram}.subspan(page);
 
-    for (auto x = 0; x < width; x++)
+    for (auto x = 0; x < 240; x++)
     {
         // check if we are allowed inside
         if (!bounds.in_bounds(line.num, x))
