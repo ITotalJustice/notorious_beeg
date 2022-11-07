@@ -203,6 +203,7 @@ auto exception(Gba& gba, const Exception e)
 auto on_interrupt(Gba& gba)
 {
     log::print_info(gba, log::Type::INTERRUPT, "num: %u lr: 0x%08X pc: 0x%08X mode: %u state: %s\n", std::countr_zero(static_cast<u16>(REG_IE & REG_IF)), get_lr(gba), get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
+    gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IRQ);
     exception(gba, Exception::IRQ);
 }
 
@@ -575,12 +576,21 @@ auto on_halt_event(void* user, s32 id, s32 late) -> void
     while (CPU.halted && !gba.frame_end)
     {
         const auto event_cycles = gba.scheduler.get_next_event_cycles();
+        const auto event_cycles_abs = gba.scheduler.get_next_event_cycles_absolute();
         if (event_cycles > 0)
         {
             gba.cycles_spent_in_halt += event_cycles;
         }
+
         gba.scheduler.advance_to_next_event();
         gba.scheduler.fire();
+
+        // mightve spent some cycles in dma which should not contribute
+        // to cpu cycles whilst halted!
+        if (gba.scheduler.get_ticks() - event_cycles_abs > 0)
+        {
+            gba.cycles_spent_in_halt += gba.scheduler.get_ticks() - event_cycles_abs;
+        }
     }
 }
 

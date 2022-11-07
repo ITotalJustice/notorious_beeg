@@ -21,6 +21,7 @@
     #include "key.cpp"
     #include "sio.cpp"
     #include "log.cpp"
+    #include "waitloop.cpp"
 
     #include "backup/backup.cpp"
     #include "backup/eeprom.cpp"

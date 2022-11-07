@@ -635,6 +635,7 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
 
         case IO_DISPSTAT:
             REG_DISPSTAT = (REG_DISPSTAT & 0x7) | (value & ~0x7);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DISPSTAT);
             break;
 
         case IO_WSCNT:

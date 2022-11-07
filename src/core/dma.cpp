@@ -10,6 +10,7 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "scheduler.hpp"
 #include "log.hpp"
+#include "waitloop.hpp"
 #include <utility> // for std::unreachable c++23
 
 // tick scheduler after every dma transfer
@@ -82,10 +83,29 @@ void disable_channel(Gba& gba, u8 channel_num)
 {
     switch (channel_num)
     {
-        case 0: REG_DMA0CNT_H = bit::unset<15>(REG_DMA0CNT_H); break;
-        case 1: REG_DMA1CNT_H = bit::unset<15>(REG_DMA1CNT_H); break;
-        case 2: REG_DMA2CNT_H = bit::unset<15>(REG_DMA2CNT_H); break;
-        case 3: REG_DMA3CNT_H = bit::unset<15>(REG_DMA3CNT_H); break;
+        case 0:
+            REG_DMA0CNT_H = bit::unset<15>(REG_DMA0CNT_H);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DMA0CNT_L);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DMA0CNT_H);
+            break;
+
+        case 1:
+            REG_DMA1CNT_H = bit::unset<15>(REG_DMA1CNT_H);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DMA1CNT_L);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DMA1CNT_H);
+            break;
+
+        case 2:
+            REG_DMA2CNT_H = bit::unset<15>(REG_DMA2CNT_H);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DMA2CNT_L);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DMA2CNT_H);
+            break;
+
+        case 3:
+            REG_DMA3CNT_H = bit::unset<15>(REG_DMA3CNT_H);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DMA3CNT_L);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DMA3CNT_H);
+            break;
     }
 
     gba.dma[channel_num].enabled = false;
@@ -192,6 +212,8 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
                 }
                 break;
         }
+
+        gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_DMA, dst, dma.dst_addr);
     }
 
     if (dma.irq)

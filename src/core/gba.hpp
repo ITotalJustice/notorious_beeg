@@ -4,6 +4,7 @@
 #pragma once
 
 #include "arm7tdmi/arm7tdmi.hpp"
+#include "waitloop.hpp"
 #include "gameboy/types.hpp"
 #include "ppu/ppu.hpp"
 #include "apu/apu.hpp"
@@ -37,6 +38,7 @@ enum ID : s32
     INTERRUPT,
     HALT,
     STOP,
+    IDLE_LOOP,
 
     // special event to indicate the end of a frame.
     // the cycles is set by the user in run();
@@ -183,7 +185,7 @@ struct Gba
     timer::Timer timer[4];
     backup::Backup backup;
     gpio::Gpio gpio;
-
+    waitloop::Waitloop waitloop;
     gb::Core gameboy;
 
     // 16kb, 32-bus

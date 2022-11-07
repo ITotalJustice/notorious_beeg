@@ -139,6 +139,7 @@ void reset_gba(Gba& gba)
 
     gba.scheduler.reset();
     gba.delta.reset();
+    gba.waitloop.reset(gba, true);
     gpio::reset(gba, skip_bios); // this is needed before mem::reset because rw needs resetting
     mem::reset(gba, skip_bios); // this needed to be before arm::reset because memtables
     ppu::reset(gba, skip_bios);
