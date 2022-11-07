@@ -1518,6 +1518,16 @@ auto reset(Gba& gba, bool skip_bios) -> void
     setup_tables(gba);
 }
 
+auto get_cycles_for_region_16(Gba& gba, u8 region, u8 seq_type) -> u8
+{
+    return gba.timing_table_16[seq_type][region];
+}
+
+auto get_cycles_for_region_32(Gba& gba, u8 region, u8 seq_type) -> u8
+{
+    return gba.timing_table_32[seq_type][region];
+}
+
 // all these functions are inlined
 auto read8(Gba& gba, u32 addr) -> u8
 {

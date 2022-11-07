@@ -482,6 +482,9 @@ enum LogAddr
 auto setup_tables(Gba& gba) -> void;
 auto reset(Gba& gba, bool skip_bios) -> void;
 
+auto get_cycles_for_region_16(Gba& gba, u8 region, u8 seq_type) -> u8;
+auto get_cycles_for_region_32(Gba& gba, u8 region, u8 seq_type) -> u8;
+
 [[nodiscard]]
 auto read8(Gba& gba, u32 addr) -> u8;
 [[nodiscard]]

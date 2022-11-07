@@ -11,6 +11,9 @@
 #include "scheduler.hpp"
 #include "log.hpp"
 #include "waitloop.hpp"
+#include <algorithm>
+#include <cstring>
+#include <type_traits>
 #include <utility> // for std::unreachable c++23
 
 // tick scheduler after every dma transfer
@@ -121,6 +124,514 @@ void advance_scheduler([[maybe_unused]] Gba& gba)
     #endif
 }
 
+enum DmaType
+{
+    DMA_TYPE_NORMAL,
+    DMA_TYPE_SLOW,
+    DMA_TYPE_INVALID,
+};
+
+struct RW
+{
+    u8* ptr;
+    u32 size;
+    u32 addr; // relative addr
+    u8 type;
+    u8 cycles16;
+    u8 cycles32;
+
+    [[nodiscard]] auto is_oob(s32 inc) const
+    {
+        return addr + inc > size;
+    }
+
+    template<typename T>
+    [[nodiscard]] constexpr auto get_cycles() const -> u8
+    {
+        if constexpr(std::is_same<T, u16>())
+        {
+            return cycles16;
+        }
+        return cycles32;
+    }
+};
+
+auto get_region(u32 addr) -> u8
+{
+    return (addr >> 24) & 0xF;
+}
+
+auto get_read_data(Gba& gba, u32 addr) -> RW
+{
+    RW src{};
+    const auto region = get_region(addr);
+    src.cycles16 = mem::get_cycles_for_region_16(gba, region, mem::SEQ);
+    src.cycles32 = mem::get_cycles_for_region_32(gba, region, mem::SEQ);
+
+    switch (region)
+    {
+        case 0x0:
+        case 0x1:
+            src.size = 0x02000000;
+            src.addr = addr & 0x01FFFFFF;
+            src.type = DMA_TYPE_INVALID;
+            break;
+
+        case 0x2:
+            src.ptr = gba.mem.ewram;
+            src.size = mem::EWRAM_SIZE;
+            src.addr = addr & mem::EWRAM_MASK;
+            src.type = DMA_TYPE_NORMAL;
+            break;
+
+        case 0x3:
+            src.ptr = gba.mem.iwram;
+            src.size = mem::IWRAM_SIZE;
+            src.addr = addr & mem::IWRAM_MASK;
+            src.type = DMA_TYPE_NORMAL;
+            break;
+
+        case 0x4:
+            src.type = DMA_TYPE_SLOW;
+            break;
+
+        case 0x5:
+            src.ptr = gba.mem.pram;
+            src.size = mem::PRAM_SIZE;
+            src.addr = addr & mem::PRAM_MASK;
+            src.type = DMA_TYPE_NORMAL;
+            break;
+
+        case 0x6:
+            // todo: optimise for this!
+            if ((addr & mem::VRAM_MASK) > 0x17FFF)
+            {
+                src.type = DMA_TYPE_SLOW;
+            }
+            else
+            {
+                src.ptr = gba.mem.vram;
+                src.size = mem::VRAM_SIZE;
+                src.addr = addr & mem::VRAM_MASK;
+                src.type = DMA_TYPE_NORMAL;
+            }
+            break;
+
+        case 0x7:
+            src.ptr = gba.mem.oam;
+            src.size = mem::OAM_SIZE;
+            src.addr = addr & mem::OAM_MASK;
+            src.type = DMA_TYPE_NORMAL;
+            break;
+
+        case 0x8:
+        case 0x9:
+        case 0xA:
+        case 0xB:
+        case 0xC:
+        case 0xD:
+            if (gba.rmap[region].array == nullptr)
+            {
+                src.type = DMA_TYPE_SLOW;
+            }
+            else
+            {
+                src.ptr = gba.rom;
+                src.size = mem::ROM_SIZE;
+                src.addr = addr & mem::ROM_MASK;
+                src.type = DMA_TYPE_NORMAL;
+            }
+            break;
+
+        case 0xE:
+        case 0xF:
+            src.type = DMA_TYPE_SLOW;
+            break;
+    }
+
+    return src;
+}
+
+auto get_write_data(Gba& gba, u32 addr) -> RW
+{
+    RW dst{};
+    const auto region = get_region(addr);
+    dst.cycles16 = mem::get_cycles_for_region_16(gba, region, mem::SEQ);
+    dst.cycles32 = mem::get_cycles_for_region_32(gba, region, mem::SEQ);
+
+    switch (region)
+    {
+        case 0x0:
+        case 0x1:
+            dst.size = 0x02000000;
+            dst.addr = addr & 0x01FFFFFF;
+            dst.type = DMA_TYPE_INVALID;
+            break;
+
+        case 0x2:
+            dst.ptr = gba.mem.ewram;
+            dst.size = mem::EWRAM_SIZE;
+            dst.addr = addr & mem::EWRAM_MASK;
+            dst.type = DMA_TYPE_NORMAL;
+            break;
+
+        case 0x3:
+            dst.ptr = gba.mem.iwram;
+            dst.size = mem::IWRAM_SIZE;
+            dst.addr = addr & mem::IWRAM_MASK;
+            dst.type = DMA_TYPE_NORMAL;
+            break;
+
+        case 0x4:
+            dst.type = DMA_TYPE_SLOW;
+            break;
+
+        case 0x5:
+            dst.ptr = gba.mem.pram;
+            dst.size = mem::PRAM_SIZE;
+            dst.addr = addr & mem::PRAM_MASK;
+            dst.type = DMA_TYPE_NORMAL;
+            break;
+
+        case 0x6:
+            // todo: optimise for this!
+            if ((addr & mem::VRAM_MASK) > 0x17FFF)
+            {
+                dst.type = DMA_TYPE_SLOW;
+            }
+            else
+            {
+                dst.ptr = gba.mem.vram;
+                dst.size = mem::VRAM_SIZE;
+                dst.addr = addr & mem::VRAM_MASK;
+                dst.type = DMA_TYPE_NORMAL;
+            }
+            break;
+
+        case 0x7:
+            dst.ptr = gba.mem.oam;
+            dst.size = mem::OAM_SIZE;
+            dst.addr = addr & mem::OAM_MASK;
+            dst.type = DMA_TYPE_NORMAL;
+            break;
+
+        // todo: change this when merged with libfat branch
+        case 0x8:
+        case 0x9:
+        case 0xA:
+        case 0xB:
+        case 0xC:
+            dst.size = 0x02000000;
+            dst.addr = addr & 0x01FFFFFF;
+            dst.type = DMA_TYPE_INVALID;
+            break;
+
+        case 0xD:
+            if (gba.backup.is_eeprom())
+            {
+                dst.type = DMA_TYPE_SLOW;
+            }
+            else
+            {
+                dst.size = 0x02000000;
+                dst.addr = addr & 0x01FFFFFF;
+                dst.type = DMA_TYPE_INVALID;
+            }
+            break;
+
+        case 0xE:
+        case 0xF:
+            dst.type = DMA_TYPE_SLOW;
+            break;
+    }
+
+    return dst;
+}
+
+enum DmaTransfer
+{
+    DMA_TRANSFER_COPY_SRC_INC_DST_INC, // memcpy / memmove
+    DMA_TRANSFER_COPY_SRC_INC_DST_DEC, // memcpy / memmove
+    DMA_TRANSFER_COPY_SRC_DEC_DST_INC, // memcpy / memmove
+    DMA_TRANSFER_COPY_SRC_DEC_DST_DEC, // memcpy / memmove
+
+    DMA_TRANSFER_FIXED_SRC_INC, // memset
+    DMA_TRANSFER_FIXED_SRC_DEC, // memset
+    DMA_TRANSFER_FIXED_DST_INC, // memset
+    DMA_TRANSFER_FIXED_DST_DEC, // memset
+    DMA_TRANSFER_FIXED_BOTH, // very strange...
+
+    #if 0
+    DMA_TRANSFER_INVALID_SRC_INC, // usually dma from bios
+    DMA_TRANSFER_INVALID_SRC_DEC, // usually dma from bios
+    DMA_TRANSFER_INVALID_SRC_FIX, // usually dma from bios
+    DMA_TRANSFER_INVALID_DST_INC, // usually dma to bios or rom
+    DMA_TRANSFER_INVALID_DST_DEC, // usually dma to bios or rom
+    DMA_TRANSFER_INVALID_DST_FIX, // usually dma to bios or rom
+    DMA_TRANSFER_INVALID_BOTH, // very very strange...
+    #endif
+
+    // if set, then slow dma is picked
+    DMA_TRANSFER_UNKNOWN,
+};
+
+template<typename T, s8 src_inc, s8 dst_inc>
+void fast_dma_copy(Gba& gba, Channel& dma, RW src, RW dst)
+{
+    u32 len = 0;
+    const u32 len_end = dma.len;
+    const u32 total_cycles = src.get_cycles<T>() + dst.get_cycles<T>();
+
+    do {
+        const u32 event_cycles = std::max<u32>(1, gba.scheduler.get_next_event_cycles() / total_cycles);
+        const u32 run_length = std::min<u32>(event_cycles, len_end - len);
+
+        for (u32 i = 0; i < run_length; i++)
+        {
+            dst.ptr[dst.addr + 0] = src.ptr[src.addr + 0];
+            dst.ptr[dst.addr + 1] = src.ptr[src.addr + 1];
+
+            if constexpr(std::is_same<T, u32>())
+            {
+                dst.ptr[dst.addr + 2] = src.ptr[src.addr + 2];
+                dst.ptr[dst.addr + 3] = src.ptr[src.addr + 3];
+            }
+
+            src.addr += sizeof(T) * src_inc;
+            dst.addr += sizeof(T) * dst_inc;
+        }
+
+        len += run_length;
+        gba.scheduler.tick(run_length * total_cycles);
+
+        if (gba.scheduler.should_fire())
+        {
+            gba.scheduler.fire();
+        }
+    } while (len < len_end);
+
+    dma.src_addr += len * sizeof(T) * src_inc;
+    dma.dst_addr += len * sizeof(T) * dst_inc;
+    dma.len -= len;
+}
+
+template<typename T, s8 dst_inc>
+void fast_dma_fixed_src(Gba& gba, Channel& dma, RW src, RW dst)
+{
+    u32 len = 0;
+    const u32 len_end = dma.len;
+    const u32 total_cycles = src.get_cycles<T>() + dst.get_cycles<T>();
+
+    do {
+        const u32 event_cycles = std::max<u32>(1, gba.scheduler.get_next_event_cycles() / total_cycles);
+        const u32 run_length = std::min<u32>(event_cycles, len_end - len);
+
+        // as the src never changes, we don't really have to read
+        // from src each time, however, this didn't provide any
+        // speed improvement, likely the compiler also figured
+        // it out and cache doing it's thing.
+        for (u32 i = 0; i < run_length; i++)
+        {
+            dst.ptr[dst.addr + 0] = src.ptr[src.addr + 0];
+            dst.ptr[dst.addr + 1] = src.ptr[src.addr + 1];
+
+            if constexpr(std::is_same<T, u32>())
+            {
+                dst.ptr[dst.addr + 2] = src.ptr[src.addr + 2];
+                dst.ptr[dst.addr + 3] = src.ptr[src.addr + 3];
+            }
+
+            dst.addr += sizeof(T) * dst_inc;
+        }
+
+        len += run_length;
+        gba.scheduler.tick(run_length * total_cycles);
+
+        if (gba.scheduler.should_fire())
+        {
+            gba.scheduler.fire();
+        }
+    } while (len < len_end);
+
+    dma.dst_addr += len * sizeof(T) * dst_inc;
+    dma.len -= len;
+}
+
+// memset-like dma to a fixed destination
+template<typename T, s8 src_inc>
+void fast_dma_fixed_dst(Gba& gba, Channel& dma, RW src, RW dst)
+{
+    u32 len = 0;
+    const u32 len_end = dma.len;
+    const u32 total_cycles = src.get_cycles<T>() + dst.get_cycles<T>();
+
+    do {
+        const u32 event_cycles = std::max<u32>(1, gba.scheduler.get_next_event_cycles() / total_cycles);
+        const u32 run_length = std::min<u32>(event_cycles, len_end - len);
+
+        // because the dst never changes, we can simply skip the addr
+        // of the last value that will be written and write that.
+        src.addr += (run_length - 1) * sizeof(T) * src_inc;
+
+        dst.ptr[dst.addr + 0] = src.ptr[src.addr + 0];
+        dst.ptr[dst.addr + 1] = src.ptr[src.addr + 1];
+
+        if constexpr(std::is_same<T, u32>())
+        {
+            dst.ptr[dst.addr + 2] = src.ptr[src.addr + 2];
+            dst.ptr[dst.addr + 3] = src.ptr[src.addr + 3];
+        }
+
+        src.addr += sizeof(T) * src_inc;
+        len += run_length;
+        gba.scheduler.tick(run_length * total_cycles);
+
+        if (gba.scheduler.should_fire())
+        {
+            gba.scheduler.fire();
+        }
+    } while (len < len_end);
+
+    dma.src_addr += len * sizeof(T) * src_inc;
+    dma.len -= len;
+}
+
+template<typename T>
+void fast_dma_fixed_both(Gba& gba, Channel& dma, RW src, RW dst)
+{
+    const u32 total_cycles = src.get_cycles<T>() + dst.get_cycles<T>();
+    u32 len = dma.len;
+
+    do {
+        const u32 event_cycles = std::max<u32>(1, gba.scheduler.get_next_event_cycles() / total_cycles);
+        const u32 run_length = std::min<u32>(event_cycles, len);
+
+        // because both the src and dst do not change, there is no
+        // need for a loop, a single write is the same thing.
+        dst.ptr[dst.addr + 0] = src.ptr[src.addr + 0];
+        dst.ptr[dst.addr + 1] = src.ptr[src.addr + 1];
+
+        if constexpr(std::is_same<T, u32>())
+        {
+            dst.ptr[dst.addr + 2] = src.ptr[src.addr + 2];
+            dst.ptr[dst.addr + 3] = src.ptr[src.addr + 3];
+        }
+
+        len -= run_length;
+        dma.len = len;
+        gba.scheduler.tick(run_length * total_cycles);
+
+        if (gba.scheduler.should_fire())
+        {
+            gba.scheduler.fire();
+        }
+    } while (len > 0);
+}
+
+// simply, if a dma is to / from
+template<typename T>
+void fast_dma_setup(Gba& gba, Channel& dma)
+{
+    static_assert(std::is_same<T, u16>() || std::is_same<T, u32>());
+
+    const auto src = get_read_data(gba, dma.src_addr);
+    const auto dst = get_write_data(gba, dma.dst_addr);
+
+    const u32 max_len_inc = dma.len * sizeof(T);
+    const s32 max_len_dec = dma.len * sizeof(T) * -1;
+
+    // never handle any copy to or from IO, too many edge cases
+    if (!src.ptr || !dst.ptr)
+    {
+        return;
+    }
+
+    // figure out what type of dma we are going to do
+    DmaTransfer tranfer_type;
+    bool clipped;
+
+    // the below figures out is the dma is a memcpy or memset
+    // and whether or not the transfer will be clipped
+    // clipped meaning that transfer underflows /overflows into the
+    // next memory region.
+
+    // check for copy
+    if (dma.src_increment > 0 && dma.dst_increment > 0)
+    {
+        tranfer_type = DMA_TRANSFER_COPY_SRC_INC_DST_INC;
+        clipped = src.is_oob(max_len_inc) || dst.is_oob(max_len_inc);
+    }
+    else if (dma.src_increment > 0 && dma.dst_increment < 0)
+    {
+        tranfer_type = DMA_TRANSFER_COPY_SRC_INC_DST_DEC;
+        clipped = src.is_oob(max_len_inc) || dst.is_oob(max_len_dec);
+    }
+    else if (dma.src_increment < 0 && dma.dst_increment > 0)
+    {
+        tranfer_type = DMA_TRANSFER_COPY_SRC_DEC_DST_INC;
+        clipped = src.is_oob(max_len_dec) || dst.is_oob(max_len_inc);
+    }
+    else if (dma.src_increment < 0 && dma.dst_increment < 0)
+    {
+        tranfer_type = DMA_TRANSFER_COPY_SRC_DEC_DST_DEC;
+        clipped = src.is_oob(max_len_dec) || dst.is_oob(max_len_dec);
+    }
+    // check for fixed
+    else if (dma.src_increment == 0 && dma.dst_increment > 0)
+    {
+        tranfer_type = DMA_TRANSFER_FIXED_SRC_INC;
+        clipped = dst.is_oob(max_len_inc);
+    }
+    else if (dma.src_increment == 0 && dma.dst_increment < 0)
+    {
+        tranfer_type = DMA_TRANSFER_FIXED_SRC_DEC;
+        clipped = dst.is_oob(max_len_dec);
+    }
+    else if (dma.src_increment > 0 && dma.dst_increment == 0)
+    {
+        tranfer_type = DMA_TRANSFER_FIXED_DST_INC;
+        clipped = src.is_oob(max_len_inc);
+    }
+    else if (dma.src_increment < 0 && dma.dst_increment == 0)
+    {
+        tranfer_type = DMA_TRANSFER_FIXED_DST_DEC;
+        clipped = src.is_oob(max_len_dec);
+    }
+    else if (dma.src_increment == 0 && dma.dst_increment == 0)
+    {
+        tranfer_type = DMA_TRANSFER_FIXED_BOTH;
+        clipped = false;
+    }
+    else
+    {
+        tranfer_type = DMA_TRANSFER_UNKNOWN;
+        clipped = false;
+    }
+
+    // clipped dma's are not handled in the fast path yet!
+    if (clipped)
+    {
+        return;
+    }
+
+    switch (tranfer_type)
+    {
+        case DMA_TRANSFER_COPY_SRC_INC_DST_INC: fast_dma_copy<T, +1, +1>(gba, dma, src, dst); break;
+        case DMA_TRANSFER_COPY_SRC_INC_DST_DEC: fast_dma_copy<T, +1, -1>(gba, dma, src, dst); break;
+        case DMA_TRANSFER_COPY_SRC_DEC_DST_INC: fast_dma_copy<T, -1, +1>(gba, dma, src, dst); break;
+        case DMA_TRANSFER_COPY_SRC_DEC_DST_DEC: fast_dma_copy<T, -1, -1>(gba, dma, src, dst); break;
+
+        case DMA_TRANSFER_FIXED_SRC_INC: fast_dma_fixed_src<T, +1>(gba, dma, src, dst); break;
+        case DMA_TRANSFER_FIXED_SRC_DEC: fast_dma_fixed_src<T, -1>(gba, dma, src, dst); break;
+        case DMA_TRANSFER_FIXED_DST_INC: fast_dma_fixed_dst<T, +1>(gba, dma, src, dst); break;
+        case DMA_TRANSFER_FIXED_DST_DEC: fast_dma_fixed_dst<T, -1>(gba, dma, src, dst); break;
+        case DMA_TRANSFER_FIXED_BOTH: fast_dma_fixed_both<T>(gba, dma, src, dst); break;
+
+        case DMA_TRANSFER_UNKNOWN:
+            break;
+    }
+}
+
 template<bool Special = false>
 auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
 {
@@ -176,6 +687,15 @@ auto start_dma(Gba& gba, Channel& dma, const u8 channel_num) -> void
                     }
                 }
             }
+        }
+
+        if (dma.size_type == SizeType::half)
+        {
+            fast_dma_setup<u16>(gba, dma);
+        }
+        else
+        {
+            fast_dma_setup<u32>(gba, dma);
         }
 
         switch (dma.size_type)
