@@ -78,7 +78,6 @@ void State::on_loadstate(gba::Gba& gba) const
             {
                 switch (i)
                 {
-                    case ID::PPU: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_ppu_event, &gba); break;
                     case ID::APU_SQUARE0: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_square0_event, &gba); break;
                     case ID::APU_SQUARE1: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_square1_event, &gba); break;
                     case ID::APU_WAVE: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_wave_event, &gba); break;
@@ -86,8 +85,6 @@ void State::on_loadstate(gba::Gba& gba) const
                     case ID::TIMER0: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_timer_event, &gba); break;
                     case ID::TIMER1: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_div_event, &gba); break;
                     case ID::TIMER2: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_timer_reload_event, &gba); break;
-                    case ID::INTERRUPT: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_interrupt_event, &gba); break;
-                    case ID::HALT: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_halt_event, &gba); break;
                 }
             }
         }

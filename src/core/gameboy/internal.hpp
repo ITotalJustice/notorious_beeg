@@ -150,9 +150,7 @@ void disable_interrupt(Gba& gba, enum Interrupts interrupt);
 
 // used internally
 void cpu_run(Gba& gba);
-#if !USE_SCHED
 void ppu_run(Gba& gba, u8 cycles);
-#endif
 
 auto is_lcd_enabled(const Gba& gba) -> bool;
 auto is_win_enabled(const Gba& gba) -> bool;
@@ -162,9 +160,5 @@ auto is_bg_enabled(const Gba& gba) -> bool;
 void on_timer_reload_event(void* user, s32 id = 0, s32 late = 0);
 void on_timer_event(void* user, s32 id = 0, s32 late = 0);
 void on_div_event(void* user, s32 id, s32 late);
-
-void on_halt_event(void* user, s32 id = 0, s32 late = 0);
-void on_interrupt_event(void* user, s32 id, s32 late);
-void schedule_interrupt(Gba& gba, u8 cycles_delay = 0);
 
 } // namespace gba::gb

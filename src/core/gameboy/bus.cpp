@@ -215,11 +215,6 @@ inline void write_hram(Gba& gba, u16 addr, u8 value)
 {
     addr &= 0x7F;
     gba.gameboy.hram[addr] = value;
-
-    if (addr == 0x7F) // writing to IE
-    {
-        schedule_interrupt(gba);
-    }
 }
 
 inline void write_io_gbc(Gba& gba, u16 addr, u8 value)
@@ -384,7 +379,6 @@ inline void write_io(Gba& gba, u16 addr, u8 value)
 
         case 0x0F:
             GB_IO_IF = value;
-            schedule_interrupt(gba);
             break;
 
         case 0x10: apu::write_NR10(gba, value); break;

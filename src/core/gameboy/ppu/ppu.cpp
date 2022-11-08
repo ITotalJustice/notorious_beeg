@@ -93,11 +93,7 @@ void change_status_mode(Gba& gba, const u8 new_mode)
             break;
     }
 
-    #if USE_SCHED
-    gba.gameboy.ppu.next_cycles = next_cycles;
-    #else
     gba.gameboy.ppu.next_cycles += next_cycles;
-    #endif
 }
 
 void on_lcd_disable(Gba& gba)
@@ -125,11 +121,7 @@ void on_lcd_disable(Gba& gba)
     // TODO: verify this. TCAGBD says it goes low when off, but doing
     // so breaks stat_lyc_onoff test
     // gba.gameboy.ppu.stat_line = false;
-
-    #if USE_SCHED
-    gba.delta.remove(scheduler::ID::PPU);
-    gba.scheduler.remove(scheduler::ID::PPU);
-    #endif
+    gba.cycles_spent_in_halt = 0;
 }
 
 void on_lcd_enable(Gba& gba)
@@ -148,9 +140,6 @@ void on_lcd_enable(Gba& gba)
     gba.gameboy.ppu.next_cycles = MODE_CYCLES_SPRITE - 4;
     gba.gameboy.ppu.mode = STATUS_MODE_SPRITE;
     compare_LYC(gba);
-    #if USE_SCHED
-    gba.scheduler.add(scheduler::ID::PPU, gba.gameboy.ppu.next_cycles, on_ppu_event, &gba);
-    #endif
 }
 
 } // namespace
@@ -165,75 +154,6 @@ const u8 PIXEL_BIT_GROW[] =
 {
     0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
 };
-
-void on_ppu_event(void* user, s32 id, s32 late)
-{
-    #if USE_SCHED
-    auto& gba = *static_cast<Gba*>(user);
-    gba.delta.add(id, late);
-
-    switch (get_status_mode(gba))
-    {
-        case STATUS_MODE_HBLANK:
-            IO_LY++;
-            compare_LYC(gba);
-
-            if (is_hdma_active(gba))
-            {
-                perform_hdma(gba);
-            }
-
-            if (IO_LY == 144) [[unlikely]]
-            {
-                change_status_mode(gba, STATUS_MODE_VBLANK);
-            }
-            else
-            {
-                change_status_mode(gba, STATUS_MODE_SPRITE);
-            }
-            break;
-
-        case STATUS_MODE_VBLANK:
-            IO_LY++;
-
-            // there is a bug in which on line 153, LY=153 only lasts
-            // for 4-Tcycles.
-            if (IO_LY == 153)
-            {
-                gba.gameboy.ppu.next_cycles = 4;
-                compare_LYC(gba);
-            }
-            else if (IO_LY == 154)
-            {
-                gba.gameboy.ppu.next_cycles = 452;
-                IO_LY = 0;
-                gba.gameboy.ppu.window_line = 0;
-                compare_LYC(gba);
-            }
-            else if (IO_LY == 1)
-            {
-                IO_LY = 0;
-                change_status_mode(gba, STATUS_MODE_SPRITE);
-            }
-            else
-            {
-                gba.gameboy.ppu.next_cycles = MODE_CYCLES_VBLANK;
-                compare_LYC(gba);
-            }
-            break;
-
-        case STATUS_MODE_SPRITE:
-            change_status_mode(gba, STATUS_MODE_TRANSFER);
-            break;
-
-        case STATUS_MODE_TRANSFER:
-            change_status_mode(gba, STATUS_MODE_HBLANK);
-            break;
-    }
-
-    gba.scheduler.add(id, gba.delta.get(id, gba.gameboy.ppu.next_cycles), on_ppu_event, &gba);
-    #endif
-}
 
 void write_scanline_to_frame(void* _pixels, u32 stride, u8 bpp, int x, int y, const u32 scanline[160])
 {
@@ -426,7 +346,6 @@ void on_lcdc_write(Gba& gba, const u8 value)
     }
 }
 
-#if !USE_SCHED
 void ppu_run(Gba& gba, u8 cycles)
 {
     if (!is_lcd_enabled(gba)) [[unlikely]]
@@ -436,71 +355,76 @@ void ppu_run(Gba& gba, u8 cycles)
 
     gba.gameboy.ppu.next_cycles -= cycles;
 
-    if (gba.gameboy.ppu.next_cycles > 0) [[unlikely]]
+    while (gba.gameboy.ppu.next_cycles <= 0) [[unlikely]]
     {
-        return;
-    }
-
-    switch (get_status_mode(gba))
-    {
-        case STATUS_MODE_HBLANK:
-            IO_LY++;
-            compare_LYC(gba);
-
-            if (is_hdma_active(gba))
-            {
-                perform_hdma(gba);
-            }
-
-            if (IO_LY == 144) [[unlikely]]
-            {
-                change_status_mode(gba, STATUS_MODE_VBLANK);
-            }
-            else
-            {
-                change_status_mode(gba, STATUS_MODE_SPRITE);
-            }
-            break;
-
-        case STATUS_MODE_VBLANK:
-            IO_LY++;
-
-            // there is a bug in which on line 153, LY=153 only lasts
-            // for 4-Tcycles.
-            if (IO_LY == 153)
-            {
-                gba.gameboy.ppu.next_cycles += 4;
+        switch (get_status_mode(gba))
+        {
+            case STATUS_MODE_HBLANK:
+                IO_LY++;
                 compare_LYC(gba);
-            }
-            else if (IO_LY == 154)
-            {
-                gba.gameboy.ppu.next_cycles += 452;
-                IO_LY = 0;
-                gba.gameboy.ppu.window_line = 0;
-                compare_LYC(gba);
-            }
-            else if (IO_LY == 1)
-            {
-                IO_LY = 0;
-                change_status_mode(gba, STATUS_MODE_SPRITE);
-            }
-            else
-            {
-                gba.gameboy.ppu.next_cycles += MODE_CYCLES_VBLANK;
-                compare_LYC(gba);
-            }
-            break;
 
-        case STATUS_MODE_SPRITE:
-            change_status_mode(gba, STATUS_MODE_TRANSFER);
-            break;
+                if (is_hdma_active(gba))
+                {
+                    perform_hdma(gba);
+                }
 
-        case STATUS_MODE_TRANSFER:
-            change_status_mode(gba, STATUS_MODE_HBLANK);
-            break;
+                if (IO_LY == 144) [[unlikely]]
+                {
+                    change_status_mode(gba, STATUS_MODE_VBLANK);
+                }
+                else
+                {
+                    change_status_mode(gba, STATUS_MODE_SPRITE);
+                }
+                break;
+
+            case STATUS_MODE_VBLANK:
+                IO_LY++;
+
+                // there is a bug in which on line 153, LY=153 only lasts
+                // for 4-Tcycles.
+                if (IO_LY == 153)
+                {
+                    gba.gameboy.ppu.next_cycles += 4;
+                    compare_LYC(gba);
+                }
+                else if (IO_LY == 154)
+                {
+                    gba.gameboy.ppu.next_cycles += 452;
+                    IO_LY = 0;
+                    gba.gameboy.ppu.window_line = 0;
+                    compare_LYC(gba);
+                }
+                else if (IO_LY == 1)
+                {
+                    // update cycles
+                    const auto cycles_spent_in_frame = gba.get_cycles_per_frame() - gba.cycles_spent_in_halt;
+                    if (gba.frame_callback)
+                    {
+                        gba.frame_callback(gba.userdata, cycles_spent_in_frame, gba.cycles_spent_in_halt);
+                    }
+                    gba.cycles_spent_in_halt = 0;
+
+                    IO_LY = 0;
+                    change_status_mode(gba, STATUS_MODE_SPRITE);
+                }
+                else
+                {
+                    gba.gameboy.ppu.next_cycles += MODE_CYCLES_VBLANK;
+                    compare_LYC(gba);
+                }
+                break;
+
+            case STATUS_MODE_SPRITE:
+                change_status_mode(gba, STATUS_MODE_TRANSFER);
+                break;
+
+            case STATUS_MODE_TRANSFER:
+                change_status_mode(gba, STATUS_MODE_HBLANK);
+                break;
+        }
     }
 }
-#endif
 
 void DMA(Gba& gba)
 {
@@ -536,6 +460,7 @@ void draw_scanline(Gba& gba)
     if (gba.gameboy.ppu.first_frame_enabled) [[unlikely]]
     {
         u32 scanline[160]{};
+        std::memset(scanline, 0xFF, sizeof(scanline));
         const auto x = 40;
         const auto y = gba.stride * (8 + IO_LY);
         write_scanline_to_frame(gba.pixels, gba.stride, gba.bpp, x, y, scanline);

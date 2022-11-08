@@ -313,10 +313,6 @@ void reset(Gba& gba)
     apu::write_NR52(gba, 0xF1);
     #endif
 
-    #if USE_SCHED
-    // ppu should add this itself!
-    gba.scheduler.add(scheduler::ID::PPU, gba.gameboy.ppu.next_cycles, on_ppu_event, &gba);
-    #endif
     // timer should add this itself in reset!
     gba.scheduler.add(scheduler::ID::TIMER1, 256, on_div_event, &gba);
 
@@ -607,13 +603,11 @@ auto loadstate(Gba& gba, const struct State* state) -> bool
 void enable_interrupt(Gba& gba, const enum Interrupts interrupt)
 {
     GB_IO_IF |= interrupt;
-    schedule_interrupt(gba);
 }
 
 void disable_interrupt(Gba& gba, const enum Interrupts interrupt)
 {
     GB_IO_IF &= ~(interrupt);
-    schedule_interrupt(gba);
 }
 
 auto render_layer(Gba& gba, u8 mode, u8 layer, std::span<u16> pixels) -> u8
@@ -719,38 +713,10 @@ static auto on_frame_event(void* user, s32 id, s32 late)
 
 void run(Gba& gba, u32 tcycles)
 {
-    #if USE_SCHED
     gba.frame_end = false;
     gba.scheduler.add(scheduler::ID::FRAME, gba.delta.get(scheduler::ID::FRAME, tcycles), on_frame_event, &gba);
 
-    if (gba.gameboy.cpu.halt)
-    {
-        on_halt_event(&gba, 0);
-
-        if (gba.frame_end)
-        {
-            return;
-        }
-    }
-
     for (;;)
-    {
-        cpu_run(gba);
-        const auto cycles = gba.gameboy.cycles;
-
-        gba.scheduler.tick(cycles >> gba.gameboy.cpu.double_speed);
-        if (gba.scheduler.should_fire())
-        {
-            gba.scheduler.fire();
-
-            if (gba.frame_end) [[unlikely]]
-            {
-                break;
-            }
-        }
-    }
-    #else
-    for (u32 i = 0; i < tcycles; i += gba.gameboy.cycles >> gba.gameboy.cpu.double_speed)
     {
         cpu_run(gba);
         ppu_run(gba, gba.gameboy.cycles >> gba.gameboy.cpu.double_speed);
@@ -759,9 +725,12 @@ void run(Gba& gba, u32 tcycles)
         if (gba.scheduler.should_fire())
         {
             gba.scheduler.fire();
+            if (gba.frame_end) [[unlikely]]
+            {
+                break;
+            }
         }
     }
-    #endif
 }
 
 } // namespace gba::gb

@@ -785,8 +785,9 @@ void ImguiBase::perf_window()
     if (ImGui::Begin("perf", &show_perf_window, window_flags))
     {
         const auto last_frame = static_cast<double>(cycles_per_frame.back());
-        const double diff = static_cast<double>(gba::CYCLES_PER_FRAME) - last_frame;
-        const double perf3 = 100.0 - (diff * 100.0 / static_cast<double>(gba::CYCLES_PER_FRAME));
+        const double max = gameboy_advance.get_cycles_per_frame();
+        const double diff = max - last_frame;
+        const double perf3 = 100.0 - (diff * 100.0 / max);
 
         static double last_value = 0;
         static int counter = 0;
@@ -812,11 +813,11 @@ void ImguiBase::perf_window()
 
         if (current == 1)
         {
-            ImGui::PlotLines("##cycles2", cycles_per_frame.data(), cycles_per_frame.size(), 0, nullptr, 0, gba::CYCLES_PER_FRAME, ImVec2(300, 80));
+            ImGui::PlotLines("##cycles2", cycles_per_frame.data(), cycles_per_frame.size(), 0, nullptr, 0, max, ImVec2(300, 80));
         }
         else if (current == 2)
         {
-            ImGui::PlotHistogram("##cycles1", cycles_per_frame.data(), cycles_per_frame.size(), 0, nullptr, 0, gba::CYCLES_PER_FRAME, ImVec2(300, 80));
+            ImGui::PlotHistogram("##cycles1", cycles_per_frame.data(), cycles_per_frame.size(), 0, nullptr, 0, max, ImVec2(300, 80));
         }
 
         ImGui::SetNextItemWidth(60);

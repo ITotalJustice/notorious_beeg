@@ -284,6 +284,25 @@ struct Gba
     auto create_fat32_image(std::span<u8> data) -> bool;
     auto set_fat32_data(std::span<u8> data) -> bool;
 
+    [[nodiscard]] auto get_cycles_per_frame() const -> u32
+    {
+        if (is_gba())
+        {
+            return CYCLES_PER_FRAME;
+        }
+        else
+        {
+            if (gameboy.cpu.double_speed)
+            {
+                return gb::FRAME_CPU_CYCLES * 2;
+            }
+            else
+            {
+                return gb::FRAME_CPU_CYCLES;
+            }
+        }
+    }
+
     System system;
 
     // number of cycles spent in halt

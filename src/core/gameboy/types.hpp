@@ -8,8 +8,6 @@
 
 namespace gba::gb {
 
-#define USE_SCHED 1
-
 // fwd declare structs
 struct Core;
 struct Rtc;

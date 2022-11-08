@@ -596,14 +596,7 @@ void sprite_ram_bug(Gba& gba, u8 v)
 } while(0)
 
 #define DI() do { gba.gameboy.cpu.ime = false; } while(0)
-#if !USE_SCHED
 #define EI() do { gba.gameboy.cpu.ime_delay = true; } while(0)
-#else
-#define EI() do { \
-    gba.gameboy.cpu.ime_delay = true; \
-    gba.scheduler.add(scheduler::ID::INTERRUPT, 0, on_interrupt_event, &gba); \
-} while(0)
-#endif
 
 #define POP_BC() do { \
     const u16 result = POP(); \
@@ -800,7 +793,6 @@ void sprite_ram_bug(Gba& gba, u8 v)
 #define RETI() do { \
     REG_PC = POP(); \
     gba.gameboy.cpu.ime = true; /* not delayed! */ \
-    schedule_interrupt(gba); \
 } while (0)
 
 #define RST(value) do { \
@@ -818,7 +810,6 @@ inline void HALT(Gba& gba)
     {
         // normal halt
         gba.gameboy.cpu.halt = true;
-        gba.scheduler.add(scheduler::ID::HALT, 0, on_halt_event, &gba);
     }
     else
     {
@@ -830,7 +821,6 @@ inline void HALT(Gba& gba)
         {
             assert(GB_IO_IE && "never ending halt");
             gba.gameboy.cpu.halt = true;
-            gba.scheduler.add(scheduler::ID::HALT, 0, on_halt_event, &gba);
         }
     }
 }
@@ -859,6 +849,7 @@ void STOP(Gba& gba)
             // correctly rendered to the screen as vram access is locked
             // in ppu mode3.
             // cpu_instrs/03-op sp,hl on cgb doesnt render the "passed!"
+            // NOTE: this no longer works since i removed the scheduler :/
             gba.gameboy.cycles += 636;
         }
 
@@ -945,9 +936,6 @@ inline void interrupt_handler(Gba& gba)
 {
     if (!gba.gameboy.cpu.ime && !gba.gameboy.cpu.halt)
     {
-        #if USE_SCHED
-        assert(0);
-        #endif
         return;
     }
 
@@ -955,9 +943,6 @@ inline void interrupt_handler(Gba& gba)
 
     if (!live_interrupts)
     {
-        #if USE_SCHED
-        assert(0);
-        #endif
         return;
     }
 
@@ -966,18 +951,10 @@ inline void interrupt_handler(Gba& gba)
     {
         gba.gameboy.cpu.halt = false;
         gba.gameboy.cycles += 4;
-        #if USE_SCHED
-        // todo: this can trigger, how?
-        // assert(0);
-        schedule_interrupt(gba);
-        #endif
     }
 
     if (!gba.gameboy.cpu.ime)
     {
-        #if USE_SCHED
-        assert(0);
-        #endif
         return;
     }
 
@@ -1430,67 +1407,9 @@ auto cpu_get_register_pair(const Gba& gba, enum CpuRegisterPairs pair) -> u16
     std::unreachable();
 }
 
-void on_halt_event(void* user, s32 id, s32 late)
-{
-    #if USE_SCHED
-    auto& gba = *static_cast<Gba*>(user);
-
-    // assert(gba.scheduler.next_event != scheduler::ID::HALT && "halt bug");
-
-    while (gba.gameboy.cpu.halt && !gba.frame_end)
-    {
-        gba.scheduler.advance_to_next_event();
-        gba.scheduler.fire();
-    }
-    #endif
-}
-
-void on_interrupt_event(void* user, s32 id, s32 late)
-{
-    #if USE_SCHED
-    auto& gba = *static_cast<Gba*>(user);
-
-    if (gba.gameboy.cpu.ime_delay)
-    {
-        if (gba.gameboy.cpu.ime && GB_IO_IF & GB_IO_IE & 0x1F)
-        {
-            interrupt_handler(gba);
-        }
-        // assert(!gba.gameboy.cpu.ime);
-        gba.gameboy.cpu.ime_delay = false;
-        gba.gameboy.cpu.ime = true;
-        schedule_interrupt(gba, 1);
-    }
-    else if (gba.gameboy.cpu.ime)
-    {
-        interrupt_handler(gba);
-    }
-    #endif
-}
-
-void schedule_interrupt(Gba& gba, u8 cycles_delay)
-{
-    #if USE_SCHED
-    if (GB_IO_IF & GB_IO_IE & 0x1F)
-    {
-        if (gba.gameboy.cpu.halt)
-        {
-            gba.gameboy.cycles += 4;
-            gba.gameboy.cpu.halt = false;
-        }
-
-        if (gba.gameboy.cpu.ime)
-        {
-            gba.scheduler.add(scheduler::ID::INTERRUPT, cycles_delay, on_interrupt_event, &gba);
-        }
-    }
-    #endif
-}
-
 void cpu_run(Gba& gba)
 {
     gba.gameboy.cycles = 0;
-    #if !USE_SCHED
     // check and handle interrupts
     interrupt_handler(gba);
 
@@ -1507,10 +1426,10 @@ void cpu_run(Gba& gba)
     if (gba.gameboy.cpu.halt) [[unlikely]]
     {
         gba.gameboy.cycles = 4;
+        gba.cycles_spent_in_halt += 4;
         return;
     }
 
-    #endif
     execute(gba);
     assert(gba.gameboy.cycles != 0);
 }
