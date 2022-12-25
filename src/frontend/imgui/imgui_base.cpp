@@ -3,15 +3,26 @@
 
 #include "imgui_base.hpp"
 #include "debugger_io.hpp"
+#include "fat/fat.hpp"
 #include "gba.hpp"
 #include "log.hpp"
 #include "mem.hpp"
 #include "sio.hpp"
 
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <fstream>
 #include <imgui.h>
 #include <imgui_memory_editor.h>
 
 namespace {
+
+// todo: allow user to set custom path once filebrowser
+// support is properly added either via native fs or
+// imgui filebrowser.
+constexpr auto FAT32_PATH = "sd.raw";
 
 void HelpMarker(const char* desc, bool question_mark = false)
 {
@@ -71,6 +82,26 @@ auto on_hblank_callback(void* user, std::uint16_t line) -> void
     }
 }
 
+void on_fat_flush_callback(void* user, std::uint64_t offset, std::uint64_t size)
+{
+    if (!user) { return; }
+
+    // this is UB because the actual ptr is whatever inherts the base
+    auto app = static_cast<ImguiBase*>(user);
+    assert(offset + size <= app->fat_sd_card.size());
+
+    std::fstream fs{FAT32_PATH, std::ios_base::in | std::ios_base::out | std::ios_base::ate | std::ios_base::binary};
+
+    if (fs.good())
+    {
+        fs.seekg(offset);
+        fs.write(reinterpret_cast<const char*>(app->fat_sd_card.data() + offset), size);
+        assert(fs.good());
+    }
+
+    assert(fs.good());
+}
+
 auto on_frame_callback(void* user, std::uint32_t frame_cycles, std::uint32_t halt_cycles) -> void
 {
     if (!user) { return; }
@@ -116,9 +147,16 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
     scale = 4;
 
     gameboy_advance.set_hblank_callback(on_hblank_callback);
+    gameboy_advance.set_fat_flush_callback(on_fat_flush_callback);
     gameboy_advance.set_frame_callback(on_frame_callback);
     gameboy_advance.set_log_callback(on_log_callback);
     gameboy_advance.set_pixels(pixels, 240, 16);
+
+    // for quick testing
+    // todo: add cli commands support
+    #if 0
+    load_fat_device(gba::fat::Type::EZFLASH);
+    #endif
 
     // gameboy_advance.log_level |= gba::log::LevelFlag::FLAG_INFO;
     // gameboy_advance.log_type |= gba::log::TypeFlag::FLAG_SIO;
@@ -128,6 +166,14 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
 
 ImguiBase::~ImguiBase()
 {
+    // the file is flushed on sector write
+    #if 0
+    if (!fat_sd_card.empty())
+    {
+        dumpfile(FAT32_PATH, fat_sd_card);
+    }
+    #endif
+
 }
 
 auto ImguiBase::set_button(gba::Button button, bool down) -> void
@@ -320,15 +366,12 @@ auto ImguiBase::menubar_tab_file() -> void
 
     if (ImGui::BeginMenu("Save State Slot", has_rom))
     {
-        if (ImGui::MenuItem("Slot 0", nullptr, state_slot == 0)) { state_slot = 0; }
-        if (ImGui::MenuItem("Slot 1", nullptr, state_slot == 1)) { state_slot = 1; }
-        if (ImGui::MenuItem("Slot 2", nullptr, state_slot == 2)) { state_slot = 2; }
-        if (ImGui::MenuItem("Slot 3", nullptr, state_slot == 3)) { state_slot = 3; }
-        if (ImGui::MenuItem("Slot 4", nullptr, state_slot == 4)) { state_slot = 4; }
-        if (ImGui::MenuItem("Slot 5", nullptr, state_slot == 5)) { state_slot = 5; }
-        if (ImGui::MenuItem("Slot 6", nullptr, state_slot == 6)) { state_slot = 6; }
-        if (ImGui::MenuItem("Slot 7", nullptr, state_slot == 7)) { state_slot = 7; }
-        if (ImGui::MenuItem("Slot 8", nullptr, state_slot == 8)) { state_slot = 8; }
+        for (int i = 0; i <= 8; i++)
+        {
+            char label[10];
+            std::sprintf(label, "Slot %d", i);
+            if (ImGui::MenuItem(label, nullptr, state_slot == i)) { state_slot = i; }
+        }
         ImGui::EndMenu();
     }
 
@@ -366,6 +409,23 @@ auto ImguiBase::menubar_tab_emulation() -> void
         // }
     }
     if (ImGui::MenuItem("Rewind", "Ctrl+R", &emu_rewind, enabled_rewind)) {}
+    ImGui::Separator();
+
+    if (ImGui::BeginMenu("FatDevice"))
+    {
+        auto types = gba::fat::get_type_str();
+
+        for (std::size_t i = 0; i < types.size(); i++)
+        {
+            const auto type = static_cast<gba::fat::Type>(i);
+
+            if (ImGui::MenuItem(types[i], nullptr, type == gameboy_advance.fat_device.type))
+            {
+                load_fat_device(type);
+            }
+        }
+        ImGui::EndMenu();
+    }
 }
 
 auto ImguiBase::menubar_tab_options() -> void
@@ -485,6 +545,45 @@ auto ImguiBase::menubar() -> void
         }
         ImGui::EndMainMenuBar();
     }
+}
+
+void ImguiBase::load_fat_device(gba::fat::Type type)
+{
+    gameboy_advance.set_fat_device_type(type);
+
+    if (type == gba::fat::Type::NONE)
+    {
+        return;
+    }
+
+    // create new sd card if one is not found
+    if (fat_sd_card.empty())
+    {
+        fat_sd_card = loadfile(FAT32_PATH);
+
+        if (fat_sd_card.empty())
+        {
+            fat_sd_card.resize(512ULL * 1024ULL * 1024ULL);
+            gameboy_advance.create_fat32_image(fat_sd_card);
+            gameboy_advance.set_fat32_data(fat_sd_card);
+            // do initial flush of sd card
+            dumpfile(FAT32_PATH, fat_sd_card);
+        }
+        else
+        {
+            gameboy_advance.set_fat32_data(fat_sd_card);
+        }
+    }
+    else
+    {
+        std::printf("empty\n");
+    }
+
+    // reset gba
+    gameboy_advance.reset();
+
+    // load save data (if any)
+    loadsave(rom_path);
 }
 
 auto ImguiBase::im_debug_window() -> void

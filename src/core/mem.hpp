@@ -44,6 +44,12 @@ struct WriteArray
     u8 access : 3; // only need 0-7 values
 };
 
+template<typename T>
+using ReadFunction = T(*)(Gba& gba, u32 addr);
+
+template<typename T>
+using WriteFunction = void(*)(Gba& gba, u32 addr, T value);
+
 struct Mem
 {
     // 256kb, 16-bit bus

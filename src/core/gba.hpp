@@ -4,6 +4,7 @@
 #pragma once
 
 #include "arm7tdmi/arm7tdmi.hpp"
+#include "fat/fat.hpp"
 #include "waitloop.hpp"
 #include "gameboy/types.hpp"
 #include "ppu/ppu.hpp"
@@ -14,7 +15,6 @@
 #include "scheduler.hpp"
 #include "backup/backup.hpp"
 #include "gpio.hpp"
-#include "fwd.hpp"
 #include <cassert>
 #include <span>
 
@@ -155,6 +155,32 @@ struct RomName
     char str[17]; // NULL terminanted
 };
 
+struct SaveData
+{
+    // collection of data to be saved.
+    // this should all b written to the same file
+    // starting from [0] ... [count-1].
+    // loading saves is simple, just load the data into one big file/
+    std::span<const u8> data[8];
+    // this is the number of entries filled out
+    u32 count{};
+
+    constexpr void write_entry(std::span<const u8> save_data)
+    {
+        if (count >= 8)
+        {
+            return;
+        }
+
+        data[count++] = save_data;
+    }
+
+    [[nodiscard]] constexpr auto empty() const -> bool
+    {
+        return count == 0;
+    }
+};
+
 struct State;
 struct Header;
 
@@ -163,13 +189,25 @@ using VblankCallback = void(*)(void* user);
 using HblankCallback = void(*)(void* user, u16 line);
 using FrameCallback = void(*)(void* user, u32 cycles_in_frame, u32 cycles_in_halt);
 using ColourCallback = u32(*)(void* user, Colour colour);
+using FatFlushCallback = void(*)(void* user, u64 offset, u64 size);
 using LogCallback = void(*)(void* user, u8 type, u8 level, const char* str);
 
 struct Gba
 {
+    Gba();
+    ~Gba();
+
     // at the top so no offset needed into struct on r/w access
     mem::ReadArray rmap[16];
     mem::WriteArray wmap[16];
+
+    mem::ReadFunction<u8> rfuncmap_8[16];
+    mem::ReadFunction<u16> rfuncmap_16[16];
+    mem::ReadFunction<u32> rfuncmap_32[16];
+
+    mem::WriteFunction<u8> wfuncmap_8[16];
+    mem::WriteFunction<u16> wfuncmap_16[16];
+    mem::WriteFunction<u32> wfuncmap_32[16];
 
     u8 timing_table_16[2][0x10];
     u8 timing_table_32[2][0x10];
@@ -185,6 +223,7 @@ struct Gba
     timer::Timer timer[4];
     backup::Backup backup;
     gpio::Gpio gpio;
+    fat::Device fat_device;
     waitloop::Waitloop waitloop;
     gb::Core gameboy;
 
@@ -212,7 +251,7 @@ struct Gba
     [[nodiscard]] auto is_save_dirty(bool auto_clear) -> bool;
     // returns empty span if the game doesn't have a save
     // call is_save_dirty() first to see if the game needs saving!
-    [[nodiscard]] auto getsave() const -> std::span<const u8>;
+    [[nodiscard]] auto getsave() const -> SaveData;
 
     // OR keys together
     auto setkeys(u16 buttons, bool down) -> void;
@@ -223,6 +262,7 @@ struct Gba
     void set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
     void set_frame_callback(FrameCallback cb) { this->frame_callback = cb; }
     void set_colour_callback(ColourCallback cb) { this->colour_callback = cb; }
+    void set_fat_flush_callback(FatFlushCallback cb) { this->fat_flush_callback = cb; }
     void set_log_callback(LogCallback cb) { this->log_callback = cb; }
 
     // set the pixels that the game will render to
@@ -238,6 +278,12 @@ struct Gba
 
     [[nodiscard]] auto get_rom_name() const -> RomName;
 
+     [[nodiscard]] auto get_fat_device_type() const { return fat_device.type; }
+    void set_fat_device_type(fat::Type type);
+    //
+    auto create_fat32_image(std::span<u8> data) -> bool;
+    auto set_fat32_data(std::span<u8> data) -> bool;
+
     System system;
 
     // number of cycles spent in halt
@@ -247,6 +293,8 @@ struct Gba
     bool frame_end;
     // controlled by the rom writing to [IO_LOG_CONTROL]
     bool rom_logging{false};
+
+    std::span<u8> fat32_data;
 
     void* userdata{};
     std::span<s16> sample_data;
@@ -268,6 +316,7 @@ struct Gba
     HblankCallback hblank_callback{};
     FrameCallback frame_callback{};
     ColourCallback colour_callback{};
+    FatFlushCallback fat_flush_callback{};
     LogCallback log_callback{};
 };
 

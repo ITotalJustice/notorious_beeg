@@ -28,9 +28,11 @@ auto Sram::load_data(Gba& gba, std::span<const u8> new_data) -> bool
     }
 }
 
-auto Sram::get_data() const -> std::span<const u8>
+auto Sram::get_data() const -> SaveData
 {
-    return this->data;
+    SaveData save;
+    save.write_entry(this->data);
+    return save;
 }
 
 constexpr auto SRAM_MASK = sizeof(Sram::data)-1;
@@ -43,7 +45,7 @@ auto Sram::read([[maybe_unused]] Gba& gba, u32 addr) const -> u8
 auto Sram::write([[maybe_unused]] Gba& gba, u32 addr, u8 value) -> void
 {
     this->data[addr & SRAM_MASK] = value;
-    gba.backup.dirty_ram = true;
+    dirty = true;
 }
 
 } // namespace gba::backup::eeprom

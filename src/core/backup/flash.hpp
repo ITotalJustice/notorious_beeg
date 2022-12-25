@@ -5,7 +5,6 @@
 
 #include "fwd.hpp"
 #include <array>
-#include <cstdint>
 #include <span>
 
 // https://dillonbeliveau.com/2020/06/05/GBA-FLASH.html
@@ -54,12 +53,17 @@ public:
     State state;
     Type type;
 
+    bool dirty; // set when ram is modified
+
     auto init(Gba& gba, Type new_type) -> void;
     auto load_data(Gba& gba, std::span<const u8> new_data) -> bool;
-    [[nodiscard]] auto get_data() const -> std::span<const u8>;
+    [[nodiscard]] auto get_data() const -> SaveData;
 
     auto read(Gba& gba, u32 addr) const -> u8;
     auto write(Gba& gba, u32 addr, u8 value) -> void;
+
+    [[nodiscard]] auto is_dirty() const -> bool { return dirty; }
+    void clear_dirty_flag() { dirty = false; }
 
 private:
     [[nodiscard]] auto get_manufacturer_id() const -> u8;

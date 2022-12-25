@@ -6,6 +6,7 @@
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "backup/backup.hpp"
 #include "bit.hpp"
+#include "fat/fat.hpp"
 #include "gba.hpp"
 #include "key.hpp"
 #include "ppu/ppu.hpp"
@@ -1185,7 +1186,8 @@ auto write_gpio(Gba& gba, const u32 addr, const T value)
             {
                 // gpio is now write only
                 // remap rom array for faster reads
-                gba.rmap[0x8] = {gba.rom, ROM_MASK, Access_ALL};
+                mem::setup_tables(gba);
+                // gba.rmap[0x8] = {gba.rom, ROM_MASK, Access_ALL};
             }
             break;
     }
@@ -1264,53 +1266,44 @@ auto write_pram_region(Gba& gba, u32 addr, const T value) -> void
 template<typename T> [[nodiscard]]
 auto read_eeprom_region(Gba& gba, const u32 addr) -> T
 {
-    if (gba.backup.is_eeprom())
+    // todo: check rom size for region access
+    if constexpr(std::is_same<T, u8>())
     {
-        // todo: check rom size for region access
-        if constexpr(std::is_same<T, u8>())
-        {
-            return gba.backup.eeprom.read(gba, addr);
-        }
-        else if constexpr(std::is_same<T, u16>())
-        {
-            return gba.backup.eeprom.read(gba, addr);
-        }
-        else if constexpr(std::is_same<T, u32>())
-        {
-            assert(!"32bit read from eeprom");
-            T value{};
-            value |= gba.backup.eeprom.read(gba, addr+0) << 0;
-            value |= gba.backup.eeprom.read(gba, addr+1) << 16;
-            return value;
-        }
+        return gba.backup.eeprom.read(gba, addr);
     }
-    else
+    else if constexpr(std::is_same<T, u16>())
     {
-        return read_array<T>(gba.rom, ROM_MASK, addr);
+        return gba.backup.eeprom.read(gba, addr);
+    }
+    else if constexpr(std::is_same<T, u32>())
+    {
+        log::print_warn(gba, log::Type::EEPROM, "32bit read, is this 2 8 bit reads?\n");
+        assert(!"32bit read from eeprom");
+        T value{};
+        value |= gba.backup.eeprom.read(gba, addr+0) << 0;
+        value |= gba.backup.eeprom.read(gba, addr+1) << 16;
+        return value;
     }
 }
 
 template<typename T>
 auto write_eeprom_region(Gba& gba, const u32 addr, const T value) -> void
 {
-    if (gba.backup.is_eeprom())
+    // todo: check rom size for region access
+    if constexpr(std::is_same<T, u8>())
     {
-        // todo: check rom size for region access
-        if constexpr(std::is_same<T, u8>())
-        {
-            gba.backup.eeprom.write(gba, addr, value);
-        }
-        if constexpr(std::is_same<T, u16>())
-        {
-            gba.backup.eeprom.write(gba, addr, value);
-        }
-        if constexpr(std::is_same<T, u32>())
-        {
-            assert(!"32bit write to eeprom");
-            log::print_warn(gba, log::Type::EEPROM, "32bit write, is this 2 8 bit writes?\n");
-            gba.backup.eeprom.write(gba, addr+0, value>>0);
-            gba.backup.eeprom.write(gba, addr+1, value>>16);
-        }
+        gba.backup.eeprom.write(gba, addr, value);
+    }
+    if constexpr(std::is_same<T, u16>())
+    {
+        gba.backup.eeprom.write(gba, addr, value);
+    }
+    if constexpr(std::is_same<T, u32>())
+    {
+        assert(!"32bit write to eeprom");
+        log::print_warn(gba, log::Type::EEPROM, "32bit write, is this 2 8 bit writes?\n");
+        gba.backup.eeprom.write(gba, addr+0, value>>0);
+        gba.backup.eeprom.write(gba, addr+1, value>>16);
     }
 }
 
@@ -1324,14 +1317,12 @@ auto read_sram_region(Gba& gba, const u32 addr) -> T
 
     // https://github.com/jsmolka/gba-tests/blob/a6447c5404c8fc2898ddc51f438271f832083b7e/save/none.asm#L21
     T value{0xFF};
-    const auto type = gba.backup.type;
-    using enum backup::Type;
 
-    if (type == SRAM)
+    if (gba.backup.is_sram())
     {
         value = gba.backup.sram.read(gba, addr);
     }
-    else if (type == FLASH || type == FLASH1M || type == FLASH512)
+    else if (gba.backup.is_flash())
     {
         value = gba.backup.flash.read(gba, addr);
     }
@@ -1368,45 +1359,159 @@ auto write_sram_region(Gba& gba, const u32 addr, T value) -> void
         value >>= (addr & 3) * 8;
     }
 
-    const auto type = gba.backup.type;
-    using enum backup::Type;
-
-    if (type == SRAM)
+    if (gba.backup.is_sram())
     {
         gba.backup.sram.write(gba, addr, value);
     }
-    else if (type == FLASH || type == FLASH1M || type == FLASH512)
+    else if (gba.backup.is_flash())
     {
         gba.backup.flash.write(gba, addr, value);
     }
 }
 
-template<typename T> using ReadFunction = T(*)(Gba& gba, u32 addr);
-template<typename T> using WriteFunction = void(*)(Gba& gba, u32 addr, T value);
+template<typename T> [[nodiscard]]
+inline auto read_fat_region_helper(Gba& gba, const u32 addr, T result, bool handled) -> T
+{
+    if (handled)
+    {
+        return result;
+    }
+
+    const auto region = (addr >> 24) & 0xF;
+
+    switch (region)
+    {
+        case 0x8:
+            if (gba.gpio.rw)
+            {
+                return read_gpio<T>(gba, addr);
+            }
+            else
+            {
+                return read_array<T>(gba.rom, ROM_MASK, addr);
+            }
+
+        case 0x9:
+        case 0xA:
+        case 0xB:
+        case 0xC:
+            return read_array<T>(gba.rom, ROM_MASK, addr);
+
+        case 0xD:
+            if (gba.backup.is_eeprom())
+            {
+                return read_eeprom_region<T>(gba, addr);
+            }
+            break;
+
+        case 0xE:
+        case 0xF:
+            return read_sram_region<T>(gba, addr);
+    }
+
+    return ~0;
+}
+
+template<typename T>
+inline auto write_fat_region_helper(Gba& gba, const u32 addr, u32 value, bool handled) -> void
+{
+    if (handled)
+    {
+        return;
+    }
+
+    const auto region = (addr >> 24) & 0xF;
+
+    switch (region)
+    {
+        case 0x8:
+            write_gpio<T>(gba, addr, value);
+            break;
+
+        case 0xD:
+            if (gba.backup.is_eeprom())
+            {
+                write_eeprom_region<T>(gba, addr, value);
+            }
+            break;
+
+        case 0xE:
+        case 0xF:
+            if (gba.backup.is_flash() || gba.backup.is_sram())
+            {
+                write_sram_region<T>(gba, addr, value);
+            }
+            break;
+    }
+}
+
+template<typename T> [[nodiscard]]
+auto read_fat_mpcf_region(Gba& gba, const u32 addr) -> T
+{
+    bool handled;
+    const auto result = gba.fat_device.mpcf->read(gba, addr, handled);
+    return read_fat_region_helper<T>(gba, addr, result, handled);
+}
+
+template<typename T> [[nodiscard]]
+auto read_fat_m3cf_region(Gba& gba, const u32 addr) -> T
+{
+    bool handled;
+    const auto result = gba.fat_device.m3cf->read(gba, addr, handled);
+    return read_fat_region_helper<T>(gba, addr, result, handled);
+}
+
+template<typename T> [[nodiscard]]
+auto read_fat_sccf_region(Gba& gba, const u32 addr) -> T
+{
+    bool handled;
+    const auto result = gba.fat_device.sccf->read(gba, addr, handled);
+    return read_fat_region_helper<T>(gba, addr, result, handled);
+}
+
+template<typename T> [[nodiscard]]
+auto read_fat_ezflash_region(Gba& gba, const u32 addr) -> T
+{
+    bool handled;
+    const auto result = gba.fat_device.ezflash->read<T>(gba, addr, handled);
+    return read_fat_region_helper<T>(gba, addr, result, handled);
+}
+
+template<typename T>
+auto write_fat_mpcf_region(Gba& gba, const u32 addr, T value) -> void
+{
+    bool handled;
+    gba.fat_device.mpcf->write(gba, addr, value, handled);
+    write_fat_region_helper<T>(gba, addr, value, handled);
+}
+
+template<typename T>
+auto write_fat_m3cf_region(Gba& gba, const u32 addr, T value) -> void
+{
+    bool handled;
+    gba.fat_device.m3cf->write(gba, addr, value, handled);
+    write_fat_region_helper<T>(gba, addr, value, handled);
+}
+
+template<typename T>
+auto write_fat_sccf_region(Gba& gba, const u32 addr, T value) -> void
+{
+    bool handled;
+    gba.fat_device.sccf->write(gba, addr, value, handled);
+    write_fat_region_helper<T>(gba, addr, value, handled);
+}
+
+template<typename T>
+auto write_fat_ezflash_region(Gba& gba, const u32 addr, T value) -> void
+{
+    bool handled;
+    gba.fat_device.ezflash->write<T>(gba, addr, value, handled);
+    write_fat_region_helper<T>(gba, addr, value, handled);
+}
 
 template<typename T> [[nodiscard]]
 inline auto read_internal(Gba& gba, u32 addr) -> T
 {
-    static constexpr ReadFunction<T> READ_FUNCTION[0x10] =
-    {
-        /*[0x0] =*/ read_bios_region<T>,
-        /*[0x1] =*/ openbus,
-        /*[0x2] =*/ openbus, // todo: add this
-        /*[0x3] =*/ openbus, // todo: add this
-        /*[0x4] =*/ read_io_region<T>,
-        /*[0x5] =*/ openbus, // read_pram_region<T>,
-        /*[0x6] =*/ read_vram_region,
-        /*[0x7] =*/ openbus, // read_oam_region<T>,
-        /*[0x8] =*/ read_gpio, // called when gpio is rw (w only default)
-        /*[0x9] =*/ openbus, // todo: add this
-        /*[0xA] =*/ openbus, // todo: add this
-        /*[0xB] =*/ openbus, // todo: add this
-        /*[0xC] =*/ openbus, // todo: add this
-        /*[0xD] =*/ read_eeprom_region<T>,
-        /*[0xE] =*/ read_sram_region<T>,
-        /*[0xF] =*/ read_sram_region<T>,
-    };
-
     addr = mirror_address(addr);
     const auto region = addr >> 24;
     gba.scheduler.tick(get_memory_timing<T>(gba, region));
@@ -1419,33 +1524,24 @@ inline auto read_internal(Gba& gba, u32 addr) -> T
     }
     else
     {
-        return READ_FUNCTION[region](gba, addr);
+        if constexpr(std::is_same<T, u8>())
+        {
+            return gba.rfuncmap_8[addr >> 24](gba, addr);
+        }
+        else if constexpr(std::is_same<T, u16>())
+        {
+            return gba.rfuncmap_16[addr >> 24](gba, addr);
+        }
+        else if constexpr(std::is_same<T, u32>())
+        {
+            return gba.rfuncmap_32[addr >> 24](gba, addr);
+        }
     }
 }
 
 template<typename T>
 inline auto write_internal(Gba& gba, u32 addr, T value)
 {
-    static constexpr WriteFunction<T> WRITE_FUNCTION[0x10] =
-    {
-        /*[0x0] =*/ empty_write,
-        /*[0x1] =*/ empty_write,
-        /*[0x2] =*/ empty_write,
-        /*[0x3] =*/ empty_write,
-        /*[0x4] =*/ write_io_region<T>,
-        /*[0x5] =*/ write_pram_region<T>,
-        /*[0x6] =*/ write_vram_region<T>,
-        /*[0x7] =*/ write_oam_region<T>,
-        /*[0x8] =*/ write_gpio,
-        /*[0x9] =*/ empty_write,
-        /*[0xA] =*/ empty_write,
-        /*[0xB] =*/ empty_write,
-        /*[0xC] =*/ empty_write,
-        /*[0xD] =*/ write_eeprom_region<T>,
-        /*[0xE] =*/ write_sram_region<T>,
-        /*[0xF] =*/ write_sram_region<T>,
-    };
-
     addr = mirror_address(addr);
     const auto region = addr >> 24;
     gba.scheduler.tick(get_memory_timing<T>(gba, region));
@@ -1458,16 +1554,84 @@ inline auto write_internal(Gba& gba, u32 addr, T value)
     }
     else
     {
-        WRITE_FUNCTION[region](gba, addr, value);
+        if constexpr(std::is_same<T, u8>())
+        {
+            gba.wfuncmap_8[addr >> 24](gba, addr, value);
+        }
+        else if constexpr(std::is_same<T, u16>())
+        {
+            gba.wfuncmap_16[addr >> 24](gba, addr, value);
+        }
+        else if constexpr(std::is_same<T, u32>())
+        {
+            gba.wfuncmap_32[addr >> 24](gba, addr, value);
+        }
     }
+}
+
+void set_read_function(Gba& gba, u8 index, ReadFunction<u8> f8, ReadFunction<u16> f16, ReadFunction<u32> f32)
+{
+    gba.rfuncmap_8[index] = f8;
+    gba.rfuncmap_16[index] = f16;
+    gba.rfuncmap_32[index] = f32;
+}
+
+void set_write_function(Gba& gba, u8 index, WriteFunction<u8> f8, WriteFunction<u16> f16, WriteFunction<u32> f32)
+{
+    gba.wfuncmap_8[index] = f8;
+    gba.wfuncmap_16[index] = f16;
+    gba.wfuncmap_32[index] = f32;
 }
 
 } // namespace
 
 auto setup_tables(Gba& gba) -> void
 {
+    #define SET_READ_FUNCTION(gba, index, func) set_read_function(gba, index, func, func, func)
+    #define SET_WRITE_FUNCTION(gba, index, func) set_write_function(gba, index, func, func, func)
+
     std::memset(gba.rmap, 0, sizeof(gba.rmap));
     std::memset(gba.wmap, 0, sizeof(gba.wmap));
+    std::memset(gba.rfuncmap_8, 0, sizeof(gba.rfuncmap_8));
+    std::memset(gba.rfuncmap_16, 0, sizeof(gba.rfuncmap_16));
+    std::memset(gba.rfuncmap_32, 0, sizeof(gba.rfuncmap_32));
+    std::memset(gba.wfuncmap_8, 0, sizeof(gba.wfuncmap_8));
+    std::memset(gba.wfuncmap_16, 0, sizeof(gba.wfuncmap_16));
+    std::memset(gba.wfuncmap_32, 0, sizeof(gba.wfuncmap_32));
+
+    SET_READ_FUNCTION(gba, 0x0, read_bios_region);
+    SET_READ_FUNCTION(gba, 0x1, openbus);
+    SET_READ_FUNCTION(gba, 0x2, openbus);
+    SET_READ_FUNCTION(gba, 0x3, openbus);
+    SET_READ_FUNCTION(gba, 0x4, read_io_region);
+    SET_READ_FUNCTION(gba, 0x5, openbus);
+    SET_READ_FUNCTION(gba, 0x6, read_vram_region);
+    SET_READ_FUNCTION(gba, 0x7, openbus);
+    SET_READ_FUNCTION(gba, 0x8, read_gpio);
+    SET_READ_FUNCTION(gba, 0x9, openbus);
+    SET_READ_FUNCTION(gba, 0xA, openbus);
+    SET_READ_FUNCTION(gba, 0xB, openbus);
+    SET_READ_FUNCTION(gba, 0xC, openbus);
+    SET_READ_FUNCTION(gba, 0xD, openbus);
+    SET_READ_FUNCTION(gba, 0xE, read_sram_region);
+    SET_READ_FUNCTION(gba, 0xF, read_sram_region);
+
+    SET_WRITE_FUNCTION(gba, 0x0, empty_write);
+    SET_WRITE_FUNCTION(gba, 0x1, empty_write);
+    SET_WRITE_FUNCTION(gba, 0x2, empty_write);
+    SET_WRITE_FUNCTION(gba, 0x3, empty_write);
+    SET_WRITE_FUNCTION(gba, 0x4, write_io_region);
+    SET_WRITE_FUNCTION(gba, 0x5, write_pram_region);
+    SET_WRITE_FUNCTION(gba, 0x6, write_vram_region);
+    SET_WRITE_FUNCTION(gba, 0x7, write_oam_region);
+    SET_WRITE_FUNCTION(gba, 0x8, write_gpio);
+    SET_WRITE_FUNCTION(gba, 0x9, empty_write);
+    SET_WRITE_FUNCTION(gba, 0xA, empty_write);
+    SET_WRITE_FUNCTION(gba, 0xB, empty_write);
+    SET_WRITE_FUNCTION(gba, 0xC, empty_write);
+    SET_WRITE_FUNCTION(gba, 0xD, empty_write);
+    SET_WRITE_FUNCTION(gba, 0xE, write_sram_region);
+    SET_WRITE_FUNCTION(gba, 0xF, write_sram_region);
 
     // todo: check if its still worth having raw ptr / func tables
     gba.rmap[0x2] = {gba.mem.ewram, EWRAM_MASK, Access_ALL};
@@ -1497,7 +1661,62 @@ auto setup_tables(Gba& gba) -> void
     {
         gba.rmap[0xD] = {};
         gba.wmap[0xD] = {};
+        SET_READ_FUNCTION(gba, 0xD, read_eeprom_region);
+        SET_WRITE_FUNCTION(gba, 0xD, write_eeprom_region);
     }
+
+    if (gba.backup.is_flash() || gba.backup.is_sram())
+    {
+        SET_READ_FUNCTION(gba, 0xE, read_sram_region);
+        SET_READ_FUNCTION(gba, 0xF, read_sram_region);
+        SET_WRITE_FUNCTION(gba, 0xE, write_sram_region);
+        SET_WRITE_FUNCTION(gba, 0xF, write_sram_region);
+    }
+
+    switch (gba.fat_device.type)
+    {
+        case fat::Type::NONE:
+            break;
+
+        case fat::Type::MPCF:
+            gba.rmap[0x9] = {};
+            gba.wmap[0x9] = {};
+            SET_READ_FUNCTION(gba, 0x9, read_fat_mpcf_region);
+            SET_WRITE_FUNCTION(gba, 0x9, write_fat_mpcf_region);
+            break;
+
+        case fat::Type::M3CF:
+            gba.rmap[0x8] = {};
+            gba.rmap[0x9] = {};
+            gba.wmap[0x8] = {};
+            gba.wmap[0x9] = {};
+            SET_READ_FUNCTION(gba, 0x8, read_fat_m3cf_region);
+            SET_READ_FUNCTION(gba, 0x9, read_fat_m3cf_region);
+            SET_WRITE_FUNCTION(gba, 0x8, write_fat_m3cf_region);
+            SET_WRITE_FUNCTION(gba, 0x9, write_fat_m3cf_region);
+            break;
+
+        case fat::Type::SCCF:
+            gba.rmap[0x9] = {};
+            gba.wmap[0x9] = {};
+            SET_READ_FUNCTION(gba, 0x9, read_fat_sccf_region);
+            SET_WRITE_FUNCTION(gba, 0x9, write_fat_sccf_region);
+            break;
+
+        case fat::Type::EZFLASH:
+        case fat::Type::EZFLASH_DE:
+            for (u8 i = 0x8; i < 0x10; i++)
+            {
+                gba.rmap[i] = {};
+                gba.wmap[i] = {};
+                SET_READ_FUNCTION(gba, i, read_fat_ezflash_region);
+                SET_WRITE_FUNCTION(gba, i, write_fat_ezflash_region);
+            }
+            break;
+    }
+
+    #undef SET_READ_FUNCTION
+    #undef SET_WRITE_FUNCTION
 
     setup_timing_table(gba);
 }

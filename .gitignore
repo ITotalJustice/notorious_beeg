@@ -32,5 +32,9 @@ tonc/
 !src/tests/roms_and_output/**/*.png
 !src/tests/roms_and_output/**/*.zip
 !src/tests/roms_and_output/mts/misc
+
+*.bak
+*.rts
+output_test_rom
 sd_mount
 *.state*

@@ -322,6 +322,33 @@ auto Base::dumpfile(const std::string& path, std::span<const std::uint8_t> data)
     return false;
 }
 
+auto Base::dumpsave(const std::string& path, gba::SaveData save) -> bool
+{
+    assert(!save.empty());
+    if (save.empty())
+    {
+        return false;
+    }
+
+    std::ofstream fs{path.c_str(), std::ios_base::binary};
+
+    if (fs.good())
+    {
+        for (unsigned i = 0; i < save.count; i++)
+        {
+            const auto& entry = save.data[i];
+            fs.write(reinterpret_cast<const char*>(entry.data()), entry.size());
+        }
+
+        if (fs.good())
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 auto Base::zipall(const std::string& folder, const std::string& output) -> std::size_t
 {
     if (auto zfile = zipOpen64(output.c_str(), APPEND_STATUS_CREATE))
@@ -621,7 +648,7 @@ auto Base::savegame(const std::string& path) -> bool
     if (!save_data.empty())
     {
         std::printf("dumping save to: %s\n", save_path.c_str());
-        return dumpfile(save_path, save_data);
+        return dumpsave(save_path, save_data);
     }
 
     return false;

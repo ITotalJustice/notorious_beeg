@@ -59,6 +59,8 @@ protected:
     auto menubar_tab_help() -> void;
     auto menubar() -> void;
 
+    void load_fat_device(gba::fat::Type type);
+
     // debug
     auto im_debug_window() -> void;
     auto render_layers() -> void;
@@ -92,6 +94,8 @@ public:
 
     bool inside_emu_window{true};
     bool layer_enable_master{false};
+
+    std::vector<std::uint8_t> fat_sd_card;
 
     struct Layer
     {

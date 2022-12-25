@@ -50,16 +50,25 @@ auto Eeprom::load_data(Gba& gba, std::span<const u8> new_data) -> bool
     }
 }
 
-auto Eeprom::get_data() const -> std::span<const u8>
+auto Eeprom::get_data() const -> SaveData
 {
+    SaveData save{};
+
     switch (this->width)
     {
-        case Width::unknown: return {};
-        case Width::small: return { this->data, 512 };
-        case Width::beeg: return this->data;
+        case Width::unknown:
+            break;
+
+        case Width::small:
+            save.write_entry({ this->data, 512 });
+            break;
+
+        case Width::beeg:
+            save.write_entry(this->data);
+            break;
     }
 
-    std::unreachable();
+    return save;
 }
 
 auto Eeprom::on_state_change(State new_state) -> void
@@ -178,7 +187,7 @@ auto Eeprom::write(Gba& gba, [[maybe_unused]] u32 addr, u8 value) -> void
                         this->bits = 0;
                     }
                 }
-                gba.backup.dirty_ram = true;
+                dirty = true;
             }
             break;
     }
