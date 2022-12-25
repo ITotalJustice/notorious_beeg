@@ -8,6 +8,7 @@
 #include "bit.hpp"
 #include "bios_hle.hpp"
 #include "mem.hpp"
+#include "ppu/render.hpp"
 #include "scheduler.hpp"
 #include "log.hpp"
 
@@ -202,6 +203,7 @@ auto exception(Gba& gba, const Exception e)
 auto on_interrupt(Gba& gba)
 {
     log::print_info(gba, log::Type::INTERRUPT, "num: %u lr: 0x%08X pc: 0x%08X mode: %u state: %s\n", std::countr_zero(static_cast<u16>(REG_IE & REG_IF)), get_lr(gba), get_pc(gba), get_mode(gba), get_state(gba) == State::THUMB ? "THUMB" : "ARM");
+    gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IRQ);
     exception(gba, Exception::IRQ);
 }
 
@@ -573,8 +575,102 @@ auto on_halt_event(void* user, s32 id, s32 late) -> void
 
     while (CPU.halted && !gba.frame_end)
     {
+        const auto event_cycles = gba.scheduler.get_next_event_cycles();
+        const auto event_cycles_abs = gba.scheduler.get_next_event_cycles_absolute();
+        if (event_cycles > 0)
+        {
+            gba.cycles_spent_in_halt += event_cycles;
+        }
+
         gba.scheduler.advance_to_next_event();
         gba.scheduler.fire();
+
+        // mightve spent some cycles in dma which should not contribute
+        // to cpu cycles whilst halted!
+        if (gba.scheduler.get_ticks() - event_cycles_abs > 0)
+        {
+            gba.cycles_spent_in_halt += gba.scheduler.get_ticks() - event_cycles_abs;
+        }
+    }
+}
+
+// stop mode stops basically everything.
+// no audio, ppu, cpu, timers, dma!
+// only (known) way to exit is key, cart or sio interrupt
+auto on_stop_event(void* user, s32 id, s32 late) -> void
+{
+    auto& gba = *static_cast<Gba*>(user);
+
+    // here i make sure that
+    // before anything, make sure that this stop is valid
+    // by checking the bits in IE.
+    // if nothing valid is set, we will be stopped forever!
+    const auto sio = REG_IE & std::to_underlying(Interrupt::Serial);
+    const auto key = REG_IE & std::to_underlying(Interrupt::Key);
+    const auto cart = REG_IE & std::to_underlying(Interrupt::Cassette);
+
+    if (!(REG_IME & 1))
+    {
+        log::print_fatal(gba, log::Type::ARM, "[STOP] called without IME enabled!\n");
+    }
+
+    if (!bit::is_set<7>(REG_DISPCNT))
+    {
+        log::print_fatal(gba, log::Type::ARM, "[STOP] screen not blanked!\n");
+    }
+
+    if (!sio && !key && !cart)
+    {
+        log::print_fatal(gba, log::Type::ARM, "[STOP] called without sio, key or cart set in IE!\n");
+    }
+    else
+    {
+        log::print_info(gba, log::Type::ARM, "[STOP] sio: %d key: %d cart: %d\n", sio, key, cart);
+    }
+
+    // to emulate this, we need to break of the running loop
+    // from there, the main loop should call is_stop_mode() and
+    // if true, do not run any code!
+    gba.cpu.stopped = true;
+    gba.frame_end = true;
+    gba.scheduler.remove(scheduler::ID::FRAME);
+
+    // mimick the lcd being disabled
+    ppu::clear_screen(gba);
+}
+
+// this checks if bit15 is set of HALTCNT, if true,
+// it then checks if
+auto is_stop_mode(Gba& gba) -> bool
+{
+    return gba.cpu.stopped;
+}
+
+void leave_stop_mode(Gba& gba, Interrupt i)
+{
+    const auto interrupt = std::to_underlying(i);
+
+    if (interrupt & REG_IE & std::to_underlying(Interrupt::Serial))
+    {
+        log::print_info(gba, log::Type::ARM, "[STOP] leaving via Serial\n");
+        REG_HALTCNT = bit::unset<0xF>(REG_HALTCNT);
+        gba.cpu.stopped = false;
+    }
+    else if (interrupt & REG_IE & std::to_underlying(Interrupt::Key))
+    {
+        log::print_info(gba, log::Type::ARM, "[STOP] leaving via Key\n");
+        REG_HALTCNT = bit::unset<0xF>(REG_HALTCNT);
+        gba.cpu.stopped = false;
+    }
+    else if (interrupt & REG_IE & std::to_underlying(Interrupt::Cassette))
+    {
+        log::print_info(gba, log::Type::ARM, "[STOP] leaving via Cassette\n");
+        REG_HALTCNT = bit::unset<0xF>(REG_HALTCNT);
+        gba.cpu.stopped = false;
+    }
+    else
+    {
+        log::print_error(gba, log::Type::ARM, "[STOP] invalid way of leaving: %u\n", interrupt);
     }
 }
 

@@ -37,3 +37,4 @@ tonc/
 *.rts
 output_test_rom
 sd_mount
+*.state*

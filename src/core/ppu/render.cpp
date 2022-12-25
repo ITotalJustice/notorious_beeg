@@ -992,7 +992,7 @@ auto render_bitmap5_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, 
     const auto page = bit::is_set<4>(REG_DISPCNT) ? 0xA000 : 0;
     const auto vram = std::span{gba.mem.vram}.subspan(page);
 
-    for (auto x = 0; x < width; x++)
+    for (auto x = 0; x < 240; x++)
     {
         // check if we are allowed inside
         if (!bounds.in_bounds(line.num, x))
@@ -1503,17 +1503,30 @@ constexpr auto bits_per_pixel_to_bytes_per_pixel(u8 bpp)
 
 } // namespace
 
+void clear_line(Gba& gba, u16 line)
+{
+    if (line < 160 && gba.pixels && gba.stride && gba.bpp)
+    {
+        const auto bpp = bits_per_pixel_to_bytes_per_pixel(gba.bpp);
+        auto pixels = static_cast<u8*>(gba.pixels) + (gba.stride * line * bpp);
+        std::memset(pixels, 0, 240 * bpp);
+    }
+}
+
+void clear_screen(Gba& gba)
+{
+    for (u8 i = 0; i < 160; i++)
+    {
+        clear_line(gba, i);
+    }
+}
+
 auto render(Gba& gba) -> void
 {
     // if forced blanking is enabled, the screen is black
     if (is_screen_blanked(gba)) [[unlikely]]
     {
-        if (gba.pixels && gba.stride && gba.bpp)
-        {
-            const auto bpp = bits_per_pixel_to_bytes_per_pixel(gba.bpp);
-            auto pixels = static_cast<u8*>(gba.pixels) + (gba.stride * REG_VCOUNT * bpp);
-            std::memset(pixels, 0, 240 * bpp);
-        }
+        clear_line(gba, REG_VCOUNT);
         return;
     }
 

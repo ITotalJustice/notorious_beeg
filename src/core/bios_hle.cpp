@@ -195,8 +195,8 @@ auto hle(Gba& gba, u8 comment_field) -> bool
 
     switch (comment_field)
     {
-        case 0x02: return Halt(gba);
-        case 0x06: return Div(gba);
+        // case 0x02: return Halt(gba);
+        // case 0x06: return Div(gba);
         case 0x08: return Sqrt(gba);
         case 0x0B: return CpuSet(gba);
 

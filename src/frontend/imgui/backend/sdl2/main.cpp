@@ -14,14 +14,86 @@
 #include <SDL.h>
 #include <imgui_impl_sdl.h>
 #include <imgui_impl_sdlrenderer.h>
+#include <trim_font.hpp>
+
+#include "imgui.h"
+#include "sdl2_renderer.hpp"
+#include "sdl2_gl_renderer.hpp"
 
 namespace {
+
+struct RendererApi
+{
+    const char* name;
+    bool (*init_pre_window)();
+    bool (*init_post_window)(SDL_Window* window);
+    void (*quit)();
+    bool (*render_pre)(SDL_Window* window);
+    bool (*render_post)(SDL_Window* window);
+    bool (*create_texture)(int id, int w, int h);
+    void* (*get_texture)(int id);
+    bool (*update_texture)(int id, int x, int y, int w, int h, void* pixels);
+    std::pair<int, int> (*get_render_size)(SDL_Window* window);
+};
+
+constexpr RendererApi RENDERER[] =
+{
+    {
+        .name = "SDL2_Renderer",
+        .init_pre_window = renderer::sdl2::init_pre_window,
+        .init_post_window = renderer::sdl2::init_post_window,
+        .quit = renderer::sdl2::quit,
+        .render_pre = renderer::sdl2::render_pre,
+        .render_post = renderer::sdl2::render_post,
+        .create_texture = renderer::sdl2::create_texture,
+        .get_texture = renderer::sdl2::get_texture,
+        .update_texture = renderer::sdl2::update_texture,
+        .get_render_size = renderer::sdl2::get_render_size,
+    },
+    {
+        .name = "OpenGL1.2",
+        .init_pre_window = renderer::sdl2_gl1::init_pre_window,
+        .init_post_window = renderer::sdl2_gl1::init_post_window,
+        .quit = renderer::sdl2_gl1::quit,
+        .render_pre = renderer::sdl2_gl1::render_pre,
+        .render_post = renderer::sdl2_gl1::render_post,
+        .create_texture = renderer::sdl2_gl1::create_texture,
+        .get_texture = renderer::sdl2_gl1::get_texture,
+        .update_texture = renderer::sdl2_gl1::update_texture,
+        .get_render_size = renderer::sdl2_gl1::get_render_size,
+    },
+};
+
+SDL_Window* window{};
+int renderer_index{0};
+
+auto create_window(int scale, int width, int height) -> bool
+{
+    window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    if (!window)
+    {
+        std::printf("%s\n", SDL_GetError());
+        return false;
+    }
+    return true;
+}
+
+void destroy_window()
+{
+    if (window != nullptr)
+    {
+        SDL_DestroyWindow(window);
+        window = nullptr;
+    }
+}
 
 struct App final : ImguiBase
 {
     App(int argc, char** argv);
     ~App() override;
 
+    void init_renderer();
+    void quit_renderer();
     auto loop() -> void override;
 
     auto poll_events() -> void override;
@@ -53,11 +125,6 @@ private:
     auto on_controllerdevice_event(const SDL_ControllerDeviceEvent& e) -> void;
 
 public:
-    SDL_Window* window{};
-    SDL_Renderer* renderer{};
-    SDL_Texture* texture{};
-    SDL_Texture* texture_bg_layer[4]{};
-
     SDL_AudioDeviceID audio_device{};
     SDL_AudioStream* audio_stream{};
     SDL_AudioSpec aspec_wnt{};
@@ -91,33 +158,33 @@ auto push_sample_callback(void* user) -> void
     SDL_AudioStreamPut(app->audio_stream, app->sample_data.data(), app->sample_data.size() * 2);
 }
 
-App::App(int argc, char** argv) : ImguiBase{argc, argv}
+void App::init_renderer()
 {
-    // https://github.com/mosra/magnum/issues/184#issuecomment-425952900
-    SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    // docking is kinda broken on my distro. havent tested with examples though
+    // so maybe its my code thats broken.
+    // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // Enable Docking
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       // Enable Multi-Viewport / Platform Windows
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER))
-    {
-        return;
-    }
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    //ImGui::StyleColorsClassic();
 
-    window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    if (!window)
-    {
-        return;
-    }
+    io.Fonts->AddFontFromMemoryCompressedTTF(trim_font_compressed_data, trim_font_compressed_size, 20);
 
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    if (!renderer)
-    {
-        return;
-    }
+    RENDERER[renderer_index].init_pre_window();
+    create_window(scale, width, height);
+    RENDERER[renderer_index].init_post_window(window);
 
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
-    if (!texture)
-    {
-        return;
-    }
+    RENDERER[renderer_index].create_texture((int)TextureID::emu, 240, 160);
+    RENDERER[renderer_index].create_texture((int)TextureID::layer0, 240, 160);
+    RENDERER[renderer_index].create_texture((int)TextureID::layer1, 240, 160);
+    RENDERER[renderer_index].create_texture((int)TextureID::layer2, 240, 160);
+    RENDERER[renderer_index].create_texture((int)TextureID::layer3, 240, 160);
 
     auto icon = SDL_CreateRGBSurfaceWithFormatFrom(const_cast<uint32_t*>(app_icon_data), 32, 32, 32, 4*32, SDL_PIXELFORMAT_RGBA32);
     if (icon != nullptr)
@@ -128,8 +195,26 @@ App::App(int argc, char** argv) : ImguiBase{argc, argv}
 
     // setup emu rect
     resize_emu_screen();
+}
 
-    SDL_RenderSetVSync(renderer, 1);
+void App::quit_renderer()
+{
+    RENDERER[renderer_index].quit();
+    destroy_window();
+    ImGui::DestroyContext();
+}
+
+App::App(int argc, char** argv) : ImguiBase{argc, argv}
+{
+    // https://github.com/mosra/magnum/issues/184#issuecomment-425952900
+    SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER))
+    {
+        return;
+    }
+
+    init_renderer();
 
     aspec_wnt.freq = sample_rate;
     aspec_wnt.format = AUDIO_S16;
@@ -169,19 +254,9 @@ App::App(int argc, char** argv) : ImguiBase{argc, argv}
 
     SDL_PauseAudioDevice(audio_device, 0);
 
-    // create debug textures
-    for (auto& text : texture_bg_layer)
-    {
-        text = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, width, height);
-    }
-
     gameboy_advance.set_userdata(this);
     // gameboy_advance.set_hblank_callback(on_hblank_callback);
     gameboy_advance.set_audio_callback(push_sample_callback, sample_data);
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
-    ImGui_ImplSDLRenderer_Init(renderer);
 
     // need a rom to run atm
     //if (has_rom)
@@ -192,25 +267,9 @@ App::App(int argc, char** argv) : ImguiBase{argc, argv}
 
 App::~App()
 {
-    ImGui_ImplSDLRenderer_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-
-    for (auto& text : texture_bg_layer)
-    {
-        SDL_DestroyTexture(text);
-    }
-
-    for (auto& [_, controller] : controllers)
-    {
-        SDL_GameControllerClose(controller);
-    }
-
+    quit_renderer();
     if (audio_device != 0) { SDL_CloseAudioDevice(audio_device); }
     if (audio_stream != nullptr) { SDL_FreeAudioStream(audio_stream); }
-    if (texture != nullptr) { SDL_DestroyTexture(texture); }
-    if (renderer != nullptr) { SDL_DestroyRenderer(renderer); }
-    if (window != nullptr) { SDL_DestroyWindow(window); }
-
     SDL_Quit();
 }
 
@@ -361,6 +420,16 @@ auto App::on_key_event(const SDL_KeyboardEvent& e) -> void
 
                 case SDL_SCANCODE_P:
                     show_log_window ^= 1;
+                    break;
+
+                case SDL_SCANCODE_K:
+                    show_perf_window ^= 1;
+                    break;
+
+                case SDL_SCANCODE_D:
+                    quit_renderer();
+                    renderer_index ^= 1;
+                    init_renderer();
                     break;
 
                 default: break; // silence enum warning
@@ -606,59 +675,32 @@ auto App::on_controllerdevice_event(const SDL_ControllerDeviceEvent& e) -> void
 
 auto App::render_begin() -> void
 {
-    ImGui_ImplSDLRenderer_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
+    RENDERER[renderer_index].render_pre(window);
 }
 
 auto App::render_end() -> void
 {
-    SDL_RenderClear(renderer);
-    ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
-    SDL_RenderPresent(renderer);
+    RENDERER[renderer_index].render_post(window);
 }
 
 auto App::get_texture(TextureID id) -> void*
 {
-    switch (id)
-    {
-        case TextureID::emu: return texture;
-        case TextureID::layer0: return texture_bg_layer[0];
-        case TextureID::layer1: return texture_bg_layer[1];
-        case TextureID::layer2: return texture_bg_layer[2];
-        case TextureID::layer3: return texture_bg_layer[3];
-    }
-
-    return nullptr;
+    return RENDERER[renderer_index].get_texture((int)id);
 }
 
 auto App::update_texture(TextureID id, std::uint16_t _pixels[160][240]) -> void
 {
-    auto _texture = static_cast<SDL_Texture*>(get_texture(id));
-    void* texture_pixels{};
-    int pitch{};
-
-    SDL_LockTexture(_texture, nullptr, &texture_pixels, &pitch);
-        SDL_ConvertPixels(
-            width, height, // w,h
-            SDL_PIXELFORMAT_BGR555, _pixels, width * sizeof(std::uint16_t), // src
-            SDL_PIXELFORMAT_BGR555, texture_pixels, pitch // dst
-        );
-    SDL_UnlockTexture(_texture);
+    RENDERER[renderer_index].update_texture((int)id, 0, 0, 240, 160, _pixels);
 }
 
 auto App::get_window_size() -> std::pair<int, int>
 {
-    int w;
-    int h;
-    SDL_GetRendererOutputSize(renderer, &w, &h);
-
-    return {w, h};
+    return RENDERER[renderer_index].get_render_size(window);
 }
 
 auto App::set_window_size(std::pair<int, int> new_size) -> void
 {
     const auto [w, h] = new_size;
-
     SDL_SetWindowSize(window, w, h);
 }
 

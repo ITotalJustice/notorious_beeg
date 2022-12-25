@@ -7,6 +7,7 @@
 #include "backup/backup.hpp"
 #include "backup/eeprom.hpp"
 #include "backup/flash.hpp"
+#include "fat/fat.hpp"
 #include "gameboy/gb.hpp"
 #include "key.hpp"
 #include "mem.hpp"
@@ -139,6 +140,12 @@ void reset_gba(Gba& gba)
 
     gba.scheduler.reset();
     gba.delta.reset();
+    // disable waitloop detecting if a fat device is enabled
+    // as its possible the code executing is not the rom but
+    // code mapped to the rom region, ie, ezflash.
+    // this is too expensive to check for this in waitloop detection
+    // so its safer to just disable it.
+    gba.waitloop.reset(gba, gba.fat_device.type != fat::Type::NONE);
     fat::reset(gba);
     gpio::reset(gba, skip_bios); // this is needed before mem::reset because rw needs resetting
     mem::reset(gba, skip_bios); // this needed to be before arm::reset because memtables
@@ -241,6 +248,23 @@ void on_frame_end_event(void* user, s32 id, s32 late)
 
 auto run_gba(Gba& gba, u32 cycles)
 {
+    // this needs better impl because some events will rely on
+    // being fired, such as sampling, hblank, vblank etc
+    if (arm7tdmi::is_stop_mode(gba))
+    {
+        // the keys are always "checked" on a real gba
+        // there is no point in doing this when emulating
+        // the gba, only exception is when in stop mode as
+        // it's possible to already hold keys down whilst entering
+        // stop mode and have it "immediately" exit.
+        // in LOZMC, this effect can be seen with sleep mode
+        // however the screen begins to fade completly and gets about
+        // 50% of the way there (depends how quick you release A button).
+        // this fade means the blanked lcd takes effect very quickly
+        key::check_key_interrupt(gba);
+        return;
+    }
+
     gba.frame_end = false;
     gba.scheduler.add(scheduler::ID::FRAME, gba.delta.get(scheduler::ID::FRAME, cycles), on_frame_end_event, &gba);
 
@@ -455,7 +479,7 @@ auto Gba::set_audio_callback(AudioCallback cb, std::span<s16> data, u32 _sample_
         }
         else
         {
-            this->sample_rate_calculated = 280896 * 60 / sample_rate;
+            this->sample_rate_calculated = CYCLES_PER_FRAME * 60 / sample_rate;
         }
     }
 
@@ -526,7 +550,6 @@ auto Gba::loadstate(const State& state) -> bool
     this->timer[3] = state.timer[3];
     this->backup = state.backup;
     this->gpio = state.gpio;
-    this->fat_device = state.fat_device;
 
     if (is_gb())
     {
@@ -561,7 +584,6 @@ auto Gba::savestate(State& state) const -> bool
     state.timer[3] = this->timer[3];
     state.backup = this->backup;
     state.gpio = this->gpio;
-    state.fat_device = this->fat_device;
 
     if (is_gb())
     {

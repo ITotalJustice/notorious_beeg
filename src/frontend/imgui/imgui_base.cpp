@@ -4,6 +4,7 @@
 #include "imgui_base.hpp"
 #include "debugger_io.hpp"
 #include "fat/fat.hpp"
+#include "gba.hpp"
 #include "log.hpp"
 #include "mem.hpp"
 #include "sio.hpp"
@@ -13,7 +14,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
-#include <trim_font.hpp>
 #include <imgui.h>
 #include <imgui_memory_editor.h>
 
@@ -23,6 +23,22 @@ namespace {
 // support is properly added either via native fs or
 // imgui filebrowser.
 constexpr auto FAT32_PATH = "sd.raw";
+
+void HelpMarker(const char* desc, bool question_mark = false)
+{
+    if (question_mark)
+    {
+        ImGui::TextDisabled("(?)");
+    }
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
 
 // note that this function is slow, should only ever be used for
 // debugging gfx, never used in release builds.
@@ -86,6 +102,21 @@ void on_fat_flush_callback(void* user, std::uint64_t offset, std::uint64_t size)
     assert(fs.good());
 }
 
+auto on_frame_callback(void* user, std::uint32_t frame_cycles, std::uint32_t halt_cycles) -> void
+{
+    if (!user) { return; }
+
+    // this is UB because the actual ptr is whatever inherts the base
+    auto app = static_cast<ImguiBase*>(user);
+
+    app->cycles_per_frame.push_back(frame_cycles);
+    if (app->cycles_per_frame.size() >= app->max_cycles_per_frame_entries)
+    {
+        const auto diff = app->cycles_per_frame.size() - app->max_cycles_per_frame_entries;
+        app->cycles_per_frame.erase(app->cycles_per_frame.begin(), app->cycles_per_frame.begin() + diff);
+    }
+}
+
 void on_log_callback(void* user, std::uint8_t type, std::uint8_t level, const char* str)
 {
     if (!user) { return; }
@@ -115,20 +146,9 @@ ImguiBase::ImguiBase(int argc, char** argv) : frontend::Base{argc, argv}
 {
     scale = 4;
 
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsClassic();
-
-    io.Fonts->AddFontFromMemoryCompressedTTF(trim_font_compressed_data, trim_font_compressed_size, 20);
-
     gameboy_advance.set_hblank_callback(on_hblank_callback);
     gameboy_advance.set_fat_flush_callback(on_fat_flush_callback);
+    gameboy_advance.set_frame_callback(on_frame_callback);
     gameboy_advance.set_log_callback(on_log_callback);
     gameboy_advance.set_pixels(pixels, 240, 16);
 
@@ -154,7 +174,6 @@ ImguiBase::~ImguiBase()
     }
     #endif
 
-    ImGui::DestroyContext();
 }
 
 auto ImguiBase::set_button(gba::Button button, bool down) -> void
@@ -201,6 +220,7 @@ auto ImguiBase::run_render() -> void
     render_layers();
     log_window();
     sio_window();
+    perf_window();
 
     resize_to_menubar();
 
@@ -247,29 +267,49 @@ auto ImguiBase::emu_update_texture() -> void
 
 auto ImguiBase::emu_render() -> void
 {
-    const auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBringToFrontOnFocus;
-    ImGui::SetNextWindowPos(ImVec2(0, emu_rect.y));
-    ImGui::SetNextWindowSize(ImVec2(emu_rect.w, emu_rect.h));
-    ImGui::SetNextWindowSizeConstraints({0, 0}, ImVec2(emu_rect.w, emu_rect.h));
+    const auto& io = ImGui::GetIO();
+    const auto is_viewport = io.BackendFlags & ImGuiBackendFlags_RendererHasViewports && io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0F);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0F);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0F);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 0.0F);
-    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0,0));
-    ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 0.0F);
+    auto flags = 0;
 
-    ImGui::Begin("emu window", nullptr, flags);
+    if (is_viewport)
+    {
+        flags = 0;
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+    }
+    else
+    {
+        flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+        ImGui::SetNextWindowPos(ImVec2(0, emu_rect.y));
+        ImGui::SetNextWindowSize(ImVec2(emu_rect.w, emu_rect.h));
+        ImGui::SetNextWindowSizeConstraints({0, 0}, ImVec2(emu_rect.w, emu_rect.h));
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0,0));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0,0));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(0,0));
+        ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 0.0F);
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0,0));
+        ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 0.0F);
+    }
+
+    if (ImGui::Begin("emu window", nullptr, flags))
     {
         inside_emu_window = ImGui::IsWindowFocused();
 
         ImVec2 p = ImGui::GetCursorScreenPos();
-        ImGui::Image(get_texture(TextureID::emu), ImVec2(emu_rect.w, emu_rect.h));
+        auto size = ImVec2(emu_rect.w, emu_rect.h);
+        if (is_viewport)
+        {
+            size = ImGui::GetContentRegionAvail();
+        }
+        ImGui::Image(get_texture(TextureID::emu), size);
 
         if (show_grid)
         {
@@ -279,7 +319,14 @@ auto ImguiBase::emu_render() -> void
     }
     ImGui::End();
 
-    ImGui::PopStyleVar(11);
+    if (is_viewport)
+    {
+        ImGui::PopStyleVar(1);
+    }
+    else
+    {
+        ImGui::PopStyleVar(11);
+    }
 }
 
 auto ImguiBase::menubar_tab_file() -> void
@@ -439,6 +486,7 @@ auto ImguiBase::menubar_tab_view() -> void
 
     ImGui::MenuItem("Show Logger", "Ctrl+Shift+P", &show_log_window);
     ImGui::MenuItem("Show Sio", nullptr, &show_sio_window);
+    ImGui::MenuItem("Show Perf", "Ctrl+Shift+K", &show_perf_window);
 }
 
 auto ImguiBase::menubar_tab_help() -> void
@@ -706,4 +754,106 @@ void ImguiBase::sio_window()
         }
     }
     ImGui::End();
+}
+
+void ImguiBase::perf_window()
+{
+    if (!show_perf_window || cycles_per_frame.empty())
+    {
+        return;
+    }
+
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+
+    {
+        int corner = 0; // top left
+        const float PAD = 10.0F;
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+        ImVec2 work_size = viewport->WorkSize;
+        ImVec2 window_pos;
+        ImVec2 window_pos_pivot;
+        window_pos.x = (corner & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
+        window_pos.y = (corner & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
+        window_pos_pivot.x = (corner & 1) ? 1.0F : 0.0F;
+        window_pos_pivot.y = (corner & 2) ? 1.0F : 0.0F;
+        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+        window_flags |= ImGuiWindowFlags_NoMove;
+    }
+
+    ImGui::SetNextWindowBgAlpha(0.75F); // Transparent background
+    if (ImGui::Begin("perf", &show_perf_window, window_flags))
+    {
+        const auto last_frame = static_cast<double>(cycles_per_frame.back());
+        const double diff = static_cast<double>(gba::CYCLES_PER_FRAME) - last_frame;
+        const double perf3 = 100.0 - (diff * 100.0 / static_cast<double>(gba::CYCLES_PER_FRAME));
+
+        static double last_value = 0;
+        static int counter = 0;
+        static int rate = 60;
+        static int current = 1;
+        static const char* list[] = { "None", "Lines", "Histogram" };
+
+        counter++;
+        if (counter >= rate)
+        {
+            last_value = perf3;
+            counter = 0;
+        }
+        ImGui::Text("cpu usage: %0.2F%%\n", last_value);
+        HelpMarker("this is calculated via time not spent in halt");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(60);
+        if (ImGui::InputInt("rate", &rate, 0))
+        {
+            rate = std::clamp(rate, 1, 300);
+        }
+        HelpMarker("how often should `cpu usage` text update");
+
+        if (current == 1)
+        {
+            ImGui::PlotLines("##cycles2", cycles_per_frame.data(), cycles_per_frame.size(), 0, nullptr, 0, gba::CYCLES_PER_FRAME, ImVec2(300, 80));
+        }
+        else if (current == 2)
+        {
+            ImGui::PlotHistogram("##cycles1", cycles_per_frame.data(), cycles_per_frame.size(), 0, nullptr, 0, gba::CYCLES_PER_FRAME, ImVec2(300, 80));
+        }
+
+        ImGui::SetNextItemWidth(60);
+        if (ImGui::InputInt("samples", &max_cycles_per_frame_entries, 0))
+        {
+            max_cycles_per_frame_entries = std::clamp(max_cycles_per_frame_entries, 1, 10000);
+        }
+        HelpMarker("how many cycles per frame to record");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(120);
+        ImGui::Combo("##histogram or lines", &current, list, 3);
+    }
+    ImGui::End();
+
+    #if 0
+    if (ImGui::Begin("perf", &show_perf_window))
+    {
+        const auto last_frame = static_cast<double>(cycles_per_frame.back());
+        const double diff = static_cast<double>(gba::CYCLES_PER_FRAME) - last_frame;
+        const double perf3 = 100.0 - (diff * 100.0 / static_cast<double>(gba::CYCLES_PER_FRAME));
+
+        static double last_value = 0;
+        static int counter = 0;
+
+        counter++;
+        if (counter >= 60)
+        {
+            last_value = perf3;
+            counter = 0;
+        }
+        ImGui::Text("Cpu usage: %0.2F%%\n", last_value);
+
+        ImGui::PlotLines("##cycles2", cycles_per_frame.data(), cycles_per_frame.size(), 0, "my lines", 0, gba::CYCLES_PER_FRAME, ImVec2(350, 120));
+        ImGui::PlotHistogram("##cycles1", cycles_per_frame.data(), cycles_per_frame.size(), 0, "my histogram", 0, gba::CYCLES_PER_FRAME, ImVec2(350, 120));
+
+        ImGui::InputInt("max samples", &max_cycles_per_frame_entries, 0);
+    }
+    ImGui::End();
+    #endif
 }

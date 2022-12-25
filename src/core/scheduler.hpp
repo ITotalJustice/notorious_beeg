@@ -80,10 +80,23 @@ public:
         // if event if already in queue then update time, cb and user.
         if (itr != queue.end())
         {
-            itr->time = event_time;
-            itr->callback = cb;
-            itr->user = user;
-            std::push_heap(queue.begin(), queue.end(), std::greater<>());
+            // fast path if front of queue
+            if (itr == queue.begin())
+            {
+                std::pop_heap(queue.begin(), queue.end(), std::greater<>());
+                queue.back().time = event_time;
+                queue.back().callback = cb;
+                queue.back().user = user;
+                std::push_heap(queue.begin(), queue.end(), std::greater<>());
+            }
+            // otherwise, sadly we have to sort the queue :/
+            else
+            {
+                itr->time = event_time;
+                itr->callback = cb;
+                itr->user = user;
+                std::make_heap(queue.begin(), queue.end(), std::greater<>());
+            }
         }
         // otherwise create new event
         else
@@ -134,7 +147,7 @@ public:
         {
             return false;
         }
-        return queue[0].time <= cycles;
+        return queue.front().time <= cycles;
     }
 
     // returns if an event is found with matching id
@@ -173,7 +186,7 @@ public:
         {
             return 0;
         }
-        return queue[0].time - get_ticks();
+        return queue.front().time - get_ticks();
     }
 
     // return cycles of next event or 0 if no events
@@ -183,7 +196,7 @@ public:
         {
             return 0;
         }
-        return queue[0].time;
+        return queue.front().time;
     }
 
     // advances scheduler so that get_ticks() == get_next_event_cycles() if event has greater cycles

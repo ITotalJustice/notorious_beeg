@@ -4,6 +4,7 @@
 
 #include <frontend_base.hpp>
 #include "imgui_log.hpp"
+#include <vector>
 
 enum class TextureID
 {
@@ -66,6 +67,7 @@ protected:
     auto toggle_master_layer_enable() -> void;
     void log_window();
     void sio_window();
+    void perf_window();
 
 public:
     #if DEBUGGER == 0
@@ -88,6 +90,7 @@ public:
 
     bool show_log_window{false};
     bool show_sio_window{false};
+    bool show_perf_window{false};
 
     bool inside_emu_window{true};
     bool layer_enable_master{false};
@@ -111,4 +114,7 @@ public:
     bool show_grid{false};
 
     ExampleAppLog logger{};
+
+    std::vector<float> cycles_per_frame;
+    int max_cycles_per_frame_entries{100};
 };

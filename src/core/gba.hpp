@@ -5,6 +5,7 @@
 
 #include "arm7tdmi/arm7tdmi.hpp"
 #include "fat/fat.hpp"
+#include "waitloop.hpp"
 #include "gameboy/types.hpp"
 #include "ppu/ppu.hpp"
 #include "apu/apu.hpp"
@@ -14,7 +15,6 @@
 #include "scheduler.hpp"
 #include "backup/backup.hpp"
 #include "gpio.hpp"
-#include "fwd.hpp"
 #include <cassert>
 #include <span>
 
@@ -37,6 +37,8 @@ enum ID : s32
     DMA,
     INTERRUPT,
     HALT,
+    STOP,
+    IDLE_LOOP,
 
     // special event to indicate the end of a frame.
     // the cycles is set by the user in run();
@@ -57,20 +59,20 @@ struct DeltaManager
 
     constexpr void add(s32 id, s32 delta)
     {
-        assert(id < 15);
+        assert(id < END);
         assert(delta <= 0);
         deltas[id] = delta;
     }
 
     constexpr void remove(s32 id)
     {
-        assert(id < 15);
+        assert(id < END);
         deltas[id] = 0;
     }
 
     [[nodiscard]] constexpr auto get(s32 id, s32 time) -> s32
     {
-        assert(id < 15);
+        assert(id < END);
         return time + deltas[id];
     }
 };
@@ -94,6 +96,8 @@ struct State
 } // namespace scheduler
 
 namespace gba {
+
+enum : u32 { CYCLES_PER_FRAME = 280896 };
 
 enum Button : u16
 {
@@ -183,6 +187,7 @@ struct Header;
 using AudioCallback = void(*)(void* user);
 using VblankCallback = void(*)(void* user);
 using HblankCallback = void(*)(void* user, u16 line);
+using FrameCallback = void(*)(void* user, u32 cycles_in_frame, u32 cycles_in_halt);
 using ColourCallback = u32(*)(void* user, Colour colour);
 using FatFlushCallback = void(*)(void* user, u64 offset, u64 size);
 using LogCallback = void(*)(void* user, u8 type, u8 level, const char* str);
@@ -219,7 +224,7 @@ struct Gba
     backup::Backup backup;
     gpio::Gpio gpio;
     fat::Device fat_device;
-
+    waitloop::Waitloop waitloop;
     gb::Core gameboy;
 
     // 16kb, 32-bus
@@ -234,7 +239,7 @@ struct Gba
     auto reset() -> void;
     [[nodiscard]] auto loadrom(std::span<const u8> new_rom) -> bool;
     [[nodiscard]] auto loadbios(std::span<const u8> new_bios) -> bool;
-    auto run(u32 cycles = 280896) -> void;
+    auto run(u32 cycles = CYCLES_PER_FRAME) -> void;
 
     [[nodiscard]] auto loadstate(const State& state) -> bool;
     [[nodiscard]] auto savestate(State& state) const -> bool;
@@ -255,6 +260,7 @@ struct Gba
     void set_audio_callback(AudioCallback cb, std::span<s16> data, u32 sample_rate = 65536);
     void set_vblank_callback(VblankCallback cb) { this->vblank_callback = cb; }
     void set_hblank_callback(HblankCallback cb) { this->hblank_callback = cb; }
+    void set_frame_callback(FrameCallback cb) { this->frame_callback = cb; }
     void set_colour_callback(ColourCallback cb) { this->colour_callback = cb; }
     void set_fat_flush_callback(FatFlushCallback cb) { this->fat_flush_callback = cb; }
     void set_log_callback(LogCallback cb) { this->log_callback = cb; }
@@ -279,6 +285,9 @@ struct Gba
     auto set_fat32_data(std::span<u8> data) -> bool;
 
     System system;
+
+    // number of cycles spent in halt
+    u32 cycles_spent_in_halt;
 
     bool bit_crushing{false};
     bool frame_end;
@@ -305,6 +314,7 @@ struct Gba
     AudioCallback audio_callback{};
     VblankCallback vblank_callback{};
     HblankCallback hblank_callback{};
+    FrameCallback frame_callback{};
     ColourCallback colour_callback{};
     FatFlushCallback fat_flush_callback{};
     LogCallback log_callback{};
@@ -326,7 +336,6 @@ struct State
     timer::Timer timer[4];
     backup::Backup backup;
     gpio::Gpio gpio;
-    fat::Device fat_device;
     gb::State gb_state;
 };
 

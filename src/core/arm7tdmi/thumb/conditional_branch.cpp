@@ -17,7 +17,10 @@ auto conditional_branch(Gba& gba, const u16 opcode) -> void
 
     if (check_cond(gba, cond))
     {
-        set_pc(gba, get_pc(gba) + soffest8);
+        const auto pc = get_pc(gba);
+        const u32 new_pc = pc + soffest8;
+        set_pc(gba, new_pc);
+        gba.waitloop.on_thumb_loop(gba, pc, new_pc);
     }
 }
 

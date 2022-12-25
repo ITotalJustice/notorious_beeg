@@ -887,6 +887,14 @@ auto io_ime(gba::Gba& gba) -> void
     io_button<0x0>(REG_IME, "Master interrupt enable");
 }
 
+auto io_HALTCNT(gba::Gba& gba) -> void
+{
+    io_title(gba::mem::IO_HALTCNT_L, REG_HALTCNT);
+
+    io_button<0xE>(REG_HALTCNT, "Mode");
+    io_button<0xF>(REG_HALTCNT, "Power Down");
+}
+
 auto unimpl_io_view(gba::Gba& gba) -> void
 {
     ImGui::Text("Unimplemented");
@@ -984,8 +992,7 @@ constexpr std::array IO_NAMES =
     IoRegEntry{ "IF", io_if },
     IoRegEntry{ "WSCNT", IO_WSCNT },
     IoRegEntry{ "IME", io_ime },
-    IoRegEntry{ "HALTCNT_L", unimpl_io_view },
-    IoRegEntry{ "HALTCNT_H", unimpl_io_view },
+    IoRegEntry{ "HALTCNT", io_HALTCNT },
 };
 
 } // namespace

@@ -7,7 +7,7 @@ Set(FETCHCONTENT_QUIET FALSE)
 
 FetchContent_Declare(imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG        v1.88
+    GIT_TAG        ced92d9
     GIT_PROGRESS   TRUE
 )
 

@@ -11,6 +11,7 @@
 #include "gba.hpp"
 #include "scheduler.hpp"
 #include "log.hpp"
+#include "waitloop.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -45,6 +46,7 @@ auto on_hblank(Gba& gba)
     log::print_info(gba, log::Type::PPU, "entered hblank\n");
 
     REG_DISPSTAT = bit::set<1>(REG_DISPSTAT);
+    gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DISPSTAT);
 
     if (bit::is_set<4>(REG_DISPSTAT))
     {
@@ -87,6 +89,8 @@ auto on_vblank(Gba& gba)
 auto on_vcount_update(Gba& gba, const u16 new_vcount)
 {
     REG_VCOUNT = new_vcount;
+    gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_VCOUNT);
+
     const auto lyc = bit::get_range<8, 15>(REG_DISPSTAT);
 
     if (REG_VCOUNT >= 2 && REG_VCOUNT <= 162)
@@ -121,6 +125,7 @@ auto change_period(Gba& gba)
             gba.ppu.period = Period::draw;
             on_vcount_update(gba, REG_VCOUNT + 1);
             REG_DISPSTAT = bit::unset<1>(REG_DISPSTAT);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DISPSTAT);
 
             if (REG_VCOUNT < 160)
             {
@@ -146,6 +151,15 @@ auto change_period(Gba& gba)
                 gba.ppu.bg3x = bit::sign_extend<27>((REG_BG3X_HI << 16) | REG_BG3X_LO);
                 gba.ppu.bg3y = bit::sign_extend<27>((REG_BG3Y_HI << 16) | REG_BG3Y_LO);
 
+                // update cycles
+                const auto cycles_spent_in_frame = CYCLES_PER_FRAME - gba.cycles_spent_in_halt;
+                if (gba.frame_callback)
+                {
+                    gba.frame_callback(gba.userdata, cycles_spent_in_frame, gba.cycles_spent_in_halt);
+                }
+                gba.cycles_spent_in_halt = 0;
+
+                // go back to scanline 0
                 on_vcount_update(gba, 0);
             }
             break;

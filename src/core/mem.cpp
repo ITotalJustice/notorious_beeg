@@ -346,9 +346,10 @@ inline auto read_io16(Gba& gba, const u32 addr) -> u16
         case IO_IF:
         case IO_WSCNT:
         case IO_IME:
-        case IO_HALTCNT_L:
-        case IO_HALTCNT_H:
             return gba.mem.io[(addr & IO_MASK) >> 1];
+
+        case IO_HALTCNT_L:
+            return REG_HALTCNT & 0xFF;
 
         case IO_WAVE_RAM0_L:
         case IO_WAVE_RAM0_H:
@@ -635,6 +636,7 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
 
         case IO_DISPSTAT:
             REG_DISPSTAT = (REG_DISPSTAT & 0x7) | (value & ~0x7);
+            gba.waitloop.on_event_change(gba, waitloop::WAITLOOP_EVENT_IO, mem::IO_DISPSTAT);
             break;
 
         case IO_WSCNT:
@@ -642,6 +644,10 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
             break;
 
         case IO_DISPCNT:
+            // don't modify cgb bit
+            REG_DISPCNT = (REG_DISPCNT & 0b1000) | (value & 0b11111111'11110111);
+            break;
+
         case IO_BG0CNT:
         case IO_BG1CNT:
         case IO_BG2CNT:
@@ -840,7 +846,14 @@ inline auto write_io16(Gba& gba, const u32 addr, const u16 value) -> void
 
         case IO_HALTCNT_L:
             gba.mem.io[(addr & IO_MASK) >> 1] = value;
-            arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
+            if (bit::is_set<0xF>(value))
+            {
+                gba.scheduler.add(scheduler::ID::STOP, 0, arm7tdmi::on_stop_event, &gba);
+            }
+            else
+            {
+                arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
+            }
             break;
 
         case IO_IE:
@@ -1014,7 +1027,16 @@ inline auto write_io8(Gba& gba, const u32 addr, const u8 value) -> void
             break;
 
         case IO_HALTCNT_H:
-            arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
+            gba.mem.io[(addr & IO_MASK) >> 1] &= 0x00FF;
+            gba.mem.io[(addr & IO_MASK) >> 1] |= value << 8;
+            if (bit::is_set<7>(value))
+            {
+                gba.scheduler.add(scheduler::ID::STOP, 0, arm7tdmi::on_stop_event, &gba);
+            }
+            else
+            {
+                arm7tdmi::on_halt_trigger(gba, arm7tdmi::HaltType::write);
+            }
             break;
 
         default: {
@@ -1713,6 +1735,16 @@ auto reset(Gba& gba, bool skip_bios) -> void
     }
 
     setup_tables(gba);
+}
+
+auto get_cycles_for_region_16(Gba& gba, u8 region, u8 seq_type) -> u8
+{
+    return gba.timing_table_16[seq_type][region];
+}
+
+auto get_cycles_for_region_32(Gba& gba, u8 region, u8 seq_type) -> u8
+{
+    return gba.timing_table_32[seq_type][region];
 }
 
 // all these functions are inlined

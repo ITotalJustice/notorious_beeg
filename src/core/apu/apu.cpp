@@ -79,7 +79,7 @@ constexpr auto is_next_frame_sequencer_step_vol(const Gba& gba) -> bool
 auto get_frame_sequencer_cycles(const Gba& gba) -> u16
 {
     assert(gba.is_gba() && "gb div clocks fs");
-    // return 280896*60/512; // 32917
+    // return CYCLES_PER_FRAME*60/512; // 32917
     return 8192 * 4; // 32768
 }
 
@@ -1286,7 +1286,7 @@ auto reset(Gba& gba, bool skip_bios) -> void
         }
         else
         {
-            gba.sample_rate_calculated = 280896 * 60 / gba.sample_rate;
+            gba.sample_rate_calculated = CYCLES_PER_FRAME * 60 / gba.sample_rate;
         }
     }
 

@@ -39,6 +39,7 @@ else ()
         key.cpp
         sio.cpp
         log.cpp
+        waitloop.cpp
 
         backup/backup.cpp
         backup/eeprom.cpp

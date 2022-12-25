@@ -44,7 +44,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AJPJ",0x11},//0022 - J.League Pocket(JP).zip
 {"AMMJ",0x11},//0023 - Momotarou Matsuri(JP).zip
 {"AMNJ",0x11},//0024 - Monster Guardians(JP).zip
-{"AMZE",0x22},//0025 - Super Mario Advance(UE).zip
+{"AMZE",0x21},//0025 - Super Mario Advance(UE).zip
 {"AFFJ",0x22},//0026 - Final Fight One(JP).zip
 {"ABSJ",0x11},//0027 - Bomberman Story(JP).zip
 {"AI3E",0x00},//0028 - Iridion 3D(UE).zip
@@ -69,7 +69,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"ATOJ",0x32},//0047 - Tactics Ogre Gaiden - The Knight of Lodis(JP).zip
 {"AKRP",0x11},//0048 - Kurukuru Kururin(EU).zip
 {"ATCP",0x22},//0049 - Top Gear GT Championship(EU).zip
-{"AMAE",0x22},//0050 - Super Mario Advance(UE).zip
+{"AMAE",0x21},//0050 - Super Mario Advance(UE).zip
 {"ARYP",0x21},//0051 - Rayman Advance(EU).zip
 {"ATMP",0x11},//0052 - Tweety and the Magic Gems(EU).zip
 {"ATHD",0x21},//0053 - Tony Hawk's Pro Skater 2(DE).zip
@@ -178,8 +178,8 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AYAJ",0x11},//0156 - Dokodemo Taikyoku - Yakuman Advance(JP).zip
 {"ATAP",0x22},//0157 - Tang Tang(EU).zip
 {"ALLP",0x00},//0158 - Lucky Luke - Wanted!(EU).zip
-{"ASYP",0x22},//0159 - Spyro - Season of Ice(EU).zip
-{"ASYE",0x22},//0160 - Spyro - Season of Ice(US).zip
+{"ASYP",0x21},//0159 - Spyro - Season of Ice(EU).zip
+{"ASYE",0x21},//0160 - Spyro - Season of Ice(US).zip
 {"ABTE",0x00},//0161 - Batman Vengeance(US).zip
 {"AXRP",0x22},//0162 - Super Street Fighter II Turbo - Revival(EU).zip
 {"AKKE",0x00},//0163 - Kao the Kangaroo(US).zip
@@ -192,7 +192,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AHKJ",0x11},//0170 - Hikaru no Go(JP).zip
 {"AGSE",0x32},//0171 - Golden Sun(UE).zip
 {"ADKP",0x00},//0172 - Donald Duck Advance(EU).zip
-{"AHRE",0x22},//0173 - Harry Potter and the Sorcerer's Stone(UE).zip
+{"AHRE",0x21},//0173 - Harry Potter and the Sorcerer's Stone(UE).zip
 {"ABTP",0x00},//0174 - Batman Vengeance(EU).zip
 {"AJCE",0x22},//0175 - Jackie Chan Adventures - Legend of the Darkhand(UE).zip
 {"AEVE",0x00},//0176 - Alienators - Evolution Continues(UE).zip
@@ -212,7 +212,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"ANDE",0x00},//0190 - Nancy Drew - Message in a Haunted Mansion(US).zip
 {"APTE",0x22},//0191 - Powerpuff Girls, The - Mojo Jojo A-Go-Go(US).zip
 {"A2ME",0x22},//0192 - Madden NFL 2002(US).zip
-{"AFRE",0x22},//0193 - Frogger's Adventures - Temple of the Frog(US).zip
+{"AFRE",0x21},//0193 - Frogger's Adventures - Temple of the Frog(US).zip
 {"AGPE",0x00},//0194 - No Rules - Get Phat(UE).zip
 {"ADEJ",0x11},//0195 - Adventure of Tokyo Disney Sea(JP).zip
 {"ABQP",0x22},//0196 - David Beckham Soccer(EU).zip
@@ -415,7 +415,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"ALNJ",0x11},//0401 - Lunar Legend(JP).zip
 {"AA2P",0x22},//0402 - Super Mario Advance 2 - Super Mario World(EU).zip
 {"AB2E",0x11},//0403 - Breath of Fire II(US).zip
-{"AKXE",0x22},//0404 - Spider-Man(UE).zip
+{"AKXE",0x21},//0404 - Spider-Man(UE).zip
 {"AS8E",0x00},//0405 - Star X(US).zip
 {"ASZP",0x00},//0406 - Scorpion King, The - Sword of Osiris(EU).zip
 {"ATWJ",0x00},//0407 - Tetris Worlds(JP).zip
@@ -468,7 +468,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AFQE",0x00},//0454 - Frogger Advance - The Great Quest(US).zip
 {"AMWE",0x22},//0455 - Muppet Pinball Mayhem(US).zip
 {"AAEE",0x00},//0456 - Hey Arnold! - The Movie(US).zip
-{"AKXF",0x22},//0457 - Spider-Man(FR).zip
+{"AKXF",0x21},//0457 - Spider-Man(FR).zip
 {"APGE",0x00},//0458 - Punch King - Arcade Boxing(US).zip
 {"AGGP",0x00},//0459 - Gremlins - Stripe vs. Gizmo(EU).zip
 {"ACHJ",0x11},//0460 - Castlevania - Byakuya no Concerto(JP).zip
@@ -494,7 +494,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"APDE",0x22},//0480 - Pinball of the Dead, The(US).zip
 {"AGWE",0x22},//0481 - GT Advance 2 - Rally Racing(US).zip
 {"AS8P",0x00},//0482 - Star X(EU).zip
-{"ALSE",0x22},//0483 - LEGO Soccer Mania(UE).zip
+{"ALSE",0x21},//0483 - LEGO Soccer Mania(UE).zip
 {"AMRP",0x22},//0484 - Maniac Racers Advance(EU).zip
 {"AS2X",0x00},//0485 - Star Wars Episode II - Attack of the Clones(EU).zip
 {"ADQP",0x11},//0486 - Dokapon(EU).zip
@@ -596,7 +596,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AILP",0x00},//0582 - Aggressive Inline(EU).zip
 {"AT9E",0x22},//0583 - BMX Trick Racer(US).zip
 {"ARQE",0x00},//0584 - Matchbox Cross Town Heroes(US).zip
-{"AIPE",0x22},//0585 - Silent Scope(US).zip
+{"AIPE",0x21},//0585 - Silent Scope(US).zip
 {"AT5X",0x22},//0586 - Tiger Woods PGA Tour Golf(EU).zip
 {"AS6P",0x22},//0587 - Speedball 2 - Brutal Deluxe(EU).zip
 {"AZCE",0x11},//0588 - Megaman Zero(UE).zip
@@ -622,7 +622,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AZUJ",0x22},//0608 - Street Fighter Zero 3 Upper(JP).zip
 {"AECJ",0x11},//0609 - Samurai Evolution - Oukoku Geist(JP).zip
 {"A3PE",0x00},//0610 - Sega Smash Pack(US).zip
-{"ADUP",0x22},//0611 - Driver 2 Advance(EU).zip
+{"ADUP",0x21},//0611 - Driver 2 Advance(EU).zip
 {"ACHE",0x11},//0612 - Castlevania - Harmony of Dissonance(US).zip
 {"ALOE",0x22},//0613 - Lord of the Rings, The - The Fellowship of the Ring(US).zip
 {"AT8P",0x22},//0614 - Tennis Masters Series 2003(EU).zip
@@ -664,7 +664,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AM8P",0x22},//0650 - Monster Force(EU).zip
 {"AVBP",0x00},//0651 - Barbie Groovy Games(EU).zip
 {"A7SP",0x00},//0652 - Smurfs, The - The Revenge of the Smurfs(EU).zip
-{"ADHE",0x22},//0653 - Defender of the Crown(US).zip
+{"ADHE",0x21},//0653 - Defender of the Crown(US).zip
 {"AB9E",0x22},//0654 - Dual Blades(US).zip
 {"AIAJ",0x00},//0655 - Ice Age(JP).zip
 {"A2JJ",0x22},//0656 - J.League Winning Eleven Advance 2002(JP).zip
@@ -697,7 +697,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AJGE",0x22},//0683 - Tarzan - Return to the Jungle(UE).zip
 {"AW8E",0x22},//0684 - WWE - Road to WrestleMania X8(UE).zip
 {"A5AE",0x22},//0685 - Bionicle - Matoran Adventures(UE).zip
-{"A9DE",0x22},//0686 - Doom II(US).zip
+{"A9DE",0x21},//0686 - Doom II(US).zip
 {"A2SP",0x22},//0687 - Spyro 2 - Season of Flame(EU).zip
 {"AJZJ",0x11},//0688 - Bomberman Jetters - Densetsu no Bomberman(JP).zip
 {"AN9J",0x22},//0689 - Tales of the World - Narikiri Dungeon 2(JP).zip
@@ -734,7 +734,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AFVE",0x00},//0720 - Fairly Odd Parents!, The - Enter the Cleft(US).zip
 {"A7HE",0x22},//0721 - Harry Potter and the Chamber of Secrets(UE).zip
 {"AAWE",0x00},//0722 - Contra Advance - The Alien Wars EX(US).zip
-{"AFBE",0x22},//0723 - Frogger's Adventures 2 - The Lost Wand(US).zip
+{"AFBE",0x21},//0723 - Frogger's Adventures 2 - The Lost Wand(US).zip
 {"A63J",0x22},//0724 - Kawaii Pet Shop Monogatari 3(JP).zip
 {"ASGP",0x00},//0725 - Smuggler's Run(EU).zip
 {"AP5P",0x22},//0726 - Powerpuff Girls, The - Him and Seek(EU).zip
@@ -778,14 +778,14 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AEMJ",0x00},//0764 - Egg Mania(JP).zip
 {"AM4J",0x22},//0765 - Moto GP(JP).zip
 {"A8CJ",0x00},//0766 - Card Party(JP).zip
-{"AIPJ",0x22},//0767 - Silent Scope(JP).zip
+{"AIPJ",0x21},//0767 - Silent Scope(JP).zip
 {"AJ4P",0x00},//0768 - Earthworm Jim 2(EU).zip
 {"AJGF",0x22},//0769 - Tarzan - L'Appel de la Jungle(FR).zip
 {"AYCE",0x22},//0770 - Phantasy Star Collection(US).zip
 {"AYGE",0x21},//0771 - Gauntlet - Dark Legacy(US).zip
 {"AEYE",0x00},//0772 - Kim Possible - Revenge of Monkey Fist(US).zip
 {"ARME",0x22},//0773 - Minority Report - Everybody Runs(UE).zip
-{"AARE",0x22},//0774 - Altered Beast - Guardian of the Realms(US).zip
+{"AARE",0x21},//0774 - Altered Beast - Guardian of the Realms(US).zip
 {"A7KE",0x11},//0775 - Kirby - Nightmare in Dream Land(US).zip
 {"AZLE",0x22},//0776 - Legend of Zelda, The - A Link to the Past & Four Swords(US).zip
 {"AZQP",0x00},//0777 - Treasure Planet(EU).zip
@@ -946,7 +946,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AGGP",0x00},//0932 - Gremlins - Stripe vs. Gizmo(EU).zip
 {"AAUJ",0x11},//0933 - Shin Megami Tensei(JP).zip
 {"A55S",0x00},//0934 - Quiere ser Millonario(ES).zip
-{"ADUE",0x22},//0935 - Driver 2 Advance(US).zip
+{"ADUE",0x21},//0935 - Driver 2 Advance(US).zip
 {"AE3E",0x22},//0936 - Ed, Edd n Eddy - Jawbreakers!(US).zip
 {"ALUP",0x22},//0937 - Super Monkey Ball Jr.(EU).zip
 {"AUZE",0x00},//0938 - Santa Claus Saves the Earth(EU).zip
@@ -1024,7 +1024,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AI2P",0x00},//1010 - Iridion II(EU).zip
 {"AVYD",0x22},//1011 - Buffy - Im Bann der Damonen - Koenig Darkhuls Zorn(DE).zip
 {"AZWP",0x11},//1012 - WarioWare, Inc. - Minigame Mania(EU).zip
-{"A5NP",0x22},//1013 - Donkey Kong Country(EU).zip
+{"A5NP",0x21},//1013 - Donkey Kong Country(EU).zip
 {"AYPP",0x00},//1014 - Sega Arcade Gallery(EU).zip
 {"ABYY",0x00},//1015 - Britney's Dance Beat(EU).zip
 {"A55H",0x00},//1016 - Weekend Miljonairs(NL).zip
@@ -1053,7 +1053,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AP8D",0x22},//1039 - Scooby-Doo(DE).zip
 {"A2GP",0x22},//1040 - GT Advance 3 - Pro Concept Racing(EU).zip
 {"A3VE",0x33},//1041 - Sonic Pinball Party(US).zip
-{"AKXD",0x22},//1042 - Spider-Man(DE).zip
+{"AKXD",0x21},//1042 - Spider-Man(DE).zip
 {"AO4P",0x22},//1043 - Tom Clancy's Splinter Cell(EU).zip
 {"AFOP",0x00},//1044 - Fortress(EU).zip
 {"AWOP",0x22},//1045 - Wolfenstein 3-D(EU).zip
@@ -1065,8 +1065,8 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AFNJ",0x22},//1051 - Angel Collection - Mezase! Gakuen no Fashion Leader(JP).zip
 {"AWNJ",0x22},//1052 - Mahou no Pumpkin - Ann to Greg no Daibouken(JP).zip
 {"A3CP",0x22},//1053 - Crazy Taxi - Catch a Ride(EU).zip
-{"AFBP",0x22},//1054 - Frogger's Adventures 2 - The Lost Wand(EU).zip
-{"A5NE",0x22},//1055 - Donkey Kong Country(US).zip
+{"AFBP",0x21},//1054 - Frogger's Adventures 2 - The Lost Wand(EU).zip
+{"A5NE",0x21},//1055 - Donkey Kong Country(US).zip
 {"ALFP",0x22},//1056 - Dragon Ball Z - The Legacy of Goku II(EU).zip
 {"A3PP",0x00},//1057 - Sega Smash Pack(EU).zip
 {"AOMJ",0x22},//1058 - Disney Sports - Motocross(JP).zip
@@ -1098,7 +1098,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AVYE",0x22},//1084 - Buffy - The Vampire Slayer - Wrath of the Darkhul King(UE).zip
 {"ALFE",0x22},//1085 - Dragon Ball Z - The Legacy of Goku II(US).zip
 {"AQPD",0x00},//1086 - Disneys Prinzessinnen(DE).zip
-{"AFBJ",0x22},//1087 - Frogger - Mahou no Kuni no Daibouken(JP).zip
+{"AFBJ",0x21},//1087 - Frogger - Mahou no Kuni no Daibouken(JP).zip
 {"A8EJ",0x22},//1088 - Hachiemon(JP).zip
 {"BHCJ",0x22},//1089 - Hamster Monogatari Collection(JP).zip
 {"BKKJ",0x22},//1090 - Minna no Shiiku Series - Boku no Kabuto-Kuwagata(JP).zip
@@ -1126,7 +1126,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"A5GJ",0x11},//1112 - Dragon Drive - World D Break(JP).zip
 {"AU2J",0x33},//1113 - Shining Soul II(JP).zip
 {"AXVF",0x31},//1114 - Pokemon - Version Rubis(FR).zip
-{"AJ6J",0x22},//1115 - Aladdin(JP).zip
+{"AJ6J",0x21},//1115 - Aladdin(JP).zip
 {"A9CP",0x00},//1116 - CT Special Forces - Back to Hell(EU).zip
 {"AN8J",0x22},//1117 - Tales of Phantasia(JP).zip
 {"BPPJ",0x11},//1118 - Pokemon Pinball - Ruby & Sapphire(JP).zip
@@ -1164,7 +1164,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"ADBE",0x22},//1150 - Denki Blocks!(US).zip
 {"AUEJ",0x11},//1151 - Naruto - Konoha Senki(JP).zip
 {"BIOE",0x00},//1152 - Bionicle(US).zip
-{"BMME",0x22},//1153 - Scooby-Doo! - Mystery Mayhem(US).zip
+{"BMME",0x21},//1153 - Scooby-Doo! - Mystery Mayhem(US).zip
 {"BKZE",0x22},//1154 - Banjo-Kazooie - Grunty's Revenge(US).zip
 {"AW2P",0x32},//1155 - Advance Wars 2 - Black Hole Rising(EU).zip
 {"AGFD",0x32},//1156 - Golden Sun 2 - Die Vergessene Epoche(DE).zip
@@ -1239,10 +1239,10 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BTOE",0x22},//1226 - Tony Hawk's Underground(UE).zip
 {"BAAE",0x00},//1227 - Operation Armored Liberty(US).zip
 {"A62P",0x11},//1228 - Megaman Zero 2(EU).zip
-{"BFJE",0x22},//1229 - Frogger's Journey - The Forgotten Relic(US).zip
+{"BFJE",0x21},//1229 - Frogger's Journey - The Forgotten Relic(US).zip
 {"BTGE",0x22},//1230 - Top Gear Rally(US).zip
 {"BHPE",0x22},//1231 - Harry Potter - Quidditch World Cup(UE).zip
-{"BPYE",0x22},//1232 - Prince of Persia - The Sands of Time(US).zip
+{"BPYE",0x21},//1232 - Prince of Persia - The Sands of Time(US).zip
 {"BSQE",0x00},//1233 - SpongeBob SquarePants - Battle for Bikini Bottom(US).zip
 {"AZHP",0x00},//1234 - Hugo - Bukkazoom!(EU).zip
 {"AE7E",0x11},//1235 - Fire Emblem(US).zip
@@ -1262,7 +1262,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BTWE",0x22},//1249 - Tiger Woods PGA Tour 2004(UE).zip
 {"AVYF",0x22},//1250 - Buffy Contre les Vampires - La Colere de Darkhul(FR).zip
 {"BSXE",0x22},//1251 - SSX 3(UE).zip
-{"BPYP",0x22},//1252 - Prince of Persia - The Sands of Time(EU).zip
+{"BPYP",0x21},//1252 - Prince of Persia - The Sands of Time(EU).zip
 {"BEYP",0x22},//1253 - Beyblade V-Force - Ultimate Blader Jam(EU).zip
 {"A9KJ",0x22},//1254 - Slime Morimori Dragon Quest - Shougeki no Shippo Dan(JP).zip
 {"BMJJ",0x22},//1255 - Minna no Soft Series - Minna no Mahjong(JP).zip
@@ -1348,14 +1348,14 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BMEE",0x22},//1335 - Max Payne(US).zip
 {"BTTJ",0x22},//1336 - Tetris Advance(JP).zip
 {"BDRJ",0x22},//1337 - Ochaken no Heya(JP).zip
-{"BNSE",0x22},//1338 - Need for Speed - Underground(UE).zip
+{"BNSE",0x21},//1338 - Need for Speed - Underground(UE).zip
 {"BS5J",0x22},//1339 - Silvanian Family - Yousei no Stick to Fushigi no Ki - Marron-inu no Onna-no-ko(JP).zip
 {"BS4J",0x22},//1340 - Simple 2960 Tomodachi Series Vol. 4 - The Trump - Minna de Asoberu 12 Shurui no Trump Game(JP).zip
 {"BWMJ",0x22},//1341 - WanWan Meitantei(JP).zip
 {"BAMJ",0x11},//1342 - Ashita no Joe - Makka ni Moeagare!(JP).zip
 {"A5CE",0x22},//1343 - Sim City 2000(US).zip
 {"ALRP",0x22},//1344 - LEGO Racers 2(EU).zip
-{"AARP",0x22},//1345 - Altered Beast - Guardian of the Realms(EU).zip
+{"AARP",0x21},//1345 - Altered Beast - Guardian of the Realms(EU).zip
 {"ATKP",0x22},//1346 - Tekken Advance(EU).zip
 {"BMOJ",0x11},//1347 - Minna no Ouji-sama(JP).zip
 {"AGEE",0x00},//1348 - Gekido Advance - Kintaro's Revenge(US).zip
@@ -1373,7 +1373,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BPRJ",0x31},//1360 - Pocket Monsters - FireRed(JP).zip
 {"AVZP",0x22},//1361 - Super Bubble Pop(EU).zip
 {"BPGJ",0x31},//1362 - Pocket Monsters - LeafGreen(JP).zip
-{"BMMP",0x22},//1363 - Scooby-Doo! - Mystery Mayhem(EU).zip
+{"BMMP",0x21},//1363 - Scooby-Doo! - Mystery Mayhem(EU).zip
 {"AY7P",0x11},//1364 - Yu-Gi-Oh! The Sacred Cards(EU).zip
 {"BBRX",0x22},//1365 - Brother Bear(EU).zip
 {"BY3J",0x11},//1366 - Yu-Gi-Oh! Duel Monsters Expert 3(JP).zip
@@ -1419,7 +1419,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AU2P",0x33},//1407 - Shining Soul II(EU).zip
 {"BSLP",0x22},//1408 - Tom Clancy's Splinter Cell - Pandora Tomorrow(EU).zip
 {"B08J",0x22},//1409 - One Piece - Going Baseball(JP).zip
-{"BADP",0x22},//1410 - Aladdin(EU).zip
+{"BADP",0x21},//1410 - Aladdin(EU).zip
 {"BIDP",0x00},//1411 - Pop Idol(EU).zip
 {"AWUP",0x22},//1412 - Sabre Wulf(EU).zip
 {"BJUP",0x22},//1413 - Tak and the Power of Juju(EU).zip
@@ -1588,7 +1588,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BWFJ",0x11},//1576 - Wagamama Fairy Mirumo de Pon! - Yume no Kakera(JP).zip
 {"B85P",0x11},//1577 - Hamtaro - Ham-Ham Games(EU).zip
 {"MTME",0x00},//1578 - Game Boy Advance Video - Teenage Mutant Ninja Turtles - Volume 1(US).zip
-{"A9DP",0x22},//1579 - Doom II(EU).zip
+{"A9DP",0x21},//1579 - Doom II(EU).zip
 {"BKBJ",0x11},//1580 - Konjiki no Gashbell!! - Makai no Bookmark(JP).zip
 {"A3NJ",0x11},//1581 - Monster Summoner(JP).zip
 {"MYGE",0x00},//1582 - Game Boy Advance Video - Yu-Gi-Oh! Yugi vs. Joey - Volume 1(US).zip
@@ -1781,11 +1781,11 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BHEE",0x00},//1772 - Hot Wheels - Stunt Track Challenge(UE).zip
 {"BG5E",0x22},//1773 - Cabela's Big Game Hunter - 2005 Adventures(UE).zip
 {"BP9E",0x00},//1774 - World Championship Poker(US).zip
-{"BNFE",0x22},//1775 - Need for Speed - Underground 2(UE).zip
+{"BNFE",0x21},//1775 - Need for Speed - Underground 2(UE).zip
 {"B2DE",0x22},//1776 - Donkey Kong Country 2(US).zip
 {"BM5P",0x33},//1777 - Mario vs. Donkey Kong(EU).zip
 {"BKHP",0x22},//1778 - Kill Switch(EU).zip
-{"ADHP",0x22},//1779 - Defender of the Crown(EU).zip
+{"ADHP",0x21},//1779 - Defender of the Crown(EU).zip
 {"BT2P",0x22},//1780 - Teenage Mutant Ninja Turtles 2 - Battle Nexus(EU).zip
 {"BB2E",0x22},//1781 - Beyblade G-Revolution(US).zip
 {"BDVJ",0x22},//1782 - Dragon Ball - Advanced Adventure(JP).zip
@@ -1794,7 +1794,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"ACTY",0x22},//1785 - Creatures(EU).zip
 {"BFUE",0x22},//1786 - Fear Factor - Unleashed(US).zip
 {"BARP",0x22},//1787 - 2 Games in 1 - GT Advance 3 + Moto GP(EU).zip
-{"BFJJ",0x22},//1788 - Frogger - Kodaibunmei no Nazo(JP).zip
+{"BFJJ",0x21},//1788 - Frogger - Kodaibunmei no Nazo(JP).zip
 {"BPAE",0x22},//1789 - Pac-Man World(US).zip
 {"BDZD",0x00},//1790 - 2 Games in 1 - Monster AG, Die + Findet Nemo(DE).zip
 {"A9GE",0x00},//1791 - Stadium Games(US).zip
@@ -1878,7 +1878,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AH9J",0x22},//1869 - Hobbit no Bouken - Lord of the Rings - Hajimari no Monogatari(JP).zip
 {"BOVJ",0x22},//1870 - Bouken-Ou Beet - Busters Road(JP).zip
 {"BLYD",0x22},//1871 - Lemony Snicket - Ratselhafte Ereignisse(DE).zip
-{"BADE",0x22},//1872 - Aladdin(US).zip
+{"BADE",0x21},//1872 - Aladdin(US).zip
 {"BT3J",0x22},//1873 - Tantei Jinguuji Saburou - Shiroi Kage no Syoujyo(JP).zip
 {"B3QJ",0x33},//1874 - Sangokushi - Koumeiden(JP).zip
 {"B3EJ",0x33},//1875 - Sangokushi - Eiketsuden(JP).zip
@@ -1925,7 +1925,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BDSP",0x22},//1916 - Digimon - Battle Spirit 2(EU).zip
 {"AXVI",0x31},//1917 - Pokemon - Versione Rubino(IT).zip
 {"AXPI",0x31},//1918 - Pokemon - Versione Zaffiro(IT).zip
-{"AIPP",0x22},//1919 - Silent Scope(EU).zip
+{"AIPP",0x21},//1919 - Silent Scope(EU).zip
 {"BRAE",0x22},//1920 - Racing Gears Advance(US).zip
 {"BSUI",0x22},//1921 - Shark Story(IT).zip
 {"AAOP",0x22},//1922 - Aero the Acro-Bat - Rascal Rival Revenge(EU).zip
@@ -1959,7 +1959,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"B36J",0x11},//1950 - Shin Sangoku Musou Advance(JP).zip
 {"BNYJ",0x22},//1951 - Nyan Nyan Nyanko no Nyan Collection(JP).zip
 {"B8ME",0x22},//1952 - Mario Party Advance(US).zip
-{"BLWE",0x22},//1953 - LEGO Star Wars - The Video Game(UE).zip
+{"BLWE",0x21},//1953 - LEGO Star Wars - The Video Game(UE).zip
 {"B9TJ",0x22},//1954 - Shark Tale(JP).zip
 {"BLDP",0x22},//1955 - 2 Games in 1 - Disney Princess + Lizzie McGuire(EU).zip
 {"BDZI",0x00},//1956 - 2 Games in 1 - Monsters & Co. + Alla Ricerca di Nemo(IT).zip
@@ -2031,7 +2031,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"KYGE",0x22},//2022 - Yoshi Topsy-Turvy(US).zip
 {"BDVP",0x22},//2023 - Dragon Ball - Advanced Adventure(EU).zip
 {"BNGJ",0x11},//2024 - Mahou Sensei Negima! - Private Lesson Damedesuu Toshokanjima(JP).zip
-{"AFRP",0x22},//2025 - Frogger's Adventures - Temple of the Frog(EU).zip
+{"AFRP",0x21},//2025 - Frogger's Adventures - Temple of the Frog(EU).zip
 {"B4RJ",0x22},//2026 - Shikakui Atama wo Marukusuru Advance - Kokugo Sansu Rika Shakai(JP).zip
 {"BPDJ",0x11},//2027 - Bouken Yuuki Pluster World - Densetsu no Plust Gate EX(JP).zip
 {"B4KJ",0x22},//2028 - Shikakui Atama wo Marukusuru Advance - Kanji Keisan(JP).zip
@@ -2058,7 +2058,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BO5J",0x22},//2049 - Oshare Princess 5(JP).zip
 {"BF4X",0x22},//2050 - Fantastic 4(EU).zip
 {"B8FP",0x22},//2051 - Herbie - Fully Loaded(EU).zip
-{"BLWJ",0x22},//2052 - LEGO Star Wars - The Video Game(JP).zip
+{"BLWJ",0x21},//2052 - LEGO Star Wars - The Video Game(JP).zip
 {"B5AP",0x22},//2053 - 2 Games in 1 - Spyro - Season of Ice + Crash Bandicoot 2 - N-Tranced(EU).zip
 {"B52P",0x22},//2054 - 2 Games in 1 - Spyro 2 - Season of Flame + Crash Nitro Kart(EU).zip
 {"B36E",0x11},//2055 - Dynasty Warriors Advance(US).zip
@@ -2162,7 +2162,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BHZE",0x00},//2153 - 2 Games in 1 - Hot Wheels - Velocity X + Hot Wheels - World Race(US).zip
 {"V49J",0x11},//2154 - Screw Breaker - Goushin Dorirurero(JP).zip
 {"BBOE",0x00},//2155 - Berenstain Bears, The - Spooky Old Tree(US).zip
-{"BULE",0x22},//2156 - Ultimate Spider-Man(US).zip
+{"BULE",0x21},//2156 - Ultimate Spider-Man(US).zip
 {"BONE",0x22},//2157 - One Piece(US).zip
 {"BF6E",0x22},//2158 - FIFA 06(UE).zip
 {"BBXD",0x00},//2159 - Bibi Blocksberg - Der Magische Hexenkreis(DE).zip
@@ -2178,7 +2178,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BEVE",0x22},//2170 - Ever Girl(US).zip
 {"B6FP",0x00},//2171 - Chicken Shoot(EU).zip
 {"B3RP",0x22},//2172 - Driver 3(EU).zip
-{"BULX",0x22},//2173 - Ultimate Spider-Man(EU).zip
+{"BULX",0x21},//2173 - Ultimate Spider-Man(EU).zip
 {"BIIJ",0x33},//2174 - Tsuukin Hitofude(JP).zip
 {"BYGJ",0x11},//2175 - Yu-Gi-Oh! Duel Monsters GX - Mezase Duel King!(JP).zip
 {"BBLE",0x22},//2176 - Teen Titans(US).zip
@@ -2219,12 +2219,12 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BNUE",0x00},//2211 - Nicktoons Unite!(US).zip
 {"B4DE",0x00},//2212 - Sky Dancers - They Magically Fly!(US).zip
 {"BZPP",0x22},//2213 - Dr. Mario & Puzzle League(EU).zip
-{"BDQP",0x22},//2214 - Donkey Kong Country 3(EU).zip
+{"BDQP",0x21},//2214 - Donkey Kong Country 3(EU).zip
 {"BE8P",0x11},//2215 - Fire Emblem - The Sacred Stones(EU).zip
 {"B69P",0x00},//2217 - Gauntlet - Rampart(EU).zip
 {"BW5P",0x33},//2218 - 2 Games in 1 - Sonic Pinball Party + Sonic Advance(EU).zip
 {"B63E",0x22},//2219 - Big Mutha Truckers(US).zip
-{"BDQE",0x22},//2220 - Donkey Kong Country 3(US).zip
+{"BDQE",0x21},//2220 - Donkey Kong Country 3(US).zip
 {"BTVE",0x22},//2221 - Ty the Tasmanian Tiger - Night of the Quinkan(US).zip
 {"BHGP",0x22},//2222 - Gunstar Future Heroes(EU).zip
 {"BH8E",0x23},//2223 - Harry Potter and the Goblet of Fire(UE).zip
@@ -2273,7 +2273,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BD7E",0x22},//2267 - Proud Family, The(US).zip
 {"BLOP",0x22},//2268 - Land Before Time, The - Into the Mysterious Beyond(EU).zip
 {"B4LJ",0x22},//2269 - Sugar Sugar Rune - Heart Gaippai! Moegi Gakuen(JP).zip
-{"BDQJ",0x22},//2270 - Super Donkey Kong Country 3(JP).zip
+{"BDQJ",0x21},//2270 - Super Donkey Kong Country 3(JP).zip
 {"BUDJ",0x22},//2271 - Konjiki no Gashbell!! Yuujou no Zakeru Dream Tag Tournament(JP).zip
 {"BTME",0x11},//2272 - Mario Tennis Power Tour(US).zip
 {"B3CJ",0x23},//2273 - Summon Night - Craft Sword Monogatari Hajimari no Ishi(JP).zip
@@ -2425,7 +2425,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BHOP",0x00},//2419 - Hardcore Pool(EU).zip
 {"BRWP",0x00},//2420 - Racing Fever(EU).zip
 {"B53E",0x23},//2421 - 2 Games in 1 - Spyro Orange - The Cortex Conspiracy + Crash Bandicoot Purple - Ripto's Rampage(US).zip
-{"BULP",0x22},//2422 - Ultimate Spider-Man(EU).zip
+{"BULP",0x21},//2422 - Ultimate Spider-Man(EU).zip
 {"BCAE",0x22},//2423 - Cars(UE).zip
 {"BBVE",0x22},//2424 - Babar to the Rescue(US).zip
 {"BH9P",0x22},//2425 - Tony Hawk's American Sk8land(EU).zip
@@ -2482,11 +2482,11 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BYVE",0x11},//2476 - 2 Games in 1 - Yu-Gi-Oh! Destiny Board Traveler + Yu-Gi-Oh! Dungeon Dice Monsters(EU).zip
 {"BCAI",0x22},//2477 - Cars(IT).zip
 {"AVSP",0x33},//2478 - Sword of Mana(EU).zip
-{"BL7E",0x22},//2479 - LEGO Star Wars II - The Original Trilogy(US).zip
+{"BL7E",0x21},//2479 - LEGO Star Wars II - The Original Trilogy(US).zip
 {"BLPI",0x22},//2480 - 2 Games in 1 - Disney Principesse + Re Leone, Il(IT).zip
 {"BEIE",0x00},//2481 - Little Einsteins(US).zip
 {"BCQE",0x22},//2482 - Cheetah Girls, The(US).zip
-{"BL7P",0x22},//2483 - LEGO Star Wars II - The Original Trilogy(EU).zip
+{"BL7P",0x21},//2483 - LEGO Star Wars II - The Original Trilogy(EU).zip
 {"BOAE",0x22},//2484 - Open Season(US).zip
 {"B24E",0x31},//2485 - Pokemon Mystery Dungeon - Red Rescue Team(US).zip
 {"BBYX",0x22},//2486 - Barnyard(EU).zip
@@ -2563,7 +2563,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BRLP",0x22},//2558 - Rebelstar - Tactical Command(EU).zip
 {"BJKE",0x22},//2559 - Juka and the Monophonic Menace(US).zip
 {"BHVE",0x22},//2560 - Scurge - Hive(US).zip
-{"BL8P",0x22},//2561 - Tomb Raider - Legend(EU).zip
+{"BL8P",0x21},//2561 - Tomb Raider - Legend(EU).zip
 {"BQ4P",0x22},//2562 - SpongeBob SquarePants - Creature from the Krusty Krab(EU).zip
 {"BXSE",0x22},//2563 - Tony Hawk's Downhill Jam(US).zip
 {"BZ5E",0x11},//2564 - Final Fantasy V Advance(US).zip
@@ -2583,7 +2583,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BXSP",0x22},//2578 - Tony Hawk's Downhill Jam(EU).zip
 {"BIHP",0x22},//2579 - Bionicle Heroes(EU).zip
 {"B2RE",0x33},//2580 - Super Robot Taisen - Original Generation 2(US).zip
-{"BIJE",0x22},//2581 - Sonic the Hedgehog - Genesis(US).zip
+{"BIJE",0x21},//2581 - Sonic the Hedgehog - Genesis(US).zip
 {"BWVE",0x22},//2582 - Winx Club - Quest for the Codex(US).zip
 {"AH8P",0x00},//2583 - Hot Wheels - Velocity X(EU).zip
 {"B4OX",0x33},//2584 - Sims 2, The - Pets(EU).zip
@@ -2602,7 +2602,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BT7E",0x00},//2597 - Tonka - On the Job(US).zip
 {"BYUE",0x23},//2598 - Yggdra Union - We'll Never Fight Alone(US).zip
 {"BZ6J",0x11},//2599 - Final Fantasy VI Advance(JP).zip
-{"BL8E",0x22},//2600 - Tomb Raider - Legend(US).zip
+{"BL8E",0x21},//2600 - Tomb Raider - Legend(US).zip
 {"BL4E",0x33},//2601 - Lizzie McGuire 2 - Lizzie Diaries Special Edition(US).zip
 {"A9ME",0x11},//2602 - Motoracer Advance(US).zip
 {"BDZE",0x00},//2603 - 2 Games in 1 - Monsters, Inc. + Finding Nemo(US).zip
@@ -2732,18 +2732,18 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BZ5P",0x11},//2727 - Final Fantasy V Advance(EU).zip
 {"BQLP",0x00},//2728 - March of the Penguins(EU).zip
 {"MCNF",0x00},//2729 - Game Boy Advance Video - Cartoon Network Collection - Edition Platinum(FR).zip
-{"BI3D",0x22},//2730 - Spider-Man 3(DE).zip
+{"BI3D",0x21},//2730 - Spider-Man 3(DE).zip
 {"BROP",0x00},//2731 - Postman Pat and the Greendale Rocket(EU).zip
-{"BI3E",0x22},//2732 - Spider-Man 3(US).zip
-{"BI3P",0x22},//2733 - Spider-Man 3(EU).zip
-{"BI3S",0x22},//2734 - Spider-Man 3(ES).zip
+{"BI3E",0x21},//2732 - Spider-Man 3(US).zip
+{"BI3P",0x21},//2733 - Spider-Man 3(EU).zip
+{"BI3S",0x21},//2734 - Spider-Man 3(ES).zip
 {"BEME",0x00},//2735 - M&M's Break' Em(US).zip
 {"BCAX",0x22},//2736 - Cars(EU).zip
 {"BQTX",0x22},//2737 - Mijn Dierenpension(NL).zip
 {"BQVX",0x22},//2738 - Mijn Dierenpraktijk(NL).zip
 {"BPVY",0x22},//2739 - Paard & Pony - Mijn Manege(NL).zip
 {"BYPY",0x22},//2740 - Paard & Pony - Paard in Galop!(NL).zip
-{"BI3I",0x22},//2741 - Spider-Man 3(IT).zip
+{"BI3I",0x21},//2741 - Spider-Man 3(IT).zip
 {"B3HE",0x22},//2742 - Shrek the Third(US).zip
 {"B2YE",0x00},//2743 - 2K Sports - Major League Baseball 2K7(US).zip
 {"BNVP",0x22},//2744 - SpongeBob SquarePants and Friends - Battle for Volcano Island(EU).zip
@@ -2757,7 +2757,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BW8P",0x33},//2752 - 2 Games in 1 - Sonic Pinball Party + Columns Crown(EU).zip
 {"BZ6P",0x11},//2753 - Final Fantasy VI Advance(EU).zip
 {"BIMX",0x22},//2754 - Dogz 2(EU).zip
-{"BI3F",0x22},//2755 - Spider-Man 3(FR).zip
+{"BI3F",0x21},//2755 - Spider-Man 3(FR).zip
 {"BNLE",0x00},//2756 - Ratatouille(US).zip
 {"BHUE",0x22},//2757 - Horsez(US).zip
 {"B82X",0x22},//2758 - Dogz(FR).zip
@@ -2770,7 +2770,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"AFZC",0x11},//2765 - Jisu F-Zero Weilai Saiche(CN).zip
 {"BNLX",0x00},//2766 - Ratatouille(EU).zip
 {"BXUX",0x22},//2767 - Surf's Up(EU).zip
-{"BQCE",0x22},//2768 - Crash of the Titans(US).zip
+{"BQCE",0x21},//2768 - Crash of the Titans(US).zip
 {"BU7E",0x23},//2769 - Legend of Spyro, The - The Eternal Night(US).zip
 {"BB5E",0x00},//2770 - Arctic Tale(US).zip
 {"BBUE",0x00},//2771 - Bratz - The Movie(US).zip
@@ -2783,7 +2783,7 @@ constexpr SAVE_MODE_SECT saveMODE_table[] = {
 {"BBNE",0x22},//2778 - Barbie as the Island Princess(US).zip
 {"BBUD",0x00},//2779 - Bratz - The Movie(DE).zip
 {"BWBP",0x22},//2780 - 2 Games in 1 - Disney Princess + Brother Bear(EU).zip
-{"BQCP",0x22},//2781 - Crash of the Titans(EU).zip
+{"BQCP",0x21},//2781 - Crash of the Titans(EU).zip
 {"BBUX",0x00},//2782 - Bratz - The Movie(EU).zip
 {"BNLP",0x00},//2783 - Ratatouille(EU).zip
 {"B54E",0x22},//2784 - 2 Games in 1 - Crash & Spyro Super Pack - Spyro - Season of Ice + Crash Bandicoot - The Huge Adventure(US).zip
