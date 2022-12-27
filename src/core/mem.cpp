@@ -106,31 +106,49 @@ inline auto write_array(u8* array, u32 mask, u32 addr, T v) -> void
 template<typename T>
 inline auto openbus(Gba& gba, const u32 addr) -> T
 {
-    log::print_warn(gba, log::Type::MEMORY, "openbus read: 0x%08X pipeline[0]: 0x%08X pipeline[1]: 0x%08X\n", addr, gba.cpu.pipeline[0], gba.cpu.pipeline[1]);
+    T value;
 
     if (addr <= 0x00003FFF)
     {
-        return gba.mem.bios_openbus_value;
+        if constexpr(std::is_same<T, u8>())
+        {
+            // selects byte to return
+            value = gba.mem.bios_openbus_value >> ((addr & 0x3) * 8);
+        }
+        else if constexpr(std::is_same<T, u16>())
+        {
+            // returns either upper or lower half
+            value = gba.mem.bios_openbus_value >> ((addr & 2) * 8);
+        }
+        else if constexpr(std::is_same<T, u32>())
+        {
+            value = gba.mem.bios_openbus_value;
+        }
     }
-
-    // the below isn't actually how you do open bus, but it'll do for now
-    switch (arm7tdmi::get_state(gba))
+    else
     {
-        case arm7tdmi::State::ARM:
-            return gba.cpu.pipeline[1];
+        // the below isn't actually how you do open bus, but it'll do for now
+        switch (arm7tdmi::get_state(gba))
+        {
+            case arm7tdmi::State::ARM:
+                value = gba.cpu.pipeline[1];
+                break;
 
-        case arm7tdmi::State::THUMB:
-            if (addr & 1)
-            {
-                return (gba.cpu.pipeline[1] << 16) | gba.cpu.pipeline[0];
-            }
-            else
-            {
-                return (gba.cpu.pipeline[0] << 16) | gba.cpu.pipeline[1];
-            }
+            case arm7tdmi::State::THUMB:
+                if (addr & 1)
+                {
+                    value = (gba.cpu.pipeline[1] << 16) | gba.cpu.pipeline[0];
+                }
+                else
+                {
+                    value = (gba.cpu.pipeline[0] << 16) | gba.cpu.pipeline[1];
+                }
+                break;
+        }
     }
 
-    std::unreachable();
+    log::print_warn(gba, log::Type::MEMORY, "openbus read: 0x%08X value: 0x%08X\n", addr, value);
+    return value;
 }
 
 template<typename T>
