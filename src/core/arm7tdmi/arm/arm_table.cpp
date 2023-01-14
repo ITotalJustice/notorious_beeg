@@ -19,6 +19,7 @@
 #include "log.hpp"
 #include <cassert>
 #include <array>
+#include <utility>
 
 namespace gba::arm7tdmi::arm {
 namespace {
@@ -192,8 +193,8 @@ consteval auto decoded_get_range(auto v)
     }
 }
 
-template <int i, int end>
-consteval auto fill_table(auto& table) -> void
+template<std::size_t i>
+consteval auto fill_table()
 {
     constexpr auto instruction = decode(i);
 
@@ -208,45 +209,45 @@ consteval auto fill_table(auto& table) -> void
             {
                 constexpr auto shift_type = static_cast<barrel::type>(decoded_get_range<5, 6>(i));
                 constexpr auto reg_shift = decoded_is_set<4>(i);
-                table[i] = data_processing_reg<S, Op, shift_type, reg_shift>;
+                return data_processing_reg<S, Op, shift_type, reg_shift>;
             }
             else // imm
             {
-                table[i] = data_processing_imm<S, Op>;
+                return data_processing_imm<S, Op>;
             }
         } break;
 
         case Instruction::msr: {
             constexpr auto I = decoded_is_set<25>(i); // 0=reg, 1=imm
             constexpr auto P = decoded_is_set<22>(i); // 0=cpsr, 1=spsr
-            table[i] = msr<I, P>;
+            return msr<I, P>;
         } break;
 
         case Instruction::mrs: {
             constexpr auto P = decoded_is_set<22>(i); // 0=cpsr, 1=spsr
-            table[i] = mrs<P>;
+            return mrs<P>;
         } break;
 
         case Instruction::multiply: {
             constexpr auto A = decoded_is_set<21>(i); // 0=mul, 1=mul and accumulate
             constexpr auto S = decoded_is_set<20>(i); // 0=no flags, 1=mod flags
-            table[i] = multiply<A, S>;
+            return multiply<A, S>;
         } break;
 
         case Instruction::multiply_long: {
             constexpr auto U = decoded_is_set<22>(i); // 0=unsigned, 1=signed
             constexpr auto A = decoded_is_set<21>(i); // 0=mull, 1=mlal and accumulate
             constexpr auto S = decoded_is_set<20>(i); // 0=no flags, 1=mod flags
-            table[i] = multiply_long<U, A, S>;
+            return multiply_long<U, A, S>;
         } break;
 
         case Instruction::single_data_swap: {
             constexpr auto B = decoded_is_set<22>(i); // 0=word, 1=byte
-            table[i] = single_data_swap<B>;
+            return single_data_swap<B>;
         } break;
 
         case Instruction::branch_and_exchange: {
-            table[i] = branch_and_exchange;
+            return branch_and_exchange;
         } break;
 
         case Instruction::halfword_data_transfer_register_offset: {
@@ -256,7 +257,7 @@ consteval auto fill_table(auto& table) -> void
             constexpr auto L = decoded_is_set<20>(i);
             constexpr auto S = decoded_is_set<6>(i);
             constexpr auto H = decoded_is_set<5>(i);
-            table[i] = halfword_data_transfer_register_offset<P, U, W, L, S, H>;
+            return halfword_data_transfer_register_offset<P, U, W, L, S, H>;
         } break;
 
         case Instruction::halfword_data_transfer_immediate_offset: {
@@ -266,7 +267,7 @@ consteval auto fill_table(auto& table) -> void
             constexpr auto L = decoded_is_set<20>(i);
             constexpr auto S = decoded_is_set<6>(i);
             constexpr auto H = decoded_is_set<5>(i);
-            table[i] = halfword_data_transfer_immediate_offset<P, U, W, L, S, H>;
+            return halfword_data_transfer_immediate_offset<P, U, W, L, S, H>;
         } break;
 
         case Instruction::single_data_transfer: {
@@ -279,18 +280,18 @@ consteval auto fill_table(auto& table) -> void
 
             if constexpr(I == 0) // imm
             {
-                table[i] = single_data_transfer_imm<P, U, L, B, W>;
+                return single_data_transfer_imm<P, U, L, B, W>;
             }
             else
             {
                 constexpr auto shift_type = static_cast<barrel::type>(decoded_get_range<5, 6>(i));
                 constexpr auto reg_shift = decoded_is_set<4>(i);
-                table[i] = single_data_transfer_reg<P, U, L, B, W, shift_type, reg_shift>;
+                return single_data_transfer_reg<P, U, L, B, W, shift_type, reg_shift>;
             }
         } break;
 
         case Instruction::undefined: {
-            table[i] = undefined;
+            return undefined;
         } break;
 
         case Instruction::block_data_transfer: {
@@ -299,50 +300,20 @@ consteval auto fill_table(auto& table) -> void
             constexpr auto S = decoded_is_set<22>(i);
             constexpr auto W = decoded_is_set<21>(i);
             constexpr auto L = decoded_is_set<20>(i); // 0=STM, 1=LDM
-            table[i] = block_data_transfer<P, U, S, W, L>;
+            return block_data_transfer<P, U, S, W, L>;
         } break;
 
         case Instruction::branch: {
             constexpr const auto L = decoded_is_set<24>(i);
-            table[i] = branch<L>;
+            return branch<L>;
         } break;
 
         case Instruction::software_interrupt: {
-            table[i] = software_interrupt;
+            return software_interrupt;
         } break;
     }
 
-    if constexpr(i < end)
-    {
-        fill_table<i + 1, end>(table);
-    }
-}
-
-[[nodiscard]]
-consteval auto generate_function_table()
-{
-    using func_type = void (*)(Gba&, u32);
-    std::array<func_type, 4096> table{};
-    table.fill(undefined);
-
-    fill_table<0x0000, 0x00FF>(table);
-    fill_table<0x0100, 0x01FF>(table);
-    fill_table<0x0200, 0x02FF>(table);
-    fill_table<0x0300, 0x03FF>(table);
-    fill_table<0x0400, 0x04FF>(table);
-    fill_table<0x0500, 0x05FF>(table);
-    fill_table<0x0600, 0x06FF>(table);
-    fill_table<0x0700, 0x07FF>(table);
-    fill_table<0x0800, 0x08FF>(table);
-    fill_table<0x0900, 0x09FF>(table);
-    fill_table<0x0A00, 0x0AFF>(table);
-    fill_table<0x0B00, 0x0BFF>(table);
-    fill_table<0x0C00, 0x0CFF>(table);
-    fill_table<0x0D00, 0x0DFF>(table);
-    fill_table<0x0E00, 0x0EFF>(table);
-    fill_table<0x0F00, 0x0FFF>(table);
-
-    return table;
+    return undefined;
 }
 
 [[nodiscard]]
@@ -360,7 +331,10 @@ inline auto fetch(Gba& gba)
 
 auto execute(Gba& gba) -> void
 {
-    static constexpr auto func_table = generate_function_table();
+    static constexpr auto func_table = []<std::size_t ...I>(std::index_sequence<I...>)
+    {
+        return std::array{fill_table<I>()...};
+    }(std::make_index_sequence<4096>());
 
     const auto opcode = fetch(gba);
     const auto cond = bit::get_range<28, 31>(opcode);

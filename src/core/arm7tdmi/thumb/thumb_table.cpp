@@ -26,6 +26,7 @@
 #include "log.hpp"
 #include <cassert>
 #include <array>
+#include <utility>
 
 namespace gba::arm7tdmi::thumb {
 namespace {
@@ -226,8 +227,8 @@ consteval auto decoded_get_range(auto v)
     return bit::get_range<new_start, new_end>(v);
 }
 
-template <int i, int end>
-consteval auto fill_table(auto& table) -> void
+template <std::size_t i>
+consteval auto fill_table()
 {
     constexpr auto instruction = decode(i);
 
@@ -235,127 +236,109 @@ consteval auto fill_table(auto& table) -> void
     {
         case Instruction::move_shifted_register: {
             constexpr auto Op = static_cast<barrel::type>(decoded_get_range<11, 12>(i));
-            table[i] = move_shifted_register<Op>;
+            return move_shifted_register<Op>;
         } break;
 
         case Instruction::add_subtract: {
             constexpr auto I = decoded_is_set<10>(i); // 0=reg, 1=imm
             constexpr auto Op = decoded_is_set<9>(i); // 0=ADD, 1=SUB
-            table[i] = add_subtract<I, Op>;
+            return add_subtract<I, Op>;
         } break;
 
         case Instruction::move_compare_add_subtract_immediate: {
             constexpr auto Op = decoded_get_range<11, 12>(i);
-            table[i] = move_compare_add_subtract_immediate<Op>;
+            return move_compare_add_subtract_immediate<Op>;
         } break;
 
         case Instruction::alu_operations: {
             constexpr auto Op = decoded_get_range<6, 9>(i);
-            table[i] = alu_operations<Op>;
+            return alu_operations<Op>;
         } break;
 
         case Instruction::hi_register_operations: {
             constexpr auto Op = decoded_get_range<8, 9>(i);
             constexpr auto H1 = decoded_is_set<7>(i) ? 8 : 0;
             constexpr auto H2 = decoded_is_set<6>(i) ? 8 : 0;
-            table[i] = hi_register_operations<Op, H1, H2>;
+            return hi_register_operations<Op, H1, H2>;
         } break;
 
         case Instruction::pc_relative_load: {
-            table[i] = pc_relative_load;
+            return pc_relative_load;
         } break;
 
         case Instruction::load_store_with_register_offset: {
             constexpr auto L = decoded_is_set<11>(i); // 0=STR, 1=LDR
             constexpr auto B = decoded_is_set<10>(i); // 0=word, 1=byte
-            table[i] = load_store_with_register_offset<L, B>;
+            return load_store_with_register_offset<L, B>;
         } break;
 
         case Instruction::load_store_sign_extended_byte_halfword: {
             constexpr auto H = decoded_is_set<11>(i); // 0=STR, 1=LDR
             constexpr auto S = decoded_is_set<10>(i); // 0=normal, 1=sign-extended
-            table[i] = load_store_sign_extended_byte_halfword<H, S>;
+            return load_store_sign_extended_byte_halfword<H, S>;
         } break;
 
         case Instruction::load_store_with_immediate_offset: {
             constexpr auto B = decoded_is_set<12>(i); // 0=word, 1=byte
             constexpr auto L = decoded_is_set<11>(i); // 0=STR, 1=LDR
-            table[i] = load_store_with_immediate_offset<B, L>;
+            return load_store_with_immediate_offset<B, L>;
         } break;
 
         case Instruction::load_store_halfword: {
             constexpr auto L = decoded_is_set<11>(i); // 0=STR, 1=LDR
-            table[i] = load_store_halfword<L>;
+            return load_store_halfword<L>;
         } break;
 
         case Instruction::sp_relative_load_store: {
             constexpr auto L = decoded_is_set<11>(i); // 0=STR, 1=LDR
-            table[i] = sp_relative_load_store<L>;
+            return sp_relative_load_store<L>;
         } break;
 
         case Instruction::load_address: {
             constexpr auto SP = decoded_is_set<11>(i); // 0=PC, 1=SP
-            table[i] = load_address<SP>;
+            return load_address<SP>;
         } break;
 
         case Instruction::add_offset_to_stack_pointer: {
             constexpr auto S = decoded_is_set<7>(i); // 0=unsigned, 1=signed
-            table[i] = add_offset_to_stack_pointer<S>;
+            return add_offset_to_stack_pointer<S>;
         } break;
 
         case Instruction::push_pop_registers: {
             constexpr auto L = decoded_is_set<11>(i); // 0=push, 1=pop
             constexpr auto R = decoded_is_set<8>(i); // 0=non, 1=store lr/load pc
-            table[i] = push_pop_registers<L, R>;
+            return push_pop_registers<L, R>;
         } break;
 
         case Instruction::multiple_load_store: {
             constexpr auto L = decoded_is_set<11>(i); // 0=store, 1=load
-            table[i] = multiple_load_store<L>;
+            return multiple_load_store<L>;
         } break;
 
         case Instruction::conditional_branch: {
-            table[i] = conditional_branch;
+            return conditional_branch;
         } break;
 
         case Instruction::software_interrupt: {
-            table[i] = software_interrupt;
+            return software_interrupt;
         } break;
 
         case Instruction::unconditional_branch: {
-            table[i] = unconditional_branch;
+            return unconditional_branch;
         } break;
 
         case Instruction::long_branch_with_link: {
             constexpr auto H = decoded_is_set<11>(i);
-            table[i] = long_branch_with_link<H>;
+            return long_branch_with_link<H>;
         } break;
 
         case Instruction::undefined: {
-            table[i] = undefined;
+            return undefined;
         } break;
     }
 
-    if constexpr(i < end)
-    {
-        fill_table<i + 1, end>(table);
-    }
+    return undefined;
 }
-
-[[nodiscard]]
-consteval auto generate_function_table()
-{
-    using func_type = void (*)(gba::Gba&, u16);
-    std::array<func_type, 1024> table{};
-    table.fill(undefined); // also handled in fill_table.
-
-    fill_table<0x0000, 0x00FF>(table);
-    fill_table<0x0100, 0x01FF>(table);
-    fill_table<0x0200, 0x02FF>(table);
-    fill_table<0x0300, 0x03FF>(table);
-
-    return table;
-};
 
 [[nodiscard]]
 auto fetch(Gba& gba)
@@ -372,7 +355,10 @@ auto fetch(Gba& gba)
 
 auto execute(Gba& gba) -> void
 {
-    static constexpr auto func_table = generate_function_table();
+    static constexpr auto func_table = []<std::size_t ...I>(std::index_sequence<I...>)
+    {
+        return std::array{fill_table<I>()...};
+    }(std::make_index_sequence<1024>());
 
     const auto opcode = fetch(gba);
     func_table[opcode >> 6](gba, opcode);

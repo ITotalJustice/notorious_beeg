@@ -217,12 +217,6 @@ auto run_gba(Gba& gba, u32 cycles)
         }
     }
 
-    #if INTERPRETER == INTERPRETER_GOTO
-    while (!gba.frame_end) [[likely]]
-    {
-        arm7tdmi::run(gba);
-    }
-    #else
     if (!gba.frame_end)
     {
         for (;;)
@@ -240,7 +234,6 @@ auto run_gba(Gba& gba, u32 cycles)
             }
         }
     }
-    #endif // INTERPRETER_GOTO
 }
 
 } // namespace

@@ -1,57 +1,46 @@
 # gba emu
 
-gba emulator witten in c++23.
+gb / gbc / gba emulator witten in c++23.
 
+|                          |                          |
+:-------------------------:|:-------------------------:
+![Img](assets/screenshots/poke_fr.png) | ![Img](assets/screenshots/poke_em.png)
+![Img](assets/screenshots/kirby.png) | ![Img](assets/screenshots/yugioh.png)
+![Img](assets/screenshots/poke_blue.png) | ![Img](assets/screenshots/ags.png)
+
+![Img](assets/screenshots/debug.png)
+
+
+notable features:
+- reasonably accurate gba emulation, most games should just work.
+- waitloop detection. can remove most idle loops which improves performance.
+- very fast gb/gbc emulation.
+- reasonably accurate gb/gbc emulation.
+- complete ezflash emulation, this is the only emulator with this feature.
+- emulation of most fat devices used in dkp libfat. this means you can access files from a virtual sd card with homebrew. i believe this is the only emulator that supports this.
 ---
 
-## table, switch, goto
+## building
 
-the arm7tdmi interptreter supports different "backends" for executing instructions.
+a c++23 compiler is needed (gcc12+ clang15+ msvc12+) and cmake.
 
-to select one of the backends, simple build with `-DINTERPRETER=INTERPRETER_X` where `X` is one of the following
-
-- INTERPRETER_TABLE
-- INTERPRETER_SWITCH `(default)`
-- INTERPRETER_GOTO
-
-for conveince, you can build with a cmake preset like so:
+### sdl2 vcpkg (simple frontend)
 
 ```sh
-cmake --preset sdl2-table
-cmake --build --preset sdl2-table
+cmake --preset sdl2-vcpkg
+cmake --build --preset sdl2-vcpkg
 ```
 
-Below are a few tests i tried using the various benchmark presets in `CMakePresets.json`. The fps is an average after running for 20s, accumulated after 3 runs.
+### imgui vcpkg (complex debugger frontend)
 
-### results (OpenLara.gba, gcc 12.2.1, LTO=OFF):
+```sh
+cmake --preset imgui-vcpkg
+cmake --build --preset imgui-vcpkg
+```
 
-| backend | speed | size | preset |
-|---|:---:|:---:|:---:|
-| `table` | 1080 fps | 442.6 KiB (453,184) | benchmark-table |
-| `switch` | 1120 fps | 414.5 KiB (424,432) | benchmark-switch |
-| `goto` | 1020 fps | 1.3 MiB (1,380,776) | benchmark-goto |
+you can checkout the rest of the presets in
 
-*NOTE: `Ofast` was slower than `O3` in both `table` and `switch` builds, but faster in `goto` build (Ofast=1146 fps, O3=1115 fps).*
-
-### results (OpenLara.gba, gcc 12.2.1, LTO=ON):
-
-| backend | speed | size | preset |
-|---|:---:|:---:|:---:|
-| `table` | 1060 fps | 442.0 KiB (452,600) | benchmark-table-lto |
-| `switch` | 1095 fps | 409.0 KiB (418,840) | benchmark-switch-lto |
-| `goto` | 985 fps | 1.3 MiB (1,368,784) | benchmark-goto-lto |
-
-*NOTE: unlike the non-lto builds, `O3` was always faster than `Ofast`.*
-
-### results (OpenLara.gba, clang 14.0.5, LTO=OFF):
-
-| backend | speed | size | preset |
-|---|:---:|:---:|:---:|
-| `table` | 1022 fps | 503.7 KiB (515,816) | benchmark-clang-table |
-| `switch` | 1065 fps | 489.6 KiB (501,320) | benchmark-clang-switch |
-| `goto` | 1010 fps | 860.9 KiB (881,568) | benchmark-clang-goto |
-
-*NOTE: lto wouldn't work for clang build for some reason, this is in an issue on my platform, not with my emulator / cmake.*
+there are a number of presets to help with building
 
 ---
 
@@ -82,6 +71,7 @@ list of stuff that i haven't yet implemented. for the most part, everything is d
 ### misc
 - correct openbus behaviour
 - correct rom access timings
+- lots of optimisations. ppu rendering is not optimised at all. dma can be further optimised. mem access can be better optimised for vram and bios access
 
 ---
 

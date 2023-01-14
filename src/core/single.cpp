@@ -29,17 +29,8 @@
     #include "backup/sram.cpp"
 
     #include "arm7tdmi/arm7tdmi.cpp"
-
-    #if INTERPRETER == INTERPRETER_TABLE
-        #include "arm7tdmi/arm/arm_table.cpp"
-        #include "arm7tdmi/thumb/thumb_table.cpp"
-    #elif INTERPRETER == INTERPRETER_SWITCH
-        #include "arm7tdmi/arm/arm_switch.cpp"
-        #include "arm7tdmi/thumb/thumb_switch.cpp"
-    #elif INTERPRETER == INTERPRETER_GOTO
-        #include "arm7tdmi/arm/arm_goto.cpp"
-        #include "arm7tdmi/thumb/thumb_goto.cpp"
-    #endif
+    #include "arm7tdmi/arm/arm_table.cpp"
+    #include "arm7tdmi/thumb/thumb_table.cpp"
 
     #include "fat/fat.cpp"
     #include "fat/mpcf.cpp"

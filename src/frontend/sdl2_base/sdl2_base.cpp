@@ -37,7 +37,7 @@ Sdl2Base::Sdl2Base(int argc, char** argv) : frontend::Base{argc, argv}
         std::printf("[SDL_INIT_TIMER] %s\n", SDL_GetError());
     }
 
-    window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+    window = SDL_CreateWindow("Notorious BEEG", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width*scale, height*scale, SDL_WINDOW_RESIZABLE);
     if (!window)
     {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", SDL_GetError(), nullptr);
@@ -378,7 +378,7 @@ auto Sdl2Base::run(double delta) -> void
     // ie, filedialog, then cap the max delta to something reasonable!
     // maybe keep track of deltas here to get an average?
     delta = std::min(delta, 1.333333);
-    auto cycles = gba::CYCLES_PER_FRAME * delta;
+    auto cycles = static_cast<double>(gba::CYCLES_PER_FRAME) * delta;
     if (emu_fast_forward)
     {
         cycles *= 2;

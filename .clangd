@@ -3,7 +3,9 @@ CompileFlags:
       # enable c++23 support
       -std=c++2b,
       # constexpr args need to be tweeked a bit
-      -fconstexpr-depth=1000000000, -fconstexpr-steps=1271242,
+      -fconstexpr-depth=1000000000,
+      -fconstexpr-steps=12712420,
+      -fbracket-depth=4096,
       # warning flags to be enabled
       -Wall,
       -Wextra,

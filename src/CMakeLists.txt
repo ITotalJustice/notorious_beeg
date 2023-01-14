@@ -79,6 +79,10 @@ list(APPEND clang_flags
     -Wold-style-cast
     -Wcovered-switch-default
 
+    -fconstexpr-depth=1000000000
+    -fconstexpr-steps=12712420
+    -fbracket-depth=4096
+
     # -fno-rtti
     -fno-exceptions
 

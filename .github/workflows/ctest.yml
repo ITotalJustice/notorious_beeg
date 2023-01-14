@@ -9,14 +9,14 @@ jobs:
       fail-fast: false
       matrix:
         # os: [windows-latest, ubuntu-latest, macos-latest]
-        os: [ubuntu-22.04]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
 
     - name: Install gcc-12 (ubuntu)
-      if: ${{ matrix.os == 'ubuntu-22.04' }}
+      if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/ppa -y
         sudo apt-get update
