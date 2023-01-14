@@ -10,6 +10,7 @@
 #include "scheduler.hpp"
 #include "log.hpp"
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <type_traits>
 #include <utility>
@@ -31,22 +32,6 @@ constexpr log::Type LOG_TYPE[4] =
     log::Type::SQUARE1,
     log::Type::WAVE,
     log::Type::NOISE,
-};
-
-constexpr scheduler::ID EVENTS[4] =
-{
-    scheduler::ID::APU_SQUARE0,
-    scheduler::ID::APU_SQUARE1,
-    scheduler::ID::APU_WAVE,
-    scheduler::ID::APU_NOISE,
-};
-
-constexpr scheduler::Callback CALLBACKS[4] =
-{
-    on_square0_event,
-    on_square1_event,
-    on_wave_event,
-    on_noise_event,
 };
 
 constexpr u8 PERIOD_TABLE[8] = { 8, 1, 2, 3, 4, 5, 6, 7 };
@@ -83,24 +68,31 @@ auto get_frame_sequencer_cycles(const Gba& gba) -> u16
     return 8192 * 4; // 32768
 }
 
-template<typename T> [[nodiscard]]
-constexpr auto get_channel_from_type(Gba& gba) -> auto&
+template<typename T>
+void channel_sync(Gba& gba, T& channel)
 {
-    if constexpr(std::is_same<T, Square0>())
+    if (!channel.is_enabled(gba))
     {
-        return APU.square0;
+        return;
     }
-    if constexpr(std::is_same<T, Square1>())
+
+    const auto freq = channel.get_freq(gba);
+    if (freq < 8)
     {
-        return APU.square1;
+        return;
     }
-    if constexpr(std::is_same<T, Wave>())
+
+    const auto new_timestamp = gba.scheduler.get_ticks();
+    const auto cycles = new_timestamp - channel.timestamp;
+    channel.timestamp = new_timestamp;
+    channel.counter += cycles;
+
+    // lets just hope the compiler is smart enough to optimise
+    // this loop away :)
+    while (channel.counter >= freq)
     {
-        return APU.wave;
-    }
-    if constexpr(std::is_same<T, Noise>())
-    {
-        return APU.noise;
+        channel.tick(gba);
+        channel.counter -= freq;
     }
 }
 
@@ -449,64 +441,8 @@ auto apu_on_disabled(Gba& gba) -> void
     // gba.apu.wave = {};
     gba.apu.noise = {};
 
-    // these events are no longer ticked
-    gba.delta.remove(scheduler::ID::APU_SQUARE0);
-    gba.scheduler.remove(scheduler::ID::APU_SQUARE0);
-    gba.delta.remove(scheduler::ID::APU_SQUARE1);
-    gba.scheduler.remove(scheduler::ID::APU_SQUARE1);
-    gba.delta.remove(scheduler::ID::APU_WAVE);
-    gba.scheduler.remove(scheduler::ID::APU_WAVE);
-    gba.delta.remove(scheduler::ID::APU_NOISE);
-    gba.scheduler.remove(scheduler::ID::APU_NOISE);
     gba.delta.remove(scheduler::ID::APU_FRAME_SEQUENCER);
     gba.scheduler.remove(scheduler::ID::APU_FRAME_SEQUENCER);
-}
-
-template<typename T>
-auto clock2(Gba& gba, T& channel)
-{
-    if constexpr(std::is_same<T, Wave>())
-    {
-        channel.advance_position_counter(gba);
-    }
-    else if constexpr(std::is_same<T, Noise>())
-    {
-        if (channel.clock_shift != 14 && channel.clock_shift != 15)
-        {
-            channel.clock_lfsr(gba);
-        }
-    }
-    else if constexpr(std::is_same<T, Square0>() || std::is_same<T, Square1>())
-    {
-        channel.duty_index = (channel.duty_index + 1) % 8;
-    }
-}
-
-template<typename T>
-auto on_channel_event(Gba& gba) -> void
-{
-    auto& channel = get_channel_from_type<T>(gba);
-    const auto freq = channel.get_freq(gba);
-
-    // set to 1 to enable skipping of very high freq
-    #if 0
-    if constexpr(std::is_same<T, Square0>() || std::is_same<T, Square1>())
-    {
-        if (freq >= 8)
-        {
-            clock2<T>(gba, channel);
-        }
-    }
-    else
-    #endif
-    {
-        clock2<T>(gba, channel);
-    }
-
-    if (freq > 0)
-    {
-        gba.scheduler.add(EVENTS[channel.num], gba.delta.get(EVENTS[channel.num], freq), CALLBACKS[channel.num], &gba);
-    }
 }
 
 template<typename T>
@@ -551,9 +487,10 @@ auto trigger(Gba& gba, T& channel)
         channel.disable(gba);
     }
 
-    if (channel.is_enabled(gba) && channel.timer > 0) [[likely]]
+    if (channel.is_enabled(gba))
     {
-        gba.scheduler.add(EVENTS[channel.num], channel.timer, CALLBACKS[channel.num], &gba);
+        channel.counter = 0;
+        channel.timestamp = gba.scheduler.get_ticks();
     }
 }
 
@@ -765,8 +702,8 @@ auto Base<Number>::disable(Gba& gba) -> void
         log::print_info(gba, LOG_TYPE[Number], "disabling channel\n");
     }
     REG_SOUNDCNT_X = bit::unset<num>(REG_SOUNDCNT_X);
-    gba.delta.remove(EVENTS[Number]);
-    gba.scheduler.remove(EVENTS[Number]);
+    counter = 0;
+    timer = 0;
 }
 
 template<u8 Number>
@@ -932,34 +869,6 @@ template<u8 Number>
 auto SquareBase<Number>::is_dac_enabled() const -> bool
 {
     return env.starting_vol != 0 || env.mode != 0;
-}
-
-auto on_square0_event(void* user, s32 id, s32 late) -> void
-{
-    auto& gba = *static_cast<Gba*>(user);
-    gba.delta.add(id, late);
-    on_channel_event<Square0>(gba);
-}
-
-auto on_square1_event(void* user, s32 id, s32 late) -> void
-{
-    auto& gba = *static_cast<Gba*>(user);
-    gba.delta.add(id, late);
-    on_channel_event<Square1>(gba);
-}
-
-auto on_wave_event(void* user, s32 id, s32 late) -> void
-{
-    auto& gba = *static_cast<Gba*>(user);
-    gba.delta.add(id, late);
-    on_channel_event<Wave>(gba);
-}
-
-auto on_noise_event(void* user, s32 id, s32 late) -> void
-{
-    auto& gba = *static_cast<Gba*>(user);
-    gba.delta.add(id, late);
-    on_channel_event<Noise>(gba);
 }
 
 auto Wave::sample(Gba& gba) const -> u8
@@ -1267,6 +1176,25 @@ auto read_WAVE(Gba& gba, u8 addr) -> u8
     }
 }
 
+template<u8 Number>
+void SquareBase<Number>::tick(Gba& gba)
+{
+    duty_index = (duty_index + 1) % 8;
+}
+
+void Wave::tick(Gba& gba)
+{
+    advance_position_counter(gba);
+}
+
+void Noise::tick(Gba& gba)
+{
+    if (clock_shift != 14 && clock_shift != 15)
+    {
+        clock_lfsr(gba);
+    }
+}
+
 auto reset(Gba& gba, bool skip_bios) -> void
 {
     gba.apu = {};
@@ -1277,6 +1205,11 @@ auto reset(Gba& gba, bool skip_bios) -> void
     // todo: reset all apu regs properly if skipping bios
     APU.fifo[0].reset();
     APU.fifo[1].reset();
+
+    APU.square0.timestamp = gba.scheduler.get_ticks();
+    APU.square1.timestamp = gba.scheduler.get_ticks();
+    APU.wave.timestamp = gba.scheduler.get_ticks();
+    APU.noise.timestamp = gba.scheduler.get_ticks();
 
     if (gba.sample_rate)
     {
@@ -1397,133 +1330,44 @@ static auto push_sample(Gba& gba, s16 left, s16 right)
     }
 }
 
-static constexpr auto scale_psg_u8_to_s16(u8 input) -> s16
-{
-    // -32768, +32767
-    input *= 1.06;
-    return bit::scale<7, 16, s16>(input) ^ 0x8000;
-}
-
-static void lowpass(Gba& gba, auto& sample_left, auto& sample_right, float d = 0.5, int filter_level = 1)
-{
-    static s16 sample[3][2]{};
-    s16 output_left;
-    s16 output_right;
-
-    if (filter_level == 1)
-    {
-        output_left = (d*sample[0][0]) + ((1-d)*sample_left);
-        output_right = (d*sample[0][1]) + ((1-d)*sample_right);
-
-        sample_left = sample[0][0] = output_left;
-        sample_right = sample[0][1] = output_right;
-    }
-    else if (filter_level == 2)
-    {
-        const auto e = 2*d;
-        const auto f = -d*d;
-
-        output_left = (e*sample[0][0]) + (f*sample[1][0]) + ((1-e-f)*sample_left);
-        output_right = (e*sample[0][1]) + (f*sample[1][1]) + ((1-e-f)*sample_right);
-
-        sample_left = output_left;
-        sample_right = output_right;
-
-        sample[1][0] = sample[0][0];
-        sample[0][0] = output_left;
-
-        sample[1][1] = sample[0][1];
-        sample[0][1] = output_right;
-    }
-    else if (filter_level == 3)
-    {
-        const auto e = 3*d;
-        const auto f = -3*d*d;
-        const auto g = d*d*d;
-
-        output_left = (e*sample[0][0]) + (f*sample[1][0]) + ((g*sample[2][0])) + ((1-e-f-g)*sample_left);
-        output_right = (e*sample[0][1]) + (f*sample[1][1]) + ((g*sample[2][1])) + ((1-e-f-g)*sample_right);
-
-        sample_left = output_left;
-        sample_right = output_right;
-
-        sample[2][0] = sample[1][0];
-        sample[1][0] = sample[0][0];
-        sample[0][0] = output_left;
-
-        sample[2][1] = sample[1][1];
-        sample[1][1] = sample[0][1];
-        sample[0][1] = output_right;
-    }
-}
-
-#if 1
 static auto sample_gb(Gba& gba)
 {
-    s32 sample_left = 0;
-    s32 sample_right = 0;
+    static constexpr auto vol_table = []()
+    {
+        std::array<s16, 121> array;
+        for (size_t v = 0; v < array.size(); v++)
+        {
+            array[v] = (v * (0xFFFFU / 4U)) / 0x7FU;
+        }
+        return array;
+    }();
+
+    s16 sample_left = 0;
+    s16 sample_right = 0;
 
     const auto left_volume = psg_left_volume(gba);
     const auto right_volume = psg_right_volume(gba);
     const auto wave_volume_divider = APU.wave.get_volume_divider(gba);
 
     // sample channels and upscale to 16-bit
-    sample_left += scale_psg_u8_to_s16(APU.square0.sample(gba) * APU.square0.left_enabled(gba) * left_volume);
-    sample_left += scale_psg_u8_to_s16(APU.square1.sample(gba) * APU.square1.left_enabled(gba) * left_volume);
-    sample_left += scale_psg_u8_to_s16(APU.wave.sample(gba) * APU.wave.left_enabled(gba) * left_volume) * wave_volume_divider;
-    sample_left += scale_psg_u8_to_s16(APU.noise.sample(gba) * APU.noise.left_enabled(gba) * left_volume);
+    sample_left += vol_table[APU.square0.sample(gba) * APU.square0.left_enabled(gba) * left_volume];
+    sample_left += vol_table[APU.square1.sample(gba) * APU.square1.left_enabled(gba) * left_volume];
+    sample_left += vol_table[APU.wave.sample(gba) * APU.wave.left_enabled(gba) * left_volume] * wave_volume_divider;
+    sample_left += vol_table[APU.noise.sample(gba) * APU.noise.left_enabled(gba) * left_volume];
 
-    sample_right += scale_psg_u8_to_s16(APU.square0.sample(gba) * APU.square0.right_enabled(gba) * right_volume);
-    sample_right += scale_psg_u8_to_s16(APU.square1.sample(gba) * APU.square1.right_enabled(gba) * right_volume);
-    sample_right += scale_psg_u8_to_s16(APU.wave.sample(gba) * APU.wave.right_enabled(gba) * right_volume) * wave_volume_divider;
-    sample_right += scale_psg_u8_to_s16(APU.noise.sample(gba) * APU.noise.right_enabled(gba) * right_volume);
+    sample_right += vol_table[APU.square0.sample(gba) * APU.square0.right_enabled(gba) * right_volume];
+    sample_right += vol_table[APU.square1.sample(gba) * APU.square1.right_enabled(gba) * right_volume];
+    sample_right += vol_table[APU.wave.sample(gba) * APU.wave.right_enabled(gba) * right_volume] * wave_volume_divider;
+    sample_right += vol_table[APU.noise.sample(gba) * APU.noise.right_enabled(gba) * right_volume];
 
-    sample_left /= 4;
-    sample_right /= 4;
+    sample_left ^= 0x8000;
+    sample_right ^= 0x8000;
 
-    lowpass(gba, sample_left, sample_right, 0.3, 3);
     push_sample(gba, sample_left, sample_right);
 }
-#else
-static auto sample_gb(Gba& gba)
-{
-    s16 sample_left = 0;
-    s16 sample_right = 0;
-
-    const auto square0_sample = APU.square0.sample(gba);
-    const auto square1_sample = APU.square1.sample(gba);
-    const auto wave_sample = APU.wave.sample(gba);
-    const auto noise_sample = APU.noise.sample(gba);
-
-    // sample channels and upscale to 16-bit
-    sample_left += square0_sample * APU.square0.left_enabled(gba);
-    sample_left += square1_sample * APU.square1.left_enabled(gba);
-    sample_left += wave_sample * APU.wave.left_enabled(gba);
-    sample_left += noise_sample * APU.noise.left_enabled(gba);
-
-    sample_right += square0_sample * APU.square0.right_enabled(gba);
-    sample_right += square1_sample * APU.square1.right_enabled(gba);
-    sample_right += wave_sample * APU.wave.right_enabled(gba);
-    sample_right += noise_sample * APU.noise.right_enabled(gba);
-
-    sample_left *= psg_left_volume(gba);
-    sample_right *= psg_right_volume(gba);
-
-    sample_left *= 1.06;
-    sample_right *= 1.06;
-
-    sample_left = bit::scale<10, 16, s16>(sample_left);
-    sample_right = bit::scale<10, 16, s16>(sample_right);
-
-    lowpass(gba, sample_left, sample_right, 0.3, 3);
-    push_sample(gba, sample_left, sample_right);
-}
-#endif
 
 static auto sample_gba(Gba& gba)
 {
-    #define USE_SCALE 1
-
     s16 sample_left = 0;
     s16 sample_right = 0;
 
@@ -1546,13 +1390,8 @@ static auto sample_gba(Gba& gba)
     sample_right *= 1.06;
 
     // scale to 8bit range from 7bit (0,127) to (0,254)
-    #if USE_SCALE
     sample_left = bit::scale<7, 8, u8>(sample_left);
     sample_right = bit::scale<7, 8, u8>(sample_right);
-    #else
-    sample_left = sample_left << 1;
-    sample_right = sample_right << 1;
-    #endif
 
     sample_left *= psg_left_volume(gba);
     sample_right *= psg_right_volume(gba);
@@ -1561,13 +1400,8 @@ static auto sample_gba(Gba& gba)
     sample_right /= psg_master_volume(gba);
 
     // scale to 10bits
-    #if USE_SCALE
     const s16 fifo0_sample = bit::scale<8, 10, s16>(APU.fifo[0].sample());
     const s16 fifo1_sample = bit::scale<8, 10, s16>(APU.fifo[1].sample());
-    #else
-    const auto fifo0_sample = APU.fifo[0].sample() << 2;
-    const auto fifo1_sample = APU.fifo[1].sample() << 2;
-    #endif
 
     sample_left += fifo0_sample * APU.fifo[0].enable_left;
     sample_left += fifo1_sample * APU.fifo[1].enable_left;
@@ -1591,13 +1425,8 @@ static auto sample_gba(Gba& gba)
     // don't bit crush (as gba does) because it sounds very bad.
     if (!gba.bit_crushing)
     {
-        #if USE_SCALE
         sample_left = bit::scale<10, 16, s16>(sample_left);
         sample_right = bit::scale<10, 16, s16>(sample_right);
-        #else
-        sample_left <<= 6;
-        sample_right <<= 6;
-        #endif
     }
     else
     {
@@ -1606,7 +1435,6 @@ static auto sample_gba(Gba& gba)
         sample_left >>= divs[resample_mode];
         sample_right >>= divs[resample_mode];
 
-        #if USE_SCALE
         switch (resample_mode)
         {
             case 0:
@@ -1629,19 +1457,12 @@ static auto sample_gba(Gba& gba)
                 sample_right = bit::scale<6, 16, s16>(sample_right);
                 break;
         }
-        #else
-        // we now need to scale to to 16bit range
-        static constexpr s16 scales[4] = { 6, 7, 8, 9 }; // 9bit, 8bit, 7bit, 6bit
-        sample_left <<= scales[resample_mode];
-        sample_right <<= scales[resample_mode];
-        #endif
     }
 
     // make the output signed
     sample_left ^= 0x8000;
     sample_right ^= 0x8000;
 
-    lowpass(gba, sample_left, sample_right, 0.3, 3);
     push_sample(gba, sample_left, sample_right);
 }
 
@@ -1657,6 +1478,11 @@ auto sample(Gba& gba)
         push_sample(gba, 0, 0);
         return;
     }
+
+    channel_sync(gba, APU.square0);
+    channel_sync(gba, APU.square1);
+    channel_sync(gba, APU.wave);
+    channel_sync(gba, APU.noise);
 
     if (gba.is_gb())
     {

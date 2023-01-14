@@ -23,89 +23,27 @@
 #include <numeric>
 #include <utility>
 
-namespace scheduler {
-
-void State::on_savestate(const gba::Gba& gba)
-{
-    for (s32 i = 0; i < ID::END; i++)
-    {
-        // see if we have this event in queue, if we do, it's enabled
-        if (gba.scheduler.has_event(i))
-        {
-            entries[i].enabled = true;
-            entries[i].cycles = gba.scheduler.get_event_cycles_absolute(i);
-        }
-        else
-        {
-            entries[i].enabled = false;
-            entries[i].cycles = 0;
-        }
-    }
-
-    std::memcpy(&delta, &gba.delta, sizeof(delta));
-    scheduler_cycles = gba.scheduler.get_ticks();
-}
-
-void State::on_loadstate(gba::Gba& gba) const
-{
-    gba.scheduler.reset(scheduler_cycles);
-    std::memcpy(&gba.delta, &delta, sizeof(gba.delta));
-
-    for (s32 i = 0; i < ID::END; i++)
-    {
-        if (entries[i].enabled)
-        {
-            if (gba.is_gba())
-            {
-                switch (i)
-                {
-                    case ID::PPU: gba.scheduler.add_absolute(i, entries[i].cycles, gba::ppu::on_event, &gba); break;
-                    case ID::APU_SQUARE0: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_square0_event, &gba);  break;
-                    case ID::APU_SQUARE1: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_square1_event, &gba);  break;
-                    case ID::APU_WAVE: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_wave_event, &gba);  break;
-                    case ID::APU_NOISE: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_noise_event, &gba);  break;
-                    case ID::APU_FRAME_SEQUENCER: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_frame_sequencer_event, &gba); break;
-                    case ID::TIMER0: [[fallthrough]];
-                    case ID::TIMER1: [[fallthrough]];
-                    case ID::TIMER2: [[fallthrough]];
-                    case ID::TIMER3: gba.scheduler.add_absolute(i, entries[i].cycles, gba::timer::on_timer_event, &gba); break;
-                    case ID::DMA: gba.scheduler.add_absolute(i, entries[i].cycles, gba::dma::on_event, &gba); break;
-                    case ID::INTERRUPT: gba.scheduler.add_absolute(i, entries[i].cycles, gba::arm7tdmi::on_interrupt_event, &gba); break;
-                    case ID::HALT: gba.scheduler.add_absolute(i, entries[i].cycles, gba::arm7tdmi::on_halt_event, &gba); break;
-                }
-            }
-            else
-            {
-                switch (i)
-                {
-                    case ID::APU_SQUARE0: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_square0_event, &gba); break;
-                    case ID::APU_SQUARE1: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_square1_event, &gba); break;
-                    case ID::APU_WAVE: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_wave_event, &gba); break;
-                    case ID::APU_NOISE: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_noise_event, &gba); break;
-                    case ID::TIMER0: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_timer_event, &gba); break;
-                    case ID::TIMER1: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_div_event, &gba); break;
-                    case ID::TIMER2: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_timer_reload_event, &gba); break;
-                }
-            }
-        }
-    }
-
-    // special case for sample event
-    // SEE: https://github.com/ITotalJustice/notorious_beeg/issues/85
-    if (gba.sample_data.empty() || !gba.sample_rate_calculated)
-    {
-        gba.scheduler.remove(ID::APU_SAMPLE);
-    }
-    else
-    {
-        gba.scheduler.add(ID::APU_SAMPLE, gba.sample_rate_calculated, gba::apu::on_sample_event, &gba);
-    }
-}
-
-} // namespace scheduler
-
 namespace gba {
 namespace {
+
+void on_scheduler_reset_cb(void* user, s32 id, s32 cycles_late)
+{
+    auto gba = static_cast<Gba*>(user);
+    // call default scheduler reset event
+    scheduler::Scheduler::reset_event(&gba->scheduler, scheduler::RESERVED_ID);
+    // adjust anything that uses timestamps here!
+    gba->apu.square0.timestamp -= scheduler::TIMEOUT_VALUE;
+    gba->apu.square1.timestamp -= scheduler::TIMEOUT_VALUE;
+    gba->apu.wave.timestamp -= scheduler::TIMEOUT_VALUE;
+    gba->apu.noise.timestamp -= scheduler::TIMEOUT_VALUE;
+    // dont forget gb timers :)
+    if (gba->is_gb() && gba->gameboy.timer.tima_reload_timestamp >= scheduler::TIMEOUT_VALUE)
+    {
+        gba->gameboy.timer.tima_reload_timestamp -= scheduler::TIMEOUT_VALUE;
+    }
+
+    gba->scheduler.add_absolute(id, scheduler::TIMEOUT_VALUE, on_scheduler_reset_cb, user);
+}
 
 // fills the rom with OOB values
 // NOTE: this does NOT work for OOB dma, as they return open bus!!!
@@ -135,14 +73,12 @@ void reset_gba(Gba& gba)
 
     bool skip_bios = true;
 
-    gba.scheduler.reset();
-    gba.delta.reset();
     // disable waitloop detecting if a fat device is enabled
     // as its possible the code executing is not the rom but
     // code mapped to the rom region, ie, ezflash.
     // this is too expensive to check for this in waitloop detection
     // so its safer to just disable it.
-    gba.waitloop.reset(gba, gba.fat_device.type != fat::Type::NONE);
+    gba.waitloop.reset(gba, gba.fat_device.type == fat::Type::NONE);
     fat::reset(gba);
     gpio::reset(gba, skip_bios); // this is needed before mem::reset because rw needs resetting
     mem::reset(gba, skip_bios); // this needed to be before arm::reset because memtables
@@ -377,6 +313,9 @@ Gba::~Gba()
 
 auto Gba::reset() -> void
 {
+    scheduler.reset(0, on_scheduler_reset_cb, this);
+    delta.reset();
+
     if (is_gb())
     {
         reset_gb(*this);
@@ -679,3 +618,76 @@ auto Gba::run(u32 _cycles) -> void
 }
 
 } // namespace gba
+
+namespace scheduler {
+
+void State::on_savestate(const gba::Gba& gba)
+{
+    for (s32 i = 0; i < ID::END; i++)
+    {
+        // see if we have this event in queue, if we do, it's enabled
+        if (gba.scheduler.has_event(i))
+        {
+            entries[i].enabled = true;
+            entries[i].cycles = gba.scheduler.get_event_cycles_absolute(i);
+        }
+        else
+        {
+            entries[i].enabled = false;
+            entries[i].cycles = 0;
+        }
+    }
+
+    std::memcpy(&delta, &gba.delta, sizeof(delta));
+    scheduler_cycles = gba.scheduler.get_ticks();
+}
+
+void State::on_loadstate(gba::Gba& gba) const
+{
+    gba.scheduler.reset(scheduler_cycles, gba::on_scheduler_reset_cb, &gba);
+    std::memcpy(&gba.delta, &delta, sizeof(gba.delta));
+
+    for (s32 i = 0; i < ID::END; i++)
+    {
+        if (entries[i].enabled)
+        {
+            if (gba.is_gba())
+            {
+                switch (i)
+                {
+                    case ID::PPU: gba.scheduler.add_absolute(i, entries[i].cycles, gba::ppu::on_event, &gba); break;
+                    case ID::APU_FRAME_SEQUENCER: gba.scheduler.add_absolute(i, entries[i].cycles, gba::apu::on_frame_sequencer_event, &gba); break;
+                    case ID::TIMER0: [[fallthrough]];
+                    case ID::TIMER1: [[fallthrough]];
+                    case ID::TIMER2: [[fallthrough]];
+                    case ID::TIMER3: gba.scheduler.add_absolute(i, entries[i].cycles, gba::timer::on_timer_event, &gba); break;
+                    case ID::DMA: gba.scheduler.add_absolute(i, entries[i].cycles, gba::dma::on_event, &gba); break;
+                    case ID::INTERRUPT: gba.scheduler.add_absolute(i, entries[i].cycles, gba::arm7tdmi::on_interrupt_event, &gba); break;
+                    case ID::HALT: gba.scheduler.add_absolute(i, entries[i].cycles, gba::arm7tdmi::on_halt_event, &gba); break;
+                }
+            }
+            else
+            {
+                switch (i)
+                {
+                    case ID::TIMER0: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_timer_event, &gba); break;
+                    case ID::TIMER1: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_div_event, &gba); break;
+                    case ID::TIMER2: gba.scheduler.add_absolute(i, entries[i].cycles, gba::gb::on_timer_reload_event, &gba); break;
+                }
+            }
+        }
+    }
+
+    // special case for sample event
+    // SEE: https://github.com/ITotalJustice/notorious_beeg/issues/85
+    if (gba.sample_data.empty() || !gba.sample_rate_calculated)
+    {
+        gba.scheduler.remove(ID::APU_SAMPLE);
+    }
+    else
+    {
+        gba.scheduler.add(ID::APU_SAMPLE, gba.sample_rate_calculated, gba::apu::on_sample_event, &gba);
+    }
+}
+
+} // namespace scheduler

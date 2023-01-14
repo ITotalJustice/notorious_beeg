@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 // things left
-// - obj affine
 // - obj mosaic
-// - window wrapping
 
 // todo:
 // - cache oam entries
@@ -492,10 +490,152 @@ auto render_obj_affine(Gba& gba, const OBJ_Attr& obj, const WindowBounds& bounds
         .pd = read_array_no_mask<s16>(gba.mem.oam, affine_index + 24),
     };
 
-    const auto xSize = scale_size * OBJ_SIZE_X[obj.attr0.Sh][obj.attr1.Sz];
-    const auto ySize = scale_size * OBJ_SIZE_Y[obj.attr0.Sh][obj.attr1.Sz];
+    const auto width = OBJ_SIZE_X[obj.attr0.Sh][obj.attr1.Sz];
+    const auto height = OBJ_SIZE_Y[obj.attr0.Sh][obj.attr1.Sz];
 
-    // NOTE: not sure what to do from here...
+    const auto width_scaled = scale_size * OBJ_SIZE_X[obj.attr0.Sh][obj.attr1.Sz];
+    const auto height_scaled = scale_size * OBJ_SIZE_Y[obj.attr0.Sh][obj.attr1.Sz];
+
+    const auto ovram = std::span{gba.mem.vram}.subspan(4 * CHARBLOCK_SIZE);
+    const auto vcount = REG_VCOUNT;
+    const auto is_1D_layout = bit::is_set<6>(REG_DISPCNT);
+
+    // see here for wrapping: https://www.coranac.com/tonc/text/affobj.htm#ssec-wrap
+    const auto sprite_y = obj.attr0.Y + height > 256 ? obj.attr0.Y - 256 : obj.attr0.Y;
+
+    // calculate the y_index, handling flipping
+    const auto mosY = vcount - sprite_y;
+
+    // for which row the obj will be on (based on layout)
+    const auto row_mult4 = is_1D_layout ? width : 256;
+    const auto row_mult8 = is_1D_layout ? width : 128;
+
+    // SEE: https://www.coranac.com/tonc/text/affobj.htm#sec-artifact
+    const auto hwidth = width_scaled/2;
+    const auto hheight = height_scaled/2;
+
+    // check if the sprite is to be drawn on this ;ine
+    if (vcount >= sprite_y && vcount < sprite_y + height_scaled)
+    {
+        // for each pixel of the sprite
+        // for (auto x = -hwidth; x < hwidth; x++)
+        for (auto x = 0; x < width_scaled; x++)
+        {
+            // this is the index into the pixel array
+            // the point is the center of the obj, so need to add width/2
+            const auto px = ((affine.pa * (x - hwidth) + (affine.pb * (mosY - hheight))) >> 8) + width/2;
+            const auto py = ((affine.pc * (x - hwidth) + (affine.pd * (mosY - hheight))) >> 8) + height/2;
+
+            if (px < 0 || px >= width)
+            {
+                continue;
+            }
+
+            if (py < 0 || py >= height)
+            {
+                continue;
+            }
+
+            const auto pixel_x = obj.attr1.X + x;
+
+            // check its in bounds
+            if (pixel_x < 0 || pixel_x >= 240)
+            {
+                continue;
+            }
+
+            // check if we are allowed inside
+            // NOTE: cowbite states that win0/1 has higher prio than obj
+            // window, i need to test this!
+            if (!bounds.in_bounds(OBJ_NUM, pixel_x))
+            {
+                continue;
+            }
+
+            // skip obj already rendered over higher or equal prio
+            if (line.priority[pixel_x] <= obj.attr2.Pr)
+            {
+                continue;
+            }
+
+            auto pram_addr = 0;
+            auto pixel = 0;
+
+            if (obj.attr0.is_4bpp())
+            {
+                // thank you Kellen for the below code, i wouldn't have firgured it out otherwise.
+                auto charblock_addr = obj.attr2.TID * 32;
+                // y offset
+                charblock_addr += (py / 8 * row_mult4 + py%8) * 4;
+                // x offset
+                charblock_addr += (px / 8 * 32) + (px%8 / 2);
+
+                // if the adddress is out of bounds, break early
+                if (charblock_addr >= CHARBLOCK_SIZE * 2) [[unlikely]]
+                {
+                    break;
+                }
+
+                // in bitmap mode, only the last charblock can be used for sprites.
+                if (is_bitmap_mode(gba) && charblock_addr < CHARBLOCK_SIZE) [[unlikely]]
+                {
+                    continue;
+                }
+
+                pixel = ovram[charblock_addr];
+
+                if (px%8 & 1) // odd/even (lo/hi nibble)
+                {
+                    pixel >>= 4;
+                }
+
+                pixel &= 0xF;
+                pram_addr = pixel * 2;
+                pram_addr += obj.attr2.PB * 32;
+            }
+            else
+            {
+                auto charblock_addr = obj.attr2.TID * 32;
+                // y offset
+                charblock_addr += (py / 8 * row_mult8 + py%8) * 8;
+                // x offset
+                charblock_addr += (px / 8 * 64) + (px%8);
+
+                // if the adddress is out of bounds, break early
+                if (charblock_addr >= CHARBLOCK_SIZE * 2) [[unlikely]]
+                {
+                    break;
+                }
+
+                // in bitmap mode, only the last charblock can be used for sprites.
+                if (is_bitmap_mode(gba) && charblock_addr < CHARBLOCK_SIZE) [[unlikely]]
+                {
+                    continue;
+                }
+
+                pixel = ovram[charblock_addr];
+                pram_addr = pixel * 2;
+            }
+
+            // don't render transparent pixels
+            if (pixel != 0)
+            {
+                // this is object window
+                if (obj.attr0.GM == 0b10) [[unlikely]]
+                {
+                    line.is_win[pixel_x] = obj.attr0.GM == 0b10;
+                    line.number_of_windows++;
+                }
+                else
+                {
+                    line.is_opaque[pixel_x] = true;
+                    line.priority[pixel_x] = obj.attr2.Pr;
+                    line.is_alpha[pixel_x] = obj.attr0.GM == 0b01;
+                    line.pixels[pixel_x] = pram_addr;
+                }
+            }
+        }
+    }
 }
 
 enum Index : bool
@@ -627,7 +767,7 @@ auto parse_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
 
             case ObjMode::Affine:
             case ObjMode::Affine2X:
-                #if 0
+                #if 1
                 render_obj_affine(gba, obj, bounds, line);
                 continue;
                 #else
@@ -641,6 +781,7 @@ auto parse_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
         // fetch the x/y size of the sprite
         const auto width = OBJ_SIZE_X[obj.attr0.Sh][obj.attr1.Sz];
         const auto height = OBJ_SIZE_Y[obj.attr0.Sh][obj.attr1.Sz];
+
         // see here for wrapping: https://www.coranac.com/tonc/text/affobj.htm#ssec-wrap
         const auto sprite_y = obj.attr0.Y + height > 256 ? obj.attr0.Y - 256 : obj.attr0.Y;
         // calculate the y_index, handling flipping
@@ -648,7 +789,8 @@ auto parse_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
         // fine_y
         const auto yMod = mosY % 8;
         // for which row the obj will be on (based on layout)
-        const auto row_mult = is_1D_layout ? width / 8 : 32;
+        const auto row_mult4 = is_1D_layout ? width : 256;
+        const auto row_mult8 = is_1D_layout ? width : 128;
 
         // check if the sprite is to be drawn on this ;ine
         if (vcount >= sprite_y && vcount < sprite_y + height)
@@ -691,9 +833,10 @@ auto parse_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                 {
                     // thank you Kellen for the below code, i wouldn't have firgured it out otherwise.
                     auto charblock_addr = obj.attr2.TID * 32;
-                    charblock_addr += (((mosY / 8 * row_mult)) + mosX / 8) * 32;
-                    charblock_addr += yMod * 4;
-                    charblock_addr += xMod / 2;
+                    // y offset
+                    charblock_addr += (mosY / 8 * row_mult4 + yMod) * 4;
+                    // x offset
+                    charblock_addr += mosX / 8 * 32 + xMod / 2;
 
                     // if the adddress is out of bounds, break early
                     if (charblock_addr >= CHARBLOCK_SIZE * 2) [[unlikely]]
@@ -721,9 +864,10 @@ auto parse_obj(Gba& gba, const WindowBounds& bounds, ObjLine& line) -> void
                 else
                 {
                     auto charblock_addr = obj.attr2.TID * 32;
-                    charblock_addr += (((mosY / 8 * row_mult)) + mosX / 8) * 64;
-                    charblock_addr += yMod * 8;
-                    charblock_addr += xMod;
+                    // y offset
+                    charblock_addr += (mosY / 8 * row_mult8 + yMod) * 8;
+                    // x offset
+                    charblock_addr += mosX / 8 * 64 + xMod;
 
                     // if the adddress is out of bounds, break early
                     if (charblock_addr >= CHARBLOCK_SIZE * 2) [[unlikely]]
@@ -871,10 +1015,10 @@ auto render_affine_line_bg(Gba& gba, BgLine& line, const WindowBounds& bounds, c
 
     const auto width = sizes[cnt.Sz];
     const auto height = sizes[cnt.Sz];
-    const auto tw = width / 8;
+    const auto tw = width / 8U;
 
     const auto charblock_offset = cnt.CBB * CHARBLOCK_SIZE;
-    const auto charblock_size = 4 * CHARBLOCK_SIZE - charblock_offset;
+    const auto charblock_size = 4U * CHARBLOCK_SIZE - charblock_offset;
 
     // pal_mem
     const auto pram = std::span{gba.mem.pram};
@@ -1039,46 +1183,48 @@ auto WindowBounds::build(Gba& gba) -> void
     const auto win1_y_start = bit::get_range<8, 15>(REG_WIN1V);
     const auto win1_y_end = bit::get_range<0, 7>(REG_WIN1V);
 
-    if (win0_enabled)
-    {
-        assert(win0_x_start <= win0_x_end && "wrapping not handled");
-        assert(win1_x_start <= win1_x_end && "wrapping not handled");
-    }
-    if (win1_enabled)
-    {
-        assert(win0_y_start <= win0_y_end && "wrapping not handled");
-        assert(win1_y_start <= win1_y_end && "wrapping not handled");
-    }
+    const auto y = REG_VCOUNT;
 
-    const auto vcount = REG_VCOUNT;
+    // windows wrap around if end < start
+    const auto win0_x_wrap = win0_x_start > win0_x_end;
+    const auto win0_y_wrap = win0_y_start > win0_y_end;
+    const auto win1_x_wrap = win1_x_start > win1_x_end;
+    const auto win1_y_wrap = win1_y_start > win1_y_end;
 
-    const auto win0_in_range_y = vcount >= win0_y_start && vcount < win0_y_end;
-    const auto win1_in_range_y = vcount >= win1_y_start && vcount < win1_y_end;
+    // when wrapping, everything not inbetween start/end is inside.
+    // start = 6, end = 4;
+    // i = 5; (clipped)
+    // i = 3; (inside)
+    // i = 7; (inside)
+    const auto in_range = [](u8 i, u8 start, u8 end, bool wrap)
+    {
+        return wrap ? i >= start || i < end : i >= start && i < end;
+    };
+
+    // range check, handling wrapping.
+    const auto win0_in_range_y = in_range(y, win0_y_start, win0_y_end, win0_y_wrap);
+    const auto win1_in_range_y = in_range(y, win1_y_start, win1_y_end, win1_y_wrap);
 
     // if the y is not in range then x never will be
-    // if the start is not less than end, then window will never be in bounds
-    if (this->win0_enabled && win0_in_range_y && win0_x_start < win0_x_end)
+    // if the start is equal to end, then window will never be in bounds
+    if (this->win0_enabled && win0_in_range_y && win0_x_start != win0_x_end)
     {
         for (auto x = 0; x < 240; x++)
         {
-            const auto win0_in_range = x >= win0_x_start && x < win0_x_end;
-
-            if (win0_in_range)
+            if (in_range(x, win0_x_start, win0_x_end, win0_x_wrap))
             {
                 this->inside[x] = win0_in.in | WinLayer_PRIO;
             }
         }
     }
 
-    if (this->win1_enabled && win1_in_range_y && win1_x_start < win1_x_end)
+    if (this->win1_enabled && win1_in_range_y && win1_x_start != win1_x_end)
     {
         for (auto x = 0; x < 240; x++)
         {
             if ((this->inside[x] & WinLayer_PRIO) == 0)
             {
-                const auto win1_in_range = x >= win1_x_start && x < win1_x_end;
-
-                if (win1_in_range)
+                if (in_range(x, win1_x_start, win1_x_end, win1_x_wrap))
                 {
                     this->inside[x] = win1_in.in | WinLayer_PRIO;
                 }
@@ -1158,8 +1304,6 @@ auto merge(Gba& gba, const WindowBounds& bounds, std::span<u16> pixels, std::spa
         }
 
         [[nodiscard]] auto get_pixel() const { return pixel[0]; }
-        [[nodiscard]] auto get_prio() const { return prio[0]; }
-        [[nodiscard]] auto get_num() const { return num[0]; }
         [[nodiscard]] auto is_obj_alpha() const { return is_alpha; }
 
         u16 pixel[2];
@@ -1523,6 +1667,7 @@ void clear_screen(Gba& gba)
 
 auto render(Gba& gba) -> void
 {
+    // return;
     // if forced blanking is enabled, the screen is black
     if (is_screen_blanked(gba)) [[unlikely]]
     {

@@ -137,6 +137,8 @@ void tima_write(Gba& gba, u8 value)
     // then the reload takes priority
     if (gba.scheduler.get_ticks() == gba.gameboy.timer.tima_reload_timestamp)
     {
+        // we've handled it now so set it to an unreachable value
+        gba.gameboy.timer.tima_reload_timestamp = -1;
         return;
     }
 
@@ -152,6 +154,8 @@ void tma_write(Gba& gba, u8 value)
     // then the new value of tma gets loaded into tima instead of the old one
     if (gba.scheduler.get_ticks() == gba.gameboy.timer.tima_reload_timestamp)
     {
+        // we've handled it now so set it to an unreachable value
+        gba.gameboy.timer.tima_reload_timestamp = -1;
         IO_TIMA = IO_TMA;
     }
 }

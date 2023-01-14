@@ -36,7 +36,7 @@ file(COPY "${CMAKE_SOURCE_DIR}/assets/buttons" DESTINATION "${CMAKE_CURRENT_BINA
 file(COPY "${CMAKE_SOURCE_DIR}/assets/menu" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/assets")
 file(COPY "${CMAKE_SOURCE_DIR}/assets/gif" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/assets")
 file(COPY "${CMAKE_SOURCE_DIR}/assets/web/" DESTINATION "${CMAKE_BINARY_DIR}/bin/")
-file(COPY "${CMAKE_SOURCE_DIR}/netlify.toml" DESTINATION "${CMAKE_BINARY_DIR}/bin/")
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/netlify.toml" DESTINATION "${CMAKE_BINARY_DIR}/bin/")
 
 target_link_options(notorious_beeg_EMSDK PRIVATE
     "-s;--shell-file;${CMAKE_CURRENT_SOURCE_DIR}/emscripten.html"

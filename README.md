@@ -1,10 +1,6 @@
 # gba emu
 
-v0.0.3-dev
-
 gba emulator witten in c++23.
-
-[view the changelog here](CHANGELOG.md)
 
 ---
 
@@ -69,53 +65,25 @@ web builds are the easiest way to quickly test a game. builds are automatically 
 
 ---
 
-## passed
-- armwrestler
-- thumb.gba
-- arm.gba
-- memory.gba
-- nes.gba
+## yet to implement
 
-## not impl
+list of stuff that i haven't yet implemented. for the most part, everything is done!
+
+### ppu
+- mosaic bg
+- mosaic obj
+
+### apu
+- correct fifo <https://github.com/mgba-emu/mgba/issues/1847>
+
+### dma
 - dma3 special
-- unused bits
-- unused region read
-- bios read (when pc is not in bios)
-- proper r/w timing access
-- proper fifo <https://github.com/mgba-emu/mgba/issues/1847>
-- obj in obj window
-- obj not in obj window
-- bg affine
-- obj affine
-- obj mosaic
-- window wrapping
-- obj 4bpp
 
-## todo
-- better optimise vram r/w (somehow adjust the masking so it always works).
-- refactor code. make functions into methods where possible (and if it makes sense).
+### misc
+- correct openbus behaviour
+- correct rom access timings
 
-## optimisations (todo)
-- further reduce template bloat for arm/thumb instructions. this will help for platforms that have a small-ish icache.
-- faster path for apu sampling, ie, if channel is disabled, don't sample it. if all dmg channels will output zero, stop sampling further.
-- measure dmg apu channels on scheduler VS ticking them on sample(), likely it's faster to tick on sample().
-- batch samples. basically, on sample callback, save everything needed (about 8 bytes) to an array. after X amount of entries added, process all samples at once. this can be processed on the audio thread (frontend) or still in emu core.
-- impl computed goto. along side this (or first), impl switch() version as well. measure all 3 versions!
-- prioritise ewram access first as thats the most common path.
-- check for fast paths in dma's. check if they can be memcpy (doesnt cross boundries) / memset (if the src addr doesnt change). cache this check if R (repeat) is set, so on next dma fire, we know its fast path already.
-- measure different impl of mem r/w. current impl uses fastmem, with a fallback to a function table. should be very fast, but maybe the indirection of all r/w access is too slow.
-
-## optimisations that worked
-- fastmem for reads. ie, array of pointers to arrays.
-- adding [[likely]] to fastmen reads, this gave ~200fps in openlara.
-- scheduler. HUGE fps increase.
-- halt skipping. when in halt, fast forward to the next event in a loop.
-
-## optimisations that didn't work
-- tick arm/thumb in a loop. break out of this loop only on new_frame_event or state changed. this avoids the switch(state) on each ittr.
-- switch instead of table, switch was slower (see table_switch_goto branch).
-- computed goto instead of table, computed goto was slower (see table_switch_goto branch).
-- array of functions pointers for reads. this was much slower than having 2 arrays, 1 of pointers, one of functions.
+---
 
 ## thanks
 - cowbite spec <https://www.cs.rit.edu/~tjh8300/CowBite/CowBiteSpec.htm>

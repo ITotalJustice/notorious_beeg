@@ -35,17 +35,17 @@ struct Event {
 struct Scheduler {
 public:
     // calls reset()
-    Scheduler(s32 starting_cycles = 0, Callback reset_cb = nullptr)
+    Scheduler(s32 starting_cycles = 0, Callback reset_cb = nullptr, void* user = nullptr)
     {
         reset(starting_cycles, reset_cb);
     }
 
     // resets queue and cycles, adds reset event, optional custom callback
-    void reset(s32 starting_cycles = 0, Callback reset_cb = nullptr)
+    void reset(s32 starting_cycles = 0, Callback reset_cb = nullptr, void* user = nullptr)
     {
         queue.clear();
         cycles = std::min<s32>(starting_cycles, TIMEOUT_VALUE);
-        add_absolute(RESERVED_ID, TIMEOUT_VALUE, reset_cb ? reset_cb : reset_event, this);
+        add_absolute(RESERVED_ID, TIMEOUT_VALUE, reset_cb ? reset_cb : reset_event, user ? user : this);
     }
 
     // fires all expired events
@@ -212,9 +212,8 @@ public:
         }
     }
 
-private:
     // default reset event
-    static void reset_event(void* user, s32 id, [[maybe_unused]] s32 _)
+    static void reset_event(void* user, s32 id, [[maybe_unused]] s32 _ = 0)
     {
         auto s = static_cast<Scheduler*>(user);
 
@@ -225,6 +224,7 @@ private:
         s->add_absolute(id, TIMEOUT_VALUE, reset_event, user);
     }
 
+private:
     std::vector<Event> queue; // don't manually edit this!
     s32 cycles; // remember to tick this!
 };

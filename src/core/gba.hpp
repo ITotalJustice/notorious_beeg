@@ -23,11 +23,6 @@ namespace scheduler {
 enum ID : s32
 {
     PPU,
-    // todo: profile removing the apu channel events
-    APU_SQUARE0,
-    APU_SQUARE1,
-    APU_WAVE,
-    APU_NOISE,
     APU_FRAME_SEQUENCER,
     APU_SAMPLE,
     TIMER0,

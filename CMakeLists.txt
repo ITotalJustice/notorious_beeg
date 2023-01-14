@@ -1,5 +1,15 @@
 cmake_minimum_required(VERSION 3.20.0)
 
+project(notorious_beeg
+    VERSION 0.0.3
+    DESCRIPTION "GBA emulator written in c++23"
+    HOMEPAGE_URL "https://github.com/ITotalJustice/notorious_beeg"
+    LANGUAGES C CXX
+)
+
+# this is used by clangd and static analysis
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 if (VCPKG)
     # checks the documented env variable for vcpkg
     if (DEFINED ENV{VCPKG_ROOT} AND EXISTS $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
@@ -22,33 +32,7 @@ if (VCPKG)
         set(vcpkg_toolchain_file ${vcpkg_SOURCE_DIR}/scripts/buildsystems/vcpkg.cmake)
     endif()
 
-    # if this was already set, then we need to chainload the toolchain file
-    # vcpkg offers support for this, which basically does include(toolchain)
-    # need to make sure that we don't chainload our own toolchain file!
-    # NOTE: this is broken on windows as the path is converted to C:\path\to from c:/path/to
-    # which fails the strequal, so, disabling for now
-    if (CMAKE_TOOLCHAIN_FILE AND NOT ${CMAKE_TOOLCHAIN_FILE} STREQUAL ${vcpkg_toolchain_file})
-        message(WARNING "CMAKE_TOOLCHAIN_FILE file set and does not match toolchain file. cmake: ${CMAKE_TOOLCHAIN_FILE} vcpkg: ${vcpkg_toolchain_file}")
-        # set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE ${CMAKE_TOOLCHAIN_FILE})
-    endif()
-
-    set(CMAKE_TOOLCHAIN_FILE ${vcpkg_toolchain_file})
-endif()
-
-project(notorious_beeg
-    VERSION 0.0.3
-    DESCRIPTION "GBA emulator written in c++23"
-    HOMEPAGE_URL "https://github.com/ITotalJustice/notorious_beeg"
-    LANGUAGES C CXX
-)
-
-find_program(CLANGD_INSTALLED clangd)
-
-if (CLANGD_INSTALLED)
-    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-    message(STATUS "found clangd: generating compile_commands.json to ${CMAKE_BINARY_DIR}/compile_commands.json")
-else()
-    message(STATUS "cant find clangd: not generating compile_commands.json")
+    include(${vcpkg_toolchain_file})
 endif()
 
 if (LTO)

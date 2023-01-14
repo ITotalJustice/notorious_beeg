@@ -17,6 +17,12 @@ struct App final : frontend::Base
         auto start_time = std::chrono::high_resolution_clock::now();
         auto fps = 0;
 
+        // set the apu callback so that apu is benchmarked
+        // comment this out to disable apu benching
+        const auto dummy_apu_callback = [](void* user)        {};
+        static gba::s16 dummy_apu_data[2048];
+        gameboy_advance.set_audio_callback(dummy_apu_callback, dummy_apu_data, 65536);
+
         while (has_rom)
         {
             gameboy_advance.run();

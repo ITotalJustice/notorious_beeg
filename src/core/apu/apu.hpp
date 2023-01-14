@@ -67,6 +67,8 @@ struct Base
     static constexpr inline auto num = Number;
     s32 timer; // every channel has a timer
     Len len; // every channel has one
+    u16 counter;
+    s32 timestamp; // timestamp since last tick()
 
     auto enable(Gba& gba) -> void;
     auto disable(Gba& gba) -> void;
@@ -91,6 +93,7 @@ struct SquareBase : Base<Number>
     [[nodiscard]] auto sample(Gba& gba) const -> u8;
     [[nodiscard]] auto get_freq(Gba& gba) const -> u32;
     [[nodiscard]] auto is_dac_enabled() const -> bool;
+    void tick(Gba& gba);
 };
 
 struct Square0 final : SquareBase<0>
@@ -125,6 +128,7 @@ struct Wave final : Base<2>
     [[nodiscard]] auto get_freq(Gba& gba) const -> u32;
     [[nodiscard]] auto is_dac_enabled() const -> bool;
     [[nodiscard]] auto get_volume_divider(Gba& gba) const -> float;
+    void tick(Gba& gba);
 };
 
 struct Noise final : Base<3>
@@ -142,6 +146,7 @@ struct Noise final : Base<3>
     [[nodiscard]] auto sample(Gba& gba) const -> u8;
     [[nodiscard]] auto get_freq(Gba& gba) const -> u32;
     [[nodiscard]] auto is_dac_enabled() const -> bool;
+    void tick(Gba& gba);
 };
 
 struct Fifo
@@ -212,10 +217,6 @@ auto write_NR52(Gba& gba, u8 value) -> void;
 auto write_WAVE(Gba& gba, u8 addr, u8 value) -> void;
 auto read_WAVE(Gba& gba, u8 addr) -> u8;
 
-auto on_square0_event(void* user, s32 id, s32 late) -> void;
-auto on_square1_event(void* user, s32 id, s32 late) -> void;
-auto on_wave_event(void* user, s32 id, s32 late) -> void;
-auto on_noise_event(void* user, s32 id, s32 late) -> void;
 auto on_frame_sequencer_event(void* user, s32 id = 0, s32 late = 0) -> void;
 auto on_sample_event(void* user, s32 id, s32 late) -> void;
 
