@@ -24,13 +24,6 @@ jobs:
           cmake --preset emsdk -DEM_USE_THREADS=ON
           cmake --build --preset emsdk --parallel 4
 
-      - name: Deploy to Github pages
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          branch: gh-pages # The branch the action should deploy to.
-          folder: build/emsdk/bin # The folder the action should deploy.
-          # single-commit: true # Start branch with no history
-
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v1.2
         with:
